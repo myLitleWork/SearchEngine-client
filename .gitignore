@@ -1,0 +1,34 @@
+# RAD Studio / C++Builder / Delphi
+__history/
+__astcache/
+
+*.local
+*.identcache
+*.stat
+*.map
+*.tds
+*.log
+
+# Build output
+Win32/
+Win64/
+Debug/
+Release/
+Bpl/
+Dcp/
+
+# Executables
+*.exe
+*.dll
+*.bpl
+*.dcp
+*.lib
+
+# IDE / OS
+.vs/
+.idea/
+.DS_Store
+Thumbs.db
+
+
+

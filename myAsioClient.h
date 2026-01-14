@@ -1,0 +1,100 @@
+//---------------------------------------------------------------------------
+
+#ifndef myAsioClientH
+#define myAsioClientH
+
+#include <mutex>
+#include <boost/asio.hpp>
+
+	enum { max_length = 2048 };
+	enum class COMMAND : uint_fast64_t
+	{
+		SOMEERROR = 0,
+		SOLOREQUEST,
+		FILETEXT,
+		JSONREGUEST,
+		ADDRESOLUTION,
+		UPDATE,
+		GETRESOLUTIONS,
+		GETRESOLUTION,
+		GETDOCS,
+		GETDOC,
+		GETSQLJSONANSWEAR,
+		GETBINFILE,
+		GET_VH_TELEGI_FROM_SQL,
+		GET_ISH_TELEGI_FROM_SQL,
+		START_UPDATE_BASE,
+		LOAD_TLG_TO_SEND,
+		GET_MESSAGE,
+		USER_REGISTRY,
+		PING,
+		GET_VH_TELEGA_WAY,
+		GET_ISH_TELEGA_WAY,
+		GET_OPIS_BASE,
+		LOAD_RAZN,
+		GET_ATTACHMENTS,
+		GET_ISH_PDTV,
+		GET_TELEGA_ATACHMENTS,
+		GET_TELEGA_SINGLE_ATACHMENT,
+		END_COMMAND,
+		//--------------------
+        SAVE_MESSAGE_TO = 2781032419,
+		//--------------------
+	};
+
+	struct header
+	{
+		uint_fast64_t size{0};
+		COMMAND command{0};
+	};
+
+using boost::asio::ip::tcp;
+
+
+class MyAsioClient
+{
+    boost::asio::io_context io_context_;
+    tcp::resolver* resolver_{nullptr};
+	tcp::socket*   socket_{nullptr};
+
+    header myHeader_{};
+    std::mutex io_mutex_;                 // защищаем сокет
+    std::atomic<uint64_t> last_total_{0}; // последний ожидаемый объём
+
+public:
+	void disConnect();
+
+    bool requestBinFile(const std::string& path,
+                    std::vector<uint8_t>& out,
+                    std::atomic_uint64_t* progress = nullptr,
+                    std::string* errMsg = nullptr);
+
+
+    // уже есть у тебя:
+    bool tryConnect(const std::string& host, const std::string& port, std::string& errMsg);
+    bool tryConnect(const AnsiString& host, const AnsiString& port, AnsiString& errMsg);
+
+    // === запись ===
+    bool socketWrite(const std::string& s, COMMAND command, std::string* errMsg = nullptr);
+    bool socketWrite(const std::vector<uint8_t>& data, COMMAND command, std::string* errMsg = nullptr);
+
+    // === чтение текстом ===
+    bool socketRead(std::string& out,
+                    std::atomic_uint64_t* progress = nullptr,
+                    std::string* errMsg = nullptr);
+
+    // === чтение бинарно ===
+    bool socketReadBin(std::vector<uint8_t>& out,
+                       std::atomic_uint64_t* progress = nullptr,
+                       std::string* errMsg = nullptr);
+
+	uint64_t last_total_bytes() const noexcept { return last_total_.load(std::memory_order_relaxed); }
+
+	bool readHeader(header& hdr, std::string* errMsg = nullptr);
+
+	tcp::socket& getSocket() {return *socket_;};
+
+	~MyAsioClient() noexcept;  // деструктор
+};
+//---------------------------------------------------------------------------
+#endif
