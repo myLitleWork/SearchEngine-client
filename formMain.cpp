@@ -588,9 +588,11 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
   //	if (!guard2) return;
 
 
-    last_loaded_num_ = "";
+	last_loaded_num_ = "";
+    bool isChkSQL = chkSQL->Checked;
+	bool isChkExc = chkExc->Checked;
 
-	if (cmbReq->Text == "") {
+	if (cmbReq->Text == "" && !isChkSQL) {
         return;
 	}
 
@@ -612,10 +614,9 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 	String cmbFieldText = cmbField->Text;
     int rgTypeTIndex = rgTypeT->ItemIndex;
-    int cmbMaxReqInt = 0;
+	int cmbMaxReqInt = 0;
     try { cmbMaxReqInt = StrToInt(cmbMaxReq->Text); } catch (...) {}
-	bool isChkSQL = chkSQL->Checked;
-    bool isChkExc = chkExc->Checked;
+
 
     // --- Запуск фоновой задачи ---
 	System::Threading::TTask::Run([this, tok, s, isChkSQL, Sender, rgTypeTIndex, cmbMaxReqInt, cmbFieldText, isChkExc]() {
@@ -624,26 +625,34 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 		AnsiString s_local = s;
 
 		// Логика выбора команды и параметров (оставь свою!)
-        if (isChkSQL) {
+		if (isChkSQL) {
+
+			if(cmbReq->Text.IsEmpty())
+			{
+				cmbField->Text = "SQL";
+				cmbReq->Text = "1=1";
+			}
+
             SqlCondition::TYPE type;
 			if (rgTypeTIndex == 0) {
                 command_local = COMMAND::GET_VH_TELEGI_FROM_SQL;
                 type = SqlCondition::TYPE::VH;
             } else {
-                command_local = COMMAND::GET_ISH_TELEGI_FROM_SQL;
+				command_local = COMMAND::GET_ISH_TELEGI_FROM_SQL;
                 type = SqlCondition::TYPE::ISH;
             }
 			SqlCondition::max = cmbMaxReqInt;
+
 			if (cmbFieldText == "SQL") {
-                s_local += " order by `index` desc limit " + IntToStr(SqlCondition::max);
-                d_local = conv::to_string(String(s_local).c_str());
+				s_local += " order by `index` desc limit " + IntToStr(SqlCondition::max);
+				d_local = conv::to_string(String(s_local).c_str());
             } else {
 				auto myFunc = SqlCondition::getFuncCondition(type, isChkExc);
                 d_local = conv::to_string(myFunc(cmbFieldText, s_local).c_str());
             }
         } else {
             command_local = COMMAND::GETSQLJSONANSWEAR;
-            d_local = AnsiString(s_local).c_str();
+			d_local = AnsiString(s_local).c_str();
         }
 
 		std::string str;
