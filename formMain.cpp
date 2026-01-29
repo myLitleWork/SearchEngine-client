@@ -1487,22 +1487,70 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 int TfMain::SaveFileVh2(const std::string& out_dir,
 					   const std::pair<std::string, std::string>& f)
 {
+
 	std::string err;
-
-	// отправка
-	if (!client_.socketWrite(f.second, COMMAND::GETBINFILE, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return 0;
-	}
-
-	// чтение заголовка
 	header hdr{};
-	if (!client_.readHeader(hdr, &err)) {
-		ShowMessage("Ошибка чтения заголовка: " + AnsiString(err.c_str()));
-		return 0;
+
+
+	constexpr int MAX_TRIES = 5;
+	constexpr int RETRY_DELAY_MS = 500;
+
+
+	bool ok = true;
+
+
+	for (int attempt = 2; attempt <= MAX_TRIES + 1; ++attempt)
+	{
+		err.clear();
+
+
+
+		// отправка
+		if (!client_.socketWrite(f.second, COMMAND::GETBINFILE, &err)) {
+			pushLog("Ошибка отправки: " + AnsiString(err.c_str()));
+			ok = false;
+			break;
+		}
+
+		// чтение заголовка
+		if (!client_.readHeader(hdr, &err)) {
+			pushLog("Ошибка чтения заголовка: " + AnsiString(err.c_str()));
+			ok = false;
+
+		}
+
+        // проверка по строке
+		if (hdr.command == COMMAND::SOMEERROR)
+		{
+			ok = false;
+			break;
+		}
+
+		// проверка по строке
+		if (hdr.command == COMMAND::SERVER_BUSY_ERROR)
+		{
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(RETRY_DELAY_MS)
+			);
+
+            pushLog(
+			"Запрос файла \"" + String(f.second.c_str()) +
+			"\", попытка " + String(attempt) + " из " + String(MAX_TRIES)
+			);
+
+			continue;
+		}
+
+		ok = true;
+		break;
 	}
 
-	if (hdr.command == COMMAND::SOMEERROR || hdr.size == 0) {
+	if (!ok)
+	{
+		pushLog(
+			"Файл \"" + String(f.second.c_str()) +
+			"\" не получен: " + String(err.c_str())
+		);
 		return 0;
 	}
 
@@ -1564,8 +1612,6 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 					   bool makeDocx)
 {
 
-	std::string err;
-
 	std::vector<uint8_t> str;
 
 		if (!client_.getSocket().is_open()) {
@@ -1575,11 +1621,53 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 
 
-	if (!client_.requestBinFile(f.second, str, nullptr, &err) || str.empty()) {
-		// тут НЕ ShowMessage / НЕ rchEdt из фона
-		pushLog("Файл \"" + String(f.second.c_str()) + "\" не получен: " + String(err.c_str()));
+	constexpr int MAX_TRIES = 5;
+	constexpr int RETRY_DELAY_MS = 500;
+
+	std::string err;
+	bool ok = false;
+
+	for (int attempt = 2; attempt <= MAX_TRIES+1; ++attempt)
+	{
+		str.clear();
+		err.clear();
+
+
+
+		ok = client_.requestBinFile(f.second, str, nullptr, &err);
+
+		if (ok && !str.empty())
+			break;
+
+		// проверка по строке
+		if (err.find("SERVER_BUSY") != std::string::npos)
+		{
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(RETRY_DELAY_MS)
+			);
+
+            pushLog(
+			"Запрос файла \"" + String(f.second.c_str()) +
+			"\", попытка " + String(attempt) + " из " + String(MAX_TRIES)
+			);
+
+
+			continue;
+		}
+
+		// любая другая ошибка — не повторяем
+		break;
+	}
+
+	if (!ok || str.empty())
+	{
+		pushLog(
+			"Файл \"" + String(f.second.c_str()) +
+			"\" не получен: " + String(err.c_str())
+		);
 		return 0;
 	}
+
 
 
 
@@ -1639,10 +1727,6 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 				pushLog("DOCX создан: " + outDocx);
 
-
-
-
-
 		}
         catch (const Exception &e) {
 			pushLog("Ошибка при создании DOCX: " + e.Message);
@@ -1679,27 +1763,88 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f)
 {
-		// Отправляем запрос на получение бинарного файла
+	constexpr int MAX_TRIES = 5;
+	constexpr int RETRY_DELAY_MS = 500;
+
 	AnsiString zip_dir = f.first;
 	std::string err;
+	bool ok = false;
 
-	// 1) отправляем запрос
-	if (!client_.socketWrite(std::string(zip_dir.c_str()), COMMAND::GETBINFILE, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return 0;
-	}
-
-	// 2) читаем бинарный ответ
 	std::vector<uint8_t> str;
-	if (!client_.socketReadBin(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+
+	for (int attempt = 2; attempt <= MAX_TRIES+1; ++attempt)
+	{
+		err.clear();
+		str.clear();
+
+
+
+		// 1) отправляем запрос
+		if (!client_.socketWrite(std::string(zip_dir.c_str()),
+								 COMMAND::GETBINFILE,
+								 &err))
+		{
+			pushLog("Ошибка отправки: " + String(err.c_str()));
+
+			if (err.find("SERVER_BUSY") != std::string::npos)
+			{
+				std::this_thread::sleep_for(
+					std::chrono::milliseconds(RETRY_DELAY_MS)
+				);
+				continue;
+			}
+
+			break;
+		}
+
+		// 2) читаем бинарный ответ
+		if (!client_.socketReadBin(str, nullptr, &err))
+		{
+			pushLog("Ошибка чтения: " + String(err.c_str()));
+
+			if (err.find("SERVER_BUSY") != std::string::npos)
+			{
+				std::this_thread::sleep_for(
+					std::chrono::milliseconds(RETRY_DELAY_MS)
+				);
+
+                pushLog(
+					"Запрос файла \"" + zip_dir +
+					"\", попытка " + String(attempt) +
+					" из " + String(MAX_TRIES)
+				);
+
+				continue;
+			}
+
+			break;
+		}
+
+		if (!str.empty())
+		{
+			ok = true;
+			break;
+		}
+
+		pushLog("Файл пустой, повтор запроса");
+
+		std::this_thread::sleep_for(
+			std::chrono::milliseconds(RETRY_DELAY_MS)
+		);
+	}
+
+	if (!ok || str.empty())
+	{
+		pushLog(
+			"Файл \"" + zip_dir +
+			"\" не получен после " +
+			String(MAX_TRIES) +
+			" попыток. Последняя ошибка: " +
+			String(err.c_str())
+		);
 		return 0;
 	}
 
-	if (str.empty()) {
-		pushLog("Файл \"" + zip_dir + "\" - не был найден!");
-		return 0;
-	}
 
 
 	static int cc = 0;
@@ -1898,24 +2043,24 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	System::Threading::TTask::Run([this, ctx, guard = std::move(compGuard)]()
 	{
 		int count_suc_files = 0;
-
+		constexpr auto latency = 200;
 		try
 		{
 			for (const auto& f : ctx->text_map) {
 				count_suc_files += SaveFileVh(ctx->out_dir, f, ctx->makeDocx);
-				Sleep(15);
+				Sleep(latency);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_vh) {
 				count_suc_files += SaveFileVh2(ctx->out_dir, f);
-				Sleep(15);
+				Sleep(latency);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_ish) {
 				count_suc_files += SaveFileIsh(ctx->out_dir, f);
-				Sleep(15);
+				Sleep(latency);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 		}

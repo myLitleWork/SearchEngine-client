@@ -29,32 +29,37 @@ void MyAsioClient::disConnect()
 }
 
 bool MyAsioClient::requestBinFile(const std::string& path,
-                                  std::vector<uint8_t>& out,
-                                  std::atomic_uint64_t* progress,
-                                  std::string* errMsg)
+								  std::vector<uint8_t>& out,
+								  std::atomic_uint64_t* progress,
+								  std::string* errMsg)
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     out.clear();
     try
-    {
-        // --- write request ---
+	{
+		// --- write request ---
         header req{};
         req.size = static_cast<uint32_t>(path.size());
-        req.command = COMMAND::GETBINFILE;
+		req.command = COMMAND::GETBINFILE;
 
-        boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
-        if (!path.empty())
+		boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
+		if (!path.empty())
             boost::asio::write(*socket_, boost::asio::buffer(path.data(), path.size()));
 
         // --- read response header ---
-        header resp{};
-        boost::asio::read(*socket_, boost::asio::buffer(&resp, sizeof(resp)));
+		header resp{};
+		boost::asio::read(*socket_, boost::asio::buffer(&resp, sizeof(resp)));
 
-        if (resp.command == COMMAND::SOMEERROR) {
-            if (errMsg) *errMsg = "Server returned SOMEERROR";
-            return false;
-        }
+		if (resp.command == COMMAND::SOMEERROR) {
+			if (errMsg) *errMsg = "Server returned SOMEERROR";
+			return false;
+		}
+
+		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
+			if (errMsg) *errMsg = "Server returned SERVER_BUSY_ERROR";
+			return false;
+		}
 
         const std::size_t total = resp.size;
         last_total_.store(total, std::memory_order_relaxed);

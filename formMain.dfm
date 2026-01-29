@@ -7,7 +7,7 @@ object fMain: TfMain
   AutoSize = True
   BiDiMode = bdLeftToRight
   BorderWidth = 1
-  Caption = 'SearchClient_asio'
+  Caption = 'SearchClient_asio v3.1'
   ClientHeight = 1372
   ClientWidth = 1944
   Color = clMoneyGreen
@@ -2652,7 +2652,7 @@ object fMain: TfMain
     end
   end
   object tmSaveProgress: TTimer
-    Interval = 200
+    Interval = 333
     OnTimer = tmSaveProgressTimer
     Left = 1586
     Top = 966
