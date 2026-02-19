@@ -59,8 +59,8 @@ class MyAsioClient
 	tcp::socket*   socket_{nullptr};
 
     header myHeader_{};
-    std::mutex io_mutex_;                 // защищаем сокет
-    std::atomic<uint64_t> last_total_{0}; // последний ожидаемый объём
+    std::mutex io_mutex_;                 // Р·Р°С‰РёС‰Р°РµРј СЃРѕРєРµС‚
+    std::atomic<uint64_t> last_total_{0}; // РїРѕСЃР»РµРґРЅРёР№ РѕР¶РёРґР°РµРјС‹Р№ РѕР±СЉС‘Рј
 
 public:
 	void disConnect();
@@ -71,20 +71,20 @@ public:
                     std::string* errMsg = nullptr);
 
 
-    // уже есть у тебя:
+    // СѓР¶Рµ РµСЃС‚СЊ Сѓ С‚РµР±СЏ:
     bool tryConnect(const std::string& host, const std::string& port, std::string& errMsg);
     bool tryConnect(const AnsiString& host, const AnsiString& port, AnsiString& errMsg);
 
-    // === запись ===
+    // === Р·Р°РїРёСЃСЊ ===
     bool socketWrite(const std::string& s, COMMAND command, std::string* errMsg = nullptr);
     bool socketWrite(const std::vector<uint8_t>& data, COMMAND command, std::string* errMsg = nullptr);
 
-    // === чтение текстом ===
+    // === С‡С‚РµРЅРёРµ С‚РµРєСЃС‚РѕРј ===
     bool socketRead(std::string& out,
                     std::atomic_uint64_t* progress = nullptr,
                     std::string* errMsg = nullptr);
 
-    // === чтение бинарно ===
+    // === С‡С‚РµРЅРёРµ Р±РёРЅР°СЂРЅРѕ ===
     bool socketReadBin(std::vector<uint8_t>& out,
                        std::atomic_uint64_t* progress = nullptr,
                        std::string* errMsg = nullptr);
@@ -93,9 +93,14 @@ public:
 
 	bool readHeader(header& hdr, std::string* errMsg = nullptr);
 
-	tcp::socket& getSocket() {return *socket_;};
+	tcp::socket& getSocket() {
+		if (!socket_) {
+			throw std::runtime_error("Socket is not initialized");
+		}
+		return *socket_;
+	}
 
-	~MyAsioClient() noexcept;  // деструктор
+	~MyAsioClient() noexcept;  // РґРµСЃС‚СЂСѓРєС‚РѕСЂ
 };
 //---------------------------------------------------------------------------
 #endif

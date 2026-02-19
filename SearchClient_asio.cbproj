@@ -6,7 +6,7 @@
         <AppType>Application</AppType>
         <MainSource>SearchClient_asio.cpp</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <CC_Suffix Condition="'$(CC_Suffix)'==''">c</CC_Suffix>
@@ -77,8 +77,8 @@
         <UWP_CppLogo44>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_44.png</UWP_CppLogo44>
         <UWP_CppLogo150>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_150.png</UWP_CppLogo150>
         <SanitizedProjectName>SearchClient_asio</SanitizedProjectName>
-        <IncludePath>Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(IncludePath)</IncludePath>
-        <ILINK_LibraryPath>Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
+        <IncludePath>Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(IncludePath)</IncludePath>
+        <ILINK_LibraryPath>Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <VerInfo_Locale>1049</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
     </PropertyGroup>
@@ -154,7 +154,7 @@
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <BCC_IncludePath>$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BCC_IncludePath)</BCC_IncludePath>
+        <BCC_IncludePath>Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BCC_IncludePath)</BCC_IncludePath>
         <LinkPackageStatics>rtl.lib;vcl.lib;VclSmp.lib;vclx.lib;vclimg.lib;vcldb.lib;dbrtl.lib;vclwinx.lib;bindengine.lib;adortl.lib;EhLib280.lib;xmlrtl.lib;EhLibADODataDrivers280.lib;frx28.lib;fs28.lib;fqb280.lib;frxADO28.lib;fsADO28.lib;fsDB28.lib;frxDB28.lib;dsnap.lib;frxe28.lib</LinkPackageStatics>
         <ILINK_LibraryPath>$(BDSLIB)\$(PLATFORM)$(CC_SUFFIX)\debug;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSLIB)\$(PLATFORM)$(CC_SUFFIX)\debug;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release;C:\Program Files (x86)\Embarcadero\Studio\22.0\lib\boost;C:\Users\Sg\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;E:\РАЗНОЕ\ПРОГРАММЫ\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(BDSLIB)\$(PLATFORM)\debug;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <IncludePath>$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release\;C:\Users\Sg\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;C:\Program Files (x86)\Embarcadero\Studio\22.0\include\EhLib\Lib\Win32\Release;E:\РАЗНОЕ\ПРОГРАММЫ\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(IncludePath)</IncludePath>
@@ -240,10 +240,6 @@
             <DependentOn>Message\Message.h</DependentOn>
             <BuildOrder>22</BuildOrder>
         </CppCompile>
-        <CppCompile Include="myAsioClient.cpp">
-            <DependentOn>myAsioClient.h</DependentOn>
-            <BuildOrder>29</BuildOrder>
-        </CppCompile>
         <LibFiles Include="myCrypto-bcb.lib" Condition="'$(Platform)'=='Win32'">
             <BuildOrder>12</BuildOrder>
             <IgnorePath>true</IgnorePath>
@@ -279,6 +275,14 @@
         <None Include="MyStrings\myWstring.h">
             <BuildOrder>21</BuildOrder>
         </None>
+        <CppCompile Include="Net\myAsioClient.cpp">
+            <DependentOn>Net\myAsioClient.h</DependentOn>
+            <BuildOrder>29</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="Net\SocketFileSaver.cpp">
+            <DependentOn>Net\SocketFileSaver.h</DependentOn>
+            <BuildOrder>25</BuildOrder>
+        </CppCompile>
         <CppCompile Include="RecentComboHistory.cpp">
             <DependentOn>RecentComboHistory.h</DependentOn>
             <BuildOrder>26</BuildOrder>
@@ -290,10 +294,6 @@
             <BuildOrder>1</BuildOrder>
             <PCH>true</PCH>
         </PCHCompile>
-        <CppCompile Include="SocketFileSaver.cpp">
-            <DependentOn>SocketFileSaver.h</DependentOn>
-            <BuildOrder>25</BuildOrder>
-        </CppCompile>
         <CppCompile Include="SqlCondition.cpp">
             <DependentOn>SqlCondition.h</DependentOn>
             <BuildOrder>6</BuildOrder>

@@ -4,6 +4,11 @@
 
 #include "myAsioClient.h"
 #include <algorithm>
+#include <boost/asio/deadline_timer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <atomic>
+#include <chrono>
+#include <thread>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
@@ -15,7 +20,7 @@ void MyAsioClient::disConnect()
 		if (socket_->is_open()) {
 			socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
 			socket_->close(ec);
-			// ��� ����� ���������� ec, ���� �����
+			// òóò ìîæíî ëîãèðîâàòü ec, åñëè íóæíî
         }
 		delete socket_;
 		socket_ = nullptr;
@@ -89,29 +94,133 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 }
 
 
-// �������� ������ (std::string)
+// Îñíîâíàÿ âåðñèÿ (std::string)
 bool MyAsioClient::tryConnect(const std::string& host,
                               const std::string& port,
                               std::string& errMsg)
 {
-    try {
+	try {
 		if (socket_) { delete socket_; socket_ = nullptr; }
 		if (resolver_) { delete resolver_; resolver_ = nullptr; }
 
 		socket_ = new tcp::socket(io_context_);
 		resolver_ = new tcp::resolver(io_context_);
 
-		boost::asio::connect(*socket_, resolver_->resolve(host, port));
+		// Разрешаем адрес
+		boost::system::error_code resolve_ec;
+		auto endpoints = resolver_->resolve(host, port, resolve_ec);
+		if (resolve_ec) {
+			errMsg = "DNS resolution failed: " + resolve_ec.message();
+			if (socket_) { delete socket_; socket_ = nullptr; }
+			if (resolver_) { delete resolver_; resolver_ = nullptr; }
+			return false;
+		}
 
+		// Проверяем, что есть хотя бы один endpoint
+		if (endpoints.begin() == endpoints.end()) {
+			errMsg = "No endpoints resolved";
+			if (socket_) { delete socket_; socket_ = nullptr; }
+			if (resolver_) { delete resolver_; resolver_ = nullptr; }
+			return false;
+		}
+
+		// Используем асинхронное подключение с таймаутом (2 секунды)
+		// Это предотвращает долгое зависание при недоступном сервере
+		boost::asio::deadline_timer timer(io_context_);
+		timer.expires_from_now(boost::posix_time::seconds(2));
+		
+		std::atomic<bool> completed(false);
+		boost::system::error_code connect_ec = boost::asio::error::would_block;
+
+		// Обработчик успешного подключения
+		boost::asio::async_connect(*socket_, endpoints,
+			[&](const boost::system::error_code& ec, const tcp::endpoint&) {
+				if (!completed.exchange(true)) {
+					connect_ec = ec;
+					timer.cancel();
+				}
+			});
+
+		// Обработчик таймаута
+		timer.async_wait([&](const boost::system::error_code& ec) {
+			if (!completed.exchange(true) && ec != boost::asio::error::operation_aborted) {
+				socket_->cancel();
+				connect_ec = boost::asio::error::timed_out;
+			}
+		});
+
+		// Запускаем io_context с ограничением времени
+		// Используем run() в отдельном потоке с таймаутом
+		std::thread run_thread([this]() {
+			try {
+				io_context_.run();
+			} catch (...) {
+				// Игнорируем исключения в потоке
+			}
+		});
+		
+		// Ждем завершения операции (максимум 3 секунды)
+		auto start_time = std::chrono::steady_clock::now();
+		const auto max_timeout = std::chrono::seconds(3);
+		
+		while (!completed.load()) {
+			if (std::chrono::steady_clock::now() - start_time > max_timeout) {
+				io_context_.stop();
+				if (!completed.exchange(true)) {
+					connect_ec = boost::asio::error::timed_out;
+				}
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
+		
+		// Ждем завершения потока
+		if (run_thread.joinable()) {
+			run_thread.join();
+		}
+		
+		// Сбрасываем io_context для следующего использования
+		io_context_.reset();
+
+		// Проверяем результат подключения
+		if (connect_ec == boost::asio::error::would_block) {
+			// Операция не завершилась - таймаут
+			errMsg = "Connection timeout";
+			if (socket_) { delete socket_; socket_ = nullptr; }
+			if (resolver_) { delete resolver_; resolver_ = nullptr; }
+			return false;
+		}
+		
+		if (connect_ec) {
+			// Есть ошибка подключения
+			if (connect_ec == boost::asio::error::timed_out) {
+				errMsg = "Connection timeout";
+			} else {
+				errMsg = "Connection failed: " + connect_ec.message();
+			}
+			if (socket_) { delete socket_; socket_ = nullptr; }
+			if (resolver_) { delete resolver_; resolver_ = nullptr; }
+			return false;
+		}
+
+		// Подключение успешно (connect_ec == 0)
         return true;
     }
     catch (const std::exception& e) {
-        errMsg = e.what();
+        if (socket_) { delete socket_; socket_ = nullptr; }
+        if (resolver_) { delete resolver_; resolver_ = nullptr; }
+        errMsg = "Exception: " + std::string(e.what());
+        return false;
+    }
+    catch (...) {
+        if (socket_) { delete socket_; socket_ = nullptr; }
+        if (resolver_) { delete resolver_; resolver_ = nullptr; }
+        errMsg = "Unknown exception occurred";
         return false;
     }
 }
 
-// ���������� ��� AnsiString
+// Ïåðåãðóçêà äëÿ AnsiString
 bool MyAsioClient::tryConnect(const AnsiString& host,
                               const AnsiString& port,
                               AnsiString& errMsg)
@@ -134,6 +243,11 @@ bool MyAsioClient::socketWrite(const std::string& s,
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
 
+    if (!socket_ || !socket_->is_open()) {
+        if (errMsg) *errMsg = "Socket is not connected";
+        return false;
+    }
+
     myHeader_.size    = static_cast<uint32_t>(s.size());
     myHeader_.command = command;
 
@@ -153,6 +267,11 @@ bool MyAsioClient::socketWrite(const std::vector<uint8_t>& data,
                                std::string* errMsg)
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
+
+    if (!socket_ || !socket_->is_open()) {
+        if (errMsg) *errMsg = "Socket is not connected";
+        return false;
+    }
 
     myHeader_.size    = static_cast<uint32_t>(data.size());
     myHeader_.command = command;
@@ -174,9 +293,14 @@ bool MyAsioClient::socketRead(std::string& out,
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
 
+    if (!socket_ || !socket_->is_open()) {
+        if (errMsg) *errMsg = "Socket is not connected";
+        return false;
+    }
+
     out.clear();
     try {
-        // 1) ������ ��������� ����� sizeof(header)
+        // 1) ÷èòàåì çàãîëîâîê ðîâíî sizeof(header)
         boost::asio::read(*socket_, boost::asio::buffer(&myHeader_, sizeof(myHeader_)));
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
@@ -189,7 +313,7 @@ bool MyAsioClient::socketRead(std::string& out,
 
         out.reserve(out.size() + total);
 
-        // 2) ������ ���� �������������� �������
+        // 2) ÷èòàåì òåëî ôèêñèðîâàííûìè áëîêàìè
         std::size_t left = total;
         constexpr std::size_t block = 64 * 1024;
         std::vector<char> buf;
@@ -221,9 +345,14 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
 
+    if (!socket_ || !socket_->is_open()) {
+        if (errMsg) *errMsg = "Socket is not connected";
+        return false;
+    }
+
     out.clear();
     try {
-        // 1) ������ ���������
+        // 1) ÷èòàåì çàãîëîâîê
         boost::asio::read(*socket_, boost::asio::buffer(&myHeader_, sizeof(myHeader_)));
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
@@ -264,15 +393,21 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
 MyAsioClient::~MyAsioClient() noexcept
 {
     try {
-        disConnect();          // ��������� ������� �����/�������� � ��������� ������
+        disConnect();          // àêêóðàòíî çàêðîåì ñîêåò/ðåçîëâåð è îñâîáîäèì ïàìÿòü
     } catch (...) {
-        // ������ �� ������ � ���������� �� ������ ������� ����������
+        // íè÷åãî íå äåëàåì — äåñòðóêòîð íå äîëæåí áðîñàòü èñêëþ÷åíèÿ
     }
 }
 
 bool MyAsioClient::readHeader(header& hdr, std::string* errMsg)
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
+    
+    if (!socket_ || !socket_->is_open()) {
+        if (errMsg) *errMsg = "Socket is not connected";
+        return false;
+    }
+    
     try {
         boost::asio::read(*socket_, boost::asio::buffer(&hdr, sizeof(hdr)));
         return true;
@@ -281,5 +416,4 @@ bool MyAsioClient::readHeader(header& hdr, std::string* errMsg)
         return false;
     }
 }
-
 

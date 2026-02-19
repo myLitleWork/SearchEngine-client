@@ -22,4 +22,3 @@ private:
     std::size_t bufferSize_;
     ProgressCallback progressCallback_;
 };
-

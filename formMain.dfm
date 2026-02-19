@@ -66,7 +66,7 @@ object fMain: TfMain
       Left = 913
       Top = 7
       Width = 119
-      Height = 62
+      Height = 48
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -80,14 +80,13 @@ object fMain: TfMain
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
-      ExplicitHeight = 48
     end
     object lblUser: TLabel
       AlignWithMargins = True
       Left = 1044
       Top = 7
       Width = 312
-      Height = 62
+      Height = 48
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -101,7 +100,6 @@ object fMain: TfMain
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
-      ExplicitHeight = 48
     end
     object Edit2: TEdit
       AlignWithMargins = True
@@ -1319,7 +1317,7 @@ object fMain: TfMain
             AlignWithMargins = True
             Left = 7
             Top = 7
-            Width = 254
+            Width = 232
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1327,13 +1325,12 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1043#1088#1091#1087#1087#1072' '#1096#1072#1073#1083#1086#1085#1086#1074':'
-            ExplicitWidth = 232
           end
           object Label6: TLabel
             AlignWithMargins = True
             Left = 7
             Top = 589
-            Width = 254
+            Width = 132
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1341,7 +1338,6 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1064#1072#1073#1083#1086#1085#1099':'
-            ExplicitWidth = 132
           end
           object lstShGroups: TListBox
             AlignWithMargins = True

@@ -1,4 +1,5 @@
 #include "SocketFileSaver.h"
+#include <cstdint>
 #include <fstream>
 #include <vector>
 #include <boost/system/error_code.hpp>
@@ -18,12 +19,11 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
 {
     std::ofstream file(outPath_, std::ios::binary);
     if (!file.is_open()) {
-        errorMsg = "Не удалось открыть файл для записи: " + outPath_;
+        errorMsg = "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» РґР»СЏ Р·Р°РїРёСЃРё: " + outPath_;
         return false;
     }
 
-    std::vector<BYTE> buffer;
-    buffer.resize(bufferSize_);
+    std::vector<std::uint8_t> buffer(bufferSize_);
 
     std::size_t totalRead = 0;
     boost::system::error_code ec;
@@ -33,13 +33,17 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
         std::size_t bytesRead = socket_.read_some(boost::asio::buffer(buffer.data(), toRead), ec);
 
         if (ec) {
-            errorMsg = "Ошибка чтения сокета: " + ec.message();
+            errorMsg = "РћС€РёР±РєР° С‡С‚РµРЅРёСЏ СЃРѕРєРµС‚Р°: " + ec.message();
+            return false;
+        }
+        if (bytesRead == 0) {
+            errorMsg = "Socket closed before transfer complete.";
             return false;
         }
 
         file.write(reinterpret_cast<const char*>(buffer.data()), bytesRead);
         if (!file) {
-            errorMsg = "Ошибка записи в файл.";
+            errorMsg = "РћС€РёР±РєР° Р·Р°РїРёСЃРё РІ С„Р°Р№Р».";
             return false;
         }
 
@@ -52,4 +56,3 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
     file.close();
     return true;
 }
-

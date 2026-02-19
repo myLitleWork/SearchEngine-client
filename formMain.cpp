@@ -516,22 +516,36 @@ bool TfMain::useF12Control()
 
 void TfMain::registryOnServer(const std::string& user_name)
 {
-    const COMMAND command = COMMAND::USER_REGISTRY;
-    std::string err;
+    try {
+        // Проверяем, что сокет подключен перед регистрацией
+        if (!client_.getSocket().is_open()) {
+            ShowMessage("Ошибка: сокет не подключен для регистрации");
+            return;
+        }
 
-    if (!client_.socketWrite(user_name, command, &err)) {
-        ShowMessage("Ошибка отправки регистрации: " + String(err.c_str()));
-        return;
+        const COMMAND command = COMMAND::USER_REGISTRY;
+        std::string err;
+
+        if (!client_.socketWrite(user_name, command, &err)) {
+            ShowMessage("Ошибка отправки регистрации: " + String(err.c_str()));
+            return;
+        }
+
+        std::string reply;
+        if (!client_.socketRead(reply, /*progress*/nullptr, &err)) {
+            ShowMessage("Ошибка чтения ответа регистрации: " + String(err.c_str()));
+            return;
+        }
+
+        if (reply != "OK") {
+            ShowMessage("Ошибка регистрации на сервере! Ответ: " + String(reply.c_str()));
+        }
     }
-
-    std::string reply;
-    if (!client_.socketRead(reply, /*progress*/nullptr, &err)) {
-        ShowMessage("Ошибка чтения ответа регистрации: " + String(err.c_str()));
-        return;
+    catch (const std::exception& e) {
+        ShowMessage("Ошибка регистрации: " + String(e.what()));
     }
-
-    if (reply != "OK") {
-        ShowMessage("Ошибка регистрации на сервере! Ответ: " + String(reply.c_str()));
+    catch (...) {
+        ShowMessage("Неизвестная ошибка при регистрации на сервере");
     }
 }
 
@@ -779,31 +793,48 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 	//port = mapPorts.at(cmbGod->Text);
    //	host = Edit2->Text;
 
-	lbStatus->Caption = "Статус: подключение к серверу " + Edit2->Text + ":" + mapPorts.at(cmbGod->Text) + " " + cmbGod->Text + " год ...";
+	try {
+		auto it = mapPorts.find(cmbGod->Text);
+		if (it == mapPorts.end()) {
+			ShowMessage("Ошибка: не найден порт для года " + cmbGod->Text);
+			lbStatus->Caption = "Статус: ошибка конфигурации";
+			return;
+		}
+		
+		lbStatus->Caption = "Статус: подключение к серверу " + Edit2->Text + ":" + it->second + " " + cmbGod->Text + " год ...";
 
 
-	qryTelegi->SQL->Text = ("delete from res");
-	qryTelegi->ExecSQL();
+		qryTelegi->SQL->Text = ("delete from res");
+		qryTelegi->ExecSQL();
 
 
-	qryTelegi->SQL->Text = ("select * from res");
-	qryTelegi->Open();
+		qryTelegi->SQL->Text = ("select * from res");
+		qryTelegi->Open();
 
-	memTbl->Active = false;
-	memTbl->Active = true;
+		memTbl->Active = false;
+		memTbl->Active = true;
 
 
-	clear();
+		clear();
 
-	auto port = mapPorts.at(cmbGod->Text);
-	auto host = Edit2->Text;
-	AnsiString err;
+		auto port = it->second;
+		auto host = Edit2->Text;
+		AnsiString err;
 
-	bool connecting = client_.tryConnect(host,port,err);
+		bool connecting = client_.tryConnect(host,port,err);
 
-	if(tryConnect() && auth_)
-	{
-		registryOnServer(user_);
+		if(tryConnect() && auth_)
+		{
+			registryOnServer(user_);
+		}
+	}
+	catch (const Exception& e) {
+		ShowMessage("Ошибка подключения: " + e.Message);
+		lbStatus->Caption = "Статус: ошибка подключения";
+	}
+	catch (...) {
+		ShowMessage("Неизвестная ошибка при подключении");
+		lbStatus->Caption = "Статус: ошибка подключения";
 	}
 
 	Application->ProcessMessages();
@@ -1580,11 +1611,17 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 	// === Основная часть ===
 	ggSaveProgress->MaxValue = hdr.size;
 
-	SocketFileSaver saver(client_.getSocket(), full_file_name, hdr.size, 64 * 1024,
-			[this](std::size_t bytes) {
-				ggSaveProgress->AddProgress(bytes);
-				Application->ProcessMessages();
-			});
+	try {
+		if (!client_.getSocket().is_open()) {
+			pushLog("Ошибка: сокет не подключен для сохранения файла");
+			return 0;
+		}
+		
+		SocketFileSaver saver(client_.getSocket(), full_file_name, hdr.size, 64 * 1024,
+				[this](std::size_t bytes) {
+					ggSaveProgress->AddProgress(bytes);
+					Application->ProcessMessages();
+				});
 
 		err = "";
 
@@ -1600,7 +1637,15 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 			result = "\"" + f.first + "\" (\"" + file_name + "\")";
 
 		rchEdt->Lines->Add(("Файл " + result + ", " + std::to_string(hdr.size) + " байт - успешно сохранен!").c_str());
-
+	}
+	catch (const std::exception& e) {
+		pushLog("Ошибка при сохранении файла: " + String(e.what()));
+		return 0;
+	}
+	catch (...) {
+		pushLog("Неизвестная ошибка при сохранении файла");
+		return 0;
+	}
 
     return 1;
 }
@@ -1614,10 +1659,16 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 	std::vector<uint8_t> str;
 
-		if (!client_.getSocket().is_open()) {
-		pushLog("socket is NOT open");
-		return 0;
-	}
+		try {
+			if (!client_.getSocket().is_open()) {
+				pushLog("socket is NOT open");
+				return 0;
+			}
+		} catch (...) {
+			pushLog("socket is NOT initialized");
+			return 0;
+		}
+
 
 
 
@@ -2640,8 +2691,9 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
         if (!auth_ && user_ != "admin" && SafeExistsWin(toW(admin_file))) {
             TThread::Queue(nullptr, [this]() {
                 onSuccessfulAuthorization("admin", "");
-                tryConnect();
-                registryOnServer("admin");
+                if (tryConnect()) {
+                    registryOnServer("admin");
+                }
                 gCurrentPath = getExecutablePath() + "\\admin984.bin";
             });
             return; // guard_holder разрушится здесь -> флаг освободится
@@ -3220,20 +3272,43 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 
 bool TfMain::tryConnect()
 {
-    const AnsiString port = mapPorts.at(cmbGod->Text);
-    const AnsiString host = Edit2->Text;
+    try {
+        // Проверяем наличие порта в map
+        auto it = mapPorts.find(cmbGod->Text);
+        if (it == mapPorts.end()) {
+            ShowMessage("Ошибка: не найден порт для года " + cmbGod->Text);
+            lbStatus->Caption = "Статус: ошибка конфигурации";
+            componentsEnable(false);
+            return false;
+        }
+        
+        const AnsiString port = it->second;
+        const AnsiString host = Edit2->Text;
 
-    AnsiString err;
-    if (!client_.tryConnect(host, port, err)) {
-        ShowMessage("Ошибка подключения: " + err);
-        lbStatus->Caption = "Статус: нет подключения";
+        AnsiString err;
+        if (!client_.tryConnect(host, port, err)) {
+            ShowMessage("Ошибка подключения: " + err);
+            lbStatus->Caption = "Статус: нет подключения";
+            componentsEnable(false);
+            return false;
+        }
+
+        lbStatus->Caption = "Статус: подключено к серверу " + host + ":" + port + " " + cmbGod->Text + " год";
+        componentsEnable(true);
+        return true;
+    }
+    catch (const Exception& e) {
+        ShowMessage("Ошибка подключения: " + e.Message);
+        lbStatus->Caption = "Статус: ошибка подключения";
         componentsEnable(false);
         return false;
     }
-
-    lbStatus->Caption = "Статус: подключено к серверу " + host + ":" + port + " " + cmbGod->Text + " год";
-    componentsEnable(true);
-    return true;
+    catch (...) {
+        ShowMessage("Неизвестная ошибка при подключении");
+        lbStatus->Caption = "Статус: ошибка подключения";
+        componentsEnable(false);
+        return false;
+    }
 }
 
 
@@ -3271,29 +3346,26 @@ void __fastcall TfMain::dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool 
 //---------------------------------------------------------------------------
 
 void __fastcall TfMain::dbgMenuRowDetailPanelHide(TCustomDBGridEh *Sender, bool &CanHide)
-
 {
-		dbgEh->RowDetailPanel->Height -= dbgMenu->RowDetailPanel->Height;
+    dbgEh->RowDetailPanel->Height -= dbgMenu->RowDetailPanel->Height;
 }
 //---------------------------------------------------------------------------
-
 
 void __fastcall TfMain::excel1Click(TObject *Sender)
 {
     if (!frxReport->PrepareReport())
-		return;
+        return;
 
-        auto xls  = frxXLSExport1;
+    auto xls = frxXLSExport1;
 
-	TSaveDialog *dlg = new TSaveDialog(this);
+    TSaveDialog *dlg = new TSaveDialog(this);
     try
     {
         dlg->Filter = "Excel (*.xlsx)|*.xlsx";
         dlg->DefaultExt = "xlsx";
 
         if (dlg->Execute())
-		{
-
+        {
             try
             {
                 xls->FileName = dlg->FileName;

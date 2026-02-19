@@ -6,6 +6,12 @@
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
+std::map<String, String> SqlCondition::map;
+std::map<String, String> SqlCondition::mapVh;
+std::map<String, String> SqlCondition::mapIsh;
+int SqlCondition::max;
+String SqlCondition::sort = L" order by `Index`  desc";
+
 String SqlCondition::getFieldName(const String& field, TYPE t)
 {
 	auto res = map.at(field);
@@ -15,7 +21,6 @@ String SqlCondition::getFieldName(const String& field, TYPE t)
 	else
 		res = mapVh.find(res) == mapVh.end() ? res : mapVh.at(res);
 
-	return "UPPER("+res+")";
 	return res;
 }
 
@@ -26,13 +31,13 @@ String SqlCondition::getEqualIsh(const String& field, const String arg)
 
 String SqlCondition::getEqualVh(const String& field, const String arg)
 {
-	return  getOrArgEq(getFieldName(field, TYPE::ISH), arg) + sort + LIMIT();
+	return  getOrArgEq(getFieldName(field, TYPE::VH), arg) + sort + LIMIT();
 }
 
 String SqlCondition::getLikeVh(const String& field, const String arg)
 {
 	return  getOrArgLike(getFieldName(field, TYPE::VH),  arg) + sort + LIMIT();
-   //	return  getFieldName(field, TYPE::VH) + " GLOB '*[Р-пр-џ]*'";
+   //	return  getFieldName(field, TYPE::VH) + " GLOB '*[?-??-?]*'";
 }
 
 String SqlCondition::getLikeIsh(const String& field, const String arg)

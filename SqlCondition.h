@@ -69,9 +69,4 @@ class SqlCondition
 	};
 
 };
-std::map<String, String> SqlCondition::map;
-std::map<String, String> SqlCondition::mapVh;
-std::map<String, String> SqlCondition::mapIsh;
-int SqlCondition::max;
-String SqlCondition::sort = " order by `Index`  desc";
 #endif
