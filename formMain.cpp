@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <vector>
 #include <memory>
+#include <future>
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
@@ -1642,13 +1643,22 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
         while (FileExists(String{full_file_name.c_str()}) && try_limit <= 30);
 
         if (try_limit > 30) {
-            ShowMessage("Ошибка при генерации имени файла!");
+			pushLog("Ошибка при генерации имени файла (слишком много коллизий имён)!");
             return 0;
         }
     }
-	ggSaveProgress->Progress = 0;
-	// === Основная часть ===
-	ggSaveProgress->MaxValue = hdr.size;
+	// Прогресс только из главного потока (фоновый TTask не трогает VCL напрямую).
+	{
+		std::promise<void> uiReady;
+		std::future<void> uiWait = uiReady.get_future();
+		const std::size_t maxBytes = static_cast<std::size_t>(hdr.size);
+		TThread::Queue(nullptr, [this, maxBytes, &uiReady]() {
+			ggSaveProgress->Progress = 0;
+			ggSaveProgress->MaxValue = static_cast<int>(maxBytes);
+			uiReady.set_value();
+		});
+		uiWait.wait();
+	}
 
 	try {
 		if (!client_.getSocket().is_open()) {
@@ -1658,8 +1668,9 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		
 		SocketFileSaver saver(client_.getSocket(), full_file_name, hdr.size, 64 * 1024,
 				[this](std::size_t bytes) {
-					ggSaveProgress->AddProgress(bytes);
-					Application->ProcessMessages();
+					TThread::Queue(nullptr, [this, bytes]() {
+						ggSaveProgress->AddProgress(static_cast<int>(bytes));
+					});
 				});
 
 		err = "";
@@ -1677,7 +1688,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		else
 			result = "\"" + f.first + "\" (\"" + file_name + "\")";
 
-		rchEdt->Lines->Add(("Файл " + result + ", " + std::to_string(hdr.size) + " байт - успешно сохранен!").c_str());
+		pushLog(("Файл " + result + ", " + std::to_string(hdr.size) + " байт - успешно сохранен!").c_str());
 	}
 	catch (const std::exception& e) {
 		pushLog("Ошибка при сохранении файла: " + String(e.what()));
@@ -2135,24 +2146,25 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	System::Threading::TTask::Run([this, ctx, guard = std::move(compGuard)]()
 	{
 		int count_suc_files = 0;
-		constexpr auto latency = 200;
+		// Временный костыль: пауза между файлами снижает гонки loopback/UI при пакетном сохранении.
+		constexpr int kInterFileDelayMs = 200;
 		try
 		{
 			for (const auto& f : ctx->text_map) {
 				count_suc_files += SaveFileVh(ctx->out_dir, f, ctx->makeDocx);
-				Sleep(latency);
+				Sleep(kInterFileDelayMs);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_vh) {
 				count_suc_files += SaveFileVh2(ctx->out_dir, f);
-				Sleep(latency);
+				Sleep(kInterFileDelayMs);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_ish) {
 				count_suc_files += SaveFileIsh(ctx->out_dir, f);
-				Sleep(latency);
+				Sleep(kInterFileDelayMs);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 		}

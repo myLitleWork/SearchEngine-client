@@ -5,13 +5,89 @@
 #include "myAsioClient.h"
 #include <algorithm>
 #include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <atomic>
 #include <chrono>
 #include <thread>
+#include <cstring>
+#include <cstdint>
+#include <vector>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
+namespace {
+
+// Единый idle-таймаут для чтения с сокета (как SocketFileSaver): без новых байт N секунд — ошибка.
+constexpr auto kSocketReadIdleTimeout = std::chrono::seconds(10);
+
+bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
+                             void* dest,
+                             std::size_t len,
+                             std::string* errMsg)
+{
+	auto* p = static_cast<std::uint8_t*>(dest);
+	std::size_t totalRead = 0;
+	constexpr std::size_t kBuf = 64 * 1024;
+	std::vector<std::uint8_t> buffer(kBuf);
+	boost::asio::steady_timer timer(socket.get_executor());
+
+	while (totalRead < len) {
+		const std::size_t need = len - totalRead;
+		const std::size_t toRead = (std::min)(need, buffer.size());
+
+		boost::system::error_code readEc;
+		std::size_t bytesRead = 0;
+		bool readDone = false;
+		bool timedOut = false;
+
+		socket.async_read_some(
+			boost::asio::buffer(buffer.data(), toRead),
+			[&](const boost::system::error_code& ec, std::size_t n) {
+				readEc = ec;
+				bytesRead = n;
+				readDone = true;
+				timer.cancel();
+			});
+
+		timer.expires_after(kSocketReadIdleTimeout);
+		timer.async_wait([&](const boost::system::error_code& ec) {
+			if (!ec && !readDone) {
+				timedOut = true;
+				boost::system::error_code ignored;
+				socket.cancel(ignored);
+			}
+		});
+
+		auto& ctx = static_cast<boost::asio::io_context&>(socket.get_executor().context());
+		ctx.restart();
+		while (!readDone && !timedOut) {
+			ctx.run_one();
+		}
+
+		if (timedOut) {
+			if (errMsg)
+				*errMsg = "Таймаут чтения из сокета (idle " +
+					std::to_string(kSocketReadIdleTimeout.count()) + " с)";
+			return false;
+		}
+		if (readEc) {
+			if (errMsg)
+				*errMsg = readEc.message();
+			return false;
+		}
+		if (bytesRead == 0) {
+			if (errMsg)
+				*errMsg = "Соединение закрыто до завершения чтения";
+			return false;
+		}
+		std::memcpy(p + totalRead, buffer.data(), bytesRead);
+		totalRead += bytesRead;
+	}
+	return true;
+}
+
+} // namespace
 
 void MyAsioClient::disConnect()
 {
@@ -54,7 +130,8 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 
         // --- read response header ---
 		header resp{};
-		boost::asio::read(*socket_, boost::asio::buffer(&resp, sizeof(resp)));
+		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg))
+			return false;
 
 		if (resp.command == COMMAND::SOMEERROR) {
 			if (errMsg) *errMsg = "Server returned SOMEERROR";
@@ -79,7 +156,8 @@ bool MyAsioClient::requestBinFile(const std::string& path,
         while (off < total)
         {
             const std::size_t chunk = std::min(block, total - off);
-            boost::asio::read(*socket_, boost::asio::buffer(out.data() + off, chunk));
+            if (!read_exact_idle_timeout(*socket_, out.data() + off, chunk, errMsg))
+                return false;
             off += chunk;
             if (progress) progress->store(off, std::memory_order_relaxed);
         }
@@ -300,8 +378,9 @@ bool MyAsioClient::socketRead(std::string& out,
 
     out.clear();
     try {
-        // 1) ÷èòàåì çàãîëîâîê ðîâíî sizeof(header)
-        boost::asio::read(*socket_, boost::asio::buffer(&myHeader_, sizeof(myHeader_)));
+        // 1) читаем заголовок ровно sizeof(header)
+        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg))
+            return false;
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
             return false;
@@ -322,9 +401,8 @@ bool MyAsioClient::socketRead(std::string& out,
             const std::size_t chunk = std::min(block, left);
             buf.resize(chunk);
 
-            boost::asio::read(*socket_,
-                              boost::asio::buffer(buf.data(), chunk),
-                              boost::asio::transfer_exactly(chunk));
+            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg))
+                return false;
 
             out.append(buf.data(), buf.size());
             left -= chunk;
@@ -352,8 +430,9 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
 
     out.clear();
     try {
-        // 1) ÷èòàåì çàãîëîâîê
-        boost::asio::read(*socket_, boost::asio::buffer(&myHeader_, sizeof(myHeader_)));
+        // 1) читаем заголовок
+        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg))
+            return false;
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
             return false;
@@ -373,9 +452,8 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
             const std::size_t chunk = std::min(block, left);
             buf.resize(chunk);
 
-            boost::asio::read(*socket_,
-                              boost::asio::buffer(buf.data(), chunk),
-                              boost::asio::transfer_exactly(chunk));
+            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg))
+                return false;
 
             out.insert(out.end(), buf.begin(), buf.end());
             left -= chunk;
@@ -408,12 +486,8 @@ bool MyAsioClient::readHeader(header& hdr, std::string* errMsg)
         return false;
     }
     
-    try {
-        boost::asio::read(*socket_, boost::asio::buffer(&hdr, sizeof(hdr)));
-        return true;
-    } catch (const std::exception& e) {
-        if (errMsg) *errMsg = e.what();
+    if (!read_exact_idle_timeout(*socket_, &hdr, sizeof(hdr), errMsg))
         return false;
-    }
+    return true;
 }
 
