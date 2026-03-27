@@ -418,6 +418,9 @@ public:		// User declarations
 	bool save_pocessing = false;
 
 	void disConnect();
+	void disconnectTransportOnly();
+	void disconnectUiFull();
+	bool reconnectTransport(bool reregister = false);
 	bool tryConnect();
 
 	std::mutex clickMutex;
@@ -453,6 +456,10 @@ public:		// User declarations
 	 std::atomic_bool gComponentsBusy{false};
 	 std::atomic_bool gSearchProcessing{false};
 	 std::atomic_bool gSaveProcessing{false};
+
+	 std::mutex connectionParamsMtx_;
+	 std::string lastHost_;
+	 std::string lastPort_;
 
 
 

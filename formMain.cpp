@@ -1,4 +1,4 @@
-﻿//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 #include <vcl.h>
 #pragma hdrstop
 #include <string>
@@ -929,11 +929,50 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 
 void TfMain::disConnect()
 {
-	client_.disConnect();  // безопасно: не бросает, закрывает всё внутри
+	disconnectUiFull();
+}
 
-    PageControl1->ActivePageIndex = 0;
-    lbStatus->Caption = "Статус: отключено от сервера";
-    componentsEnable(false);
+void TfMain::disconnectTransportOnly()
+{
+	client_.disConnect();  // безопасно: не бросает, закрывает всё внутри
+	lbStatus->Caption = "Статус: отключено от сервера";
+}
+
+void TfMain::disconnectUiFull()
+{
+	disconnectTransportOnly();
+	PageControl1->ActivePageIndex = 0;
+	componentsEnable(false);
+}
+
+bool TfMain::reconnectTransport(bool reregister)
+{
+	std::string host;
+	std::string port;
+	{
+		std::lock_guard<std::mutex> lk(connectionParamsMtx_);
+		host = lastHost_;
+		port = lastPort_;
+	}
+
+	if (host.empty() || port.empty()) {
+		pushLog("Авто-реконнект невозможен: не сохранены параметры подключения");
+		return false;
+	}
+
+	disconnectTransportOnly();
+
+	std::string err;
+	if (!client_.tryConnect(host, port, err)) {
+		pushLog("Авто-реконнект не выполнен: " + String(err.c_str()));
+		return false;
+	}
+
+	pushLog("Авто-реконнект выполнен: " + String(host.c_str()) + ":" + String(port.c_str()));
+	if (reregister && !user_.empty()) {
+		pushLog("Перерегистрация пользователя после реконнекта пропущена");
+	}
+	return true;
 }
 
 
@@ -1626,7 +1665,9 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		err = "";
 
         if (!saver.saveToFile(err)) {
-            rchEdt->Lines->Add(err.c_str());
+			pushLog("Ошибка сохранения файла \"" + String(f.first.c_str()) + "\": " + String(err.c_str()));
+			// Проблемный файл не перезапускаем: реконнект и переход к следующему.
+			reconnectTransport(false);
             return 0;
         }
 
@@ -2747,7 +2788,7 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
             TThread::Queue(nullptr, [this, fp, desired]() {
                 onSuccessfulAuthorization(fp.fio, desired);
                 gCurrentPath = desired;
-                disConnect();
+                disconnectTransportOnly();
                 if (tryConnect()) registryOnServer(fp.fio);
                 else gTokens.erase(desired);
             });
@@ -3092,7 +3133,7 @@ void __fastcall TfMain::FormShow(TObject *Sender)
 
 void __fastcall TfMain::btnDisconnectClick(TObject *Sender)
 {
-	disConnect();
+	disconnectUiFull();
 }
 //---------------------------------------------------------------------------
 
@@ -3263,7 +3304,7 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 			lblUser->Caption = "Нет авторизации!";
 			lblUser->Font->Color = clMaroon;
 			auth_ = false;
-			disConnect();
+			disconnectUiFull();
 			componentsEnable(false);
 		});
 	});
@@ -3294,6 +3335,11 @@ bool TfMain::tryConnect()
         }
 
         lbStatus->Caption = "Статус: подключено к серверу " + host + ":" + port + " " + cmbGod->Text + " год";
+        {
+            std::lock_guard<std::mutex> lk(connectionParamsMtx_);
+            lastHost_ = std::string(host.c_str());
+            lastPort_ = std::string(port.c_str());
+        }
         componentsEnable(true);
         return true;
     }
@@ -3313,8 +3359,6 @@ bool TfMain::tryConnect()
 
 
 //---------------------------------------------------------------------------
-
-
 
 
 void __fastcall TfMain::dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool &CanShow)
