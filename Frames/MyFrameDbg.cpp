@@ -4,6 +4,7 @@
 #pragma hdrstop
 
 #include "MyFrameDbg.h"
+#include "utils.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma link "MemTableDataEh"
@@ -33,7 +34,7 @@ void TFrameDbg::PlusDbgHeigth()
 	dbgMenu->RowDetailPanel->Height = main_heigth * kof;
 }
 
-// В TFrameDbg.cpp
+// пїЅ TFrameDbg.cpp
 void TFrameDbg::Detach()
 {
     try {
@@ -49,13 +50,19 @@ void TFrameDbg::Detach()
         }
     }
     catch (...) {
-        // на всякий случай подавляем все исключения при закрытии
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     }
 }
 
 
 void TFrameDbg::OnShow()
 {
+	if (dbgMain && dbgMain->DataSource && dbgMain->DataSource->DataSet &&
+		isDeletedRow(dbgMain->DataSource->DataSet)) {
+		ShowMessage(deletedFileMessage());
+		return;
+	}
+
 	this->Visible = true;
 	PlusDbgHeigth();
 	FillDbg();

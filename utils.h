@@ -1,6 +1,7 @@
 ﻿#ifndef utilsH
 #define utilsH
 
+#include <Data.DB.hpp>
 #include <string>
 #include <Winapi.Windows.hpp>   // OemToAnsi
 #include <codecvt>
@@ -23,6 +24,23 @@ namespace conv
         std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
         return conv.from_bytes(str);
     }
+}
+
+inline const wchar_t* deletedFileMessage()
+{
+	return L"Файл удалён с диска. Доступен только след в индексе поиска.";
+}
+
+inline bool isDeletedRow(TDataSet* ds)
+{
+	if (!ds || !ds->Active)
+		return false;
+	TField* f = ds->FindField("deleted");
+	if (!f || f->IsNull)
+		return false;
+	if (f->DataType == ftBoolean)
+		return f->AsBoolean;
+	return f->AsInteger != 0;
 }
 
 namespace my_utils

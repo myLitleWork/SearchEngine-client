@@ -5,6 +5,7 @@
 
 #include "FramePdtv.h"
 #include "utils.h"
+#include "utils.h"
 #include "myAsioClient.h"
 #include "myJson.h"
 #include <System.Threading.hpp>
@@ -54,7 +55,7 @@ void TfrPdtv::InitDbgDS()
 void TfrPdtv::FillDbg()
 {
 
-        // Хелпер для безопасного показа ошибок из любых потоков
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		auto safeShow = [](const String& msg)
 		{
 			TThread::Queue(nullptr, [m = String(msg)]() { ShowMessage(m); });
@@ -68,10 +69,10 @@ void TfrPdtv::FillDbg()
 
 		String numberS, to;
 
-		numberS = dbgMain->Fields[0]->AsString; // номер
-		to      = dbgMain->Fields[8]->AsString; // получатели
+		numberS = dbgMain->Fields[0]->AsString; // пїЅпїЅпїЅпїЅпїЅ
+		to      = dbgMain->Fields[8]->AsString; // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-		// Меняем курсор только в GUI-потоке
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ GUI-пїЅпїЅпїЅпїЅпїЅпїЅ
 		TCursor prev = Screen->Cursor;
 		Screen->Cursor = crHourGlass;
 
@@ -89,7 +90,7 @@ void TfrPdtv::FillDbg()
 				std::string err;
 				if (!client.socketWrite(number, cmd, &err)) {
 					ok = false;
-					safeShow(L"Ошибка socketWrite: " + AnsiString(err.c_str()));
+					safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ socketWrite: " + AnsiString(err.c_str()));
 				}
 
 
@@ -97,7 +98,7 @@ void TfrPdtv::FillDbg()
 					std::string err;
 					if (!client.socketRead(jsonStr, /*progress*/nullptr, &err)) {
 						ok = false;
-						safeShow(L"Ошибка socketRead: " + AnsiString(err.c_str()));
+						safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ socketRead: " + AnsiString(err.c_str()));
 					}
 				}
 
@@ -109,41 +110,41 @@ void TfrPdtv::FillDbg()
 						result = JSON::get<std::list<std::map<std::string, std::string>>>(jsonStr);
 					} catch (const std::exception& e) {
 						ok = false;
-						safeShow(L"Ошибка парсинга JSON (std): " + String(e.what()));
+						safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ JSON (std): " + String(e.what()));
 					} catch (const Exception& e) {
 						ok = false;
-						safeShow(L"Ошибка парсинга JSON: " + e.Message);
+						safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ JSON: " + e.Message);
                     } catch (...) {
                         ok = false;
-                        safeShow(L"Неизвестная ошибка парсинга JSON");
+                        safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ JSON");
                     }
                 }
             }
             catch (const std::exception& e)
             {
                 ok = false;
-                safeShow(L"Критическая ошибка фоновой задачи: " + String(e.what()));
+                safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: " + String(e.what()));
             }
             catch (const Exception& e)
             {
                 ok = false;
-                safeShow(L"Критическая ошибка фоновой задачи: " + e.Message);
+                safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: " + e.Message);
             }
             catch (...)
 			{
                 ok = false;
-                safeShow(L"Неизвестная критическая ошибка фоновой задачи");
+                safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             }
 
             TThread::Queue(nullptr, [this, to, ok, result, prev, safeShow]()
             {
-                // Всегда возвращаем курсор в GUI-потоке
+                // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ GUI-пїЅпїЅпїЅпїЅпїЅпїЅ
                 Screen->Cursor = prev;
 
                 try
 				{
 
-                    // split-хелпер внутри GUI-части
+                    // split-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ GUI-пїЅпїЅпїЅпїЅпїЅ
 					static auto mySplit = [this](const String& str, wchar_t d)
                     {
                         auto sl = std::unique_ptr<TStringList>(new TStringList());
@@ -162,7 +163,7 @@ void TfrPdtv::FillDbg()
 
                     if (result.empty())
                     {
-                        safeShow(L"PDTV: пустой результат от сервера");
+                        safeShow(L"PDTV: пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
                         return;
                     }
 
@@ -174,13 +175,13 @@ void TfrPdtv::FillDbg()
                             auto it = m.find(k);
                             return (it != m.end()) ? String(conv::to_wstring(it->second).c_str()) : String();
                         } catch (const std::exception& e) {
-                            safeShow(L"Ошибка чтения ключа '" + String(k) + L"': " + String(e.what()));
+                            safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ '" + String(k) + L"': " + String(e.what()));
                             return String();
                         } catch (const Exception& e) {
-							safeShow(L"Ошибка чтения ключа '" + String(k) + L"': " + e.Message);
+							safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ '" + String(k) + L"': " + e.Message);
                             return String();
                         } catch (...) {
-                            safeShow(L"Неизвестная ошибка чтения ключа '" + String(k) + L"'");
+                            safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ '" + String(k) + L"'");
                             return String();
                         }
                     };
@@ -196,20 +197,20 @@ void TfrPdtv::FillDbg()
                         v_to   = mySplit(to, L';');
                         v_pdtv = mySplit(allpdtv1, L'/');
 					} catch (const Exception& e) {
-                        safeShow(L"Ошибка split: " + e.Message);
+                        safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ split: " + e.Message);
                     } catch (...) {
-                        safeShow(L"Неизвестная ошибка split");
+                        safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ split");
                     }
 
                     if (v_pdtv.empty())
                     {
-                        // выравниваем по количеству адресатов (минус завершающий пустой, если есть)
+                        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ)
                         int need = (int)v_to.size() - 1;
                         if (need < 0) need = 0;
                         try {
                             v_pdtv.assign(need, String());
                         } catch (...) {
-                            safeShow(L"Ошибка подготовки пустых PDTV записей");
+                            safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ PDTV пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
                         }
                     }
 
@@ -221,10 +222,10 @@ void TfrPdtv::FillDbg()
 							mt->EnableControls();
 						} catch (const Exception& e) {
 							mt->EnableControls();
-							safeShow(L"Ошибка добавления строки в mtPdtv: " + e.Message);
+							safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ mtPdtv: " + e.Message);
 						} catch (...) {
 							mt->EnableControls();
-							safeShow(L"Неизвестная ошибка добавления строки в mtPdtv");
+							safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ mtPdtv");
 						}
 					};
 
@@ -233,14 +234,14 @@ void TfrPdtv::FillDbg()
 					if(v_to.size() > 0)
 						dbgPdtv->RowDetailPanel->Active = true;
 
-					if (v_to.size() == 2) // один адресат
+					if (v_to.size() == 2) // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                     {
                         String date_time, file, kuda, dir;
 						std::vector<String> v_pdtv_1;
                         try {
                             v_pdtv_1 = mySplit(pdtv, L'|');
                         } catch (...) {
-                            safeShow(L"Ошибка split PDTV для одиночного адресата");
+                            safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ split PDTV пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
                         }
 
                         kuda = v_to[0];
@@ -263,7 +264,7 @@ void TfrPdtv::FillDbg()
                         int count = (int)v_to.size() - 1;
                         if (count < 0) count = 0;
 
-                        // защитимся от рассинхронизации массивов
+                        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                         if ((int)v_pdtv.size() < count)
                             count = (int)v_pdtv.size();
 
@@ -274,7 +275,7 @@ void TfrPdtv::FillDbg()
                             try {
 								v_pdtv_1 = mySplit(v_pdtv[i], L'|');
                             } catch (...) {
-                                safeShow(L"Ошибка split элемента v_pdtv[" + String(i) + L"]");
+                                safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ split пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ v_pdtv[" + String(i) + L"]");
                             }
 
                             try { kuda = v_to[i]; }
@@ -298,22 +299,22 @@ void TfrPdtv::FillDbg()
                     try {
                         dbgPdtv->AutoFitColWidths = true;
                     } catch (const Exception& e) {
-                        safeShow(L"Ошибка автоподбора ширины колонок: " + e.Message);
+                        safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: " + e.Message);
                     } catch (...) {
-                        safeShow(L"Неизвестная ошибка автоподбора ширины колонок");
+                        safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
                     }
                 }
                 catch (const Exception& e)
                 {
-                    safeShow(L"GUI-ошибка обработки PDTV: " + e.Message);
+                    safeShow(L"GUI-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ PDTV: " + e.Message);
                 }
                 catch (const std::exception& e)
 				{
-                    safeShow(L"GUI-ошибка обработки PDTV (std): " + String(e.what()));
+                    safeShow(L"GUI-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ PDTV (std): " + String(e.what()));
                 }
                 catch (...)
                 {
-                    safeShow(L"Неизвестная GUI-ошибка обработки PDTV");
+                    safeShow(L"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ GUI-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ PDTV");
                 }
 			});
 		});
@@ -322,6 +323,12 @@ void TfrPdtv::FillDbg()
 void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool &CanShow)
 
 {
+	if (dbgMain && dbgMain->DataSource && dbgMain->DataSource->DataSet &&
+		isDeletedRow(dbgMain->DataSource->DataSet)) {
+		ShowMessage(deletedFileMessage());
+		CanShow = false;
+		return;
+	}
 
 	memPdtv->Text = "";
 	memPdtv->ParentFont = true;
@@ -351,20 +358,20 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 
 	std::string err;
 
-	// 1) отправка
+	// 1) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if (!client.socketWrite(dir_str, COMMAND::FILETEXT, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
+		ShowMessage("пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: " + AnsiString(err.c_str()));
 		return;
 	}
 
-	// 2) чтение
+	// 2) пїЅпїЅпїЅпїЅпїЅпїЅ
 	std::string str;
 	if (!client.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+		ShowMessage("пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: " + AnsiString(err.c_str()));
 		return;
 	}
 
-// дальше работаем со str
+// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ str
 
 
 	TStringList* reg = new TStringList();

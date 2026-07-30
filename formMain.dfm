@@ -7,7 +7,7 @@ object fMain: TfMain
   AutoSize = True
   BiDiMode = bdLeftToRight
   BorderWidth = 1
-  Caption = 'SearchClient_asio v3.1'
+  Caption = 'SearchClient_asio v4.2'
   ClientHeight = 1372
   ClientWidth = 1944
   Color = clMoneyGreen
@@ -65,8 +65,8 @@ object fMain: TfMain
       AlignWithMargins = True
       Left = 913
       Top = 7
-      Width = 119
-      Height = 48
+      Width = 109
+      Height = 62
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -76,17 +76,18 @@ object fMain: TfMain
       Caption = #1057#1090#1072#1090#1091#1089':'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clBlack
-      Font.Height = -36
+      Font.Height = -32
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
+      ExplicitHeight = 45
     end
     object lblUser: TLabel
       AlignWithMargins = True
-      Left = 1044
+      Left = 1034
       Top = 7
-      Width = 312
-      Height = 48
+      Width = 280
+      Height = 62
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -96,10 +97,11 @@ object fMain: TfMain
       Caption = #1053#1077#1090' '#1072#1074#1090#1086#1088#1080#1079#1072#1094#1080#1080'!'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clMaroon
-      Font.Height = -36
+      Font.Height = -32
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
+      ExplicitHeight = 45
     end
     object Edit2: TEdit
       AlignWithMargins = True
@@ -373,6 +375,7 @@ object fMain: TfMain
           TitleParams.SecondColor = clSkyBlue
           TitleParams.SortMarkerStyle = smstDefaultEh
           OnCellClick = dbgEhCellClick
+          OnDrawColumnCell = dbgEhDrawColumnCell
           OnKeyPress = dbgEhKeyPress
           OnRowDetailPanelShow = dbgEhRowDetailPanelShow
           Columns = <
@@ -688,6 +691,24 @@ object fMain: TfMain
               Title.Font.Style = [fsBold]
               Visible = False
               Width = 200
+            end
+            item
+              Alignment = taCenter
+              CellButtons = <>
+              DynProps = <>
+              EditButtons = <>
+              FieldName = 'deleted'
+              Footers = <>
+              MaxWidth = 120
+              MinWidth = 70
+              TextEditing = False
+              Title.Caption = #1057#1090#1072#1090#1091#1089
+              Title.Font.Charset = DEFAULT_CHARSET
+              Title.Font.Color = clWindowText
+              Title.Font.Height = -22
+              Title.Font.Name = 'Segoe UI'
+              Title.Font.Style = [fsBold]
+              Width = 90
             end>
           object RowDetailData: TRowDetailPanelControlEh
             Margins.Left = 24
@@ -1317,7 +1338,7 @@ object fMain: TfMain
             AlignWithMargins = True
             Left = 7
             Top = 7
-            Width = 232
+            Width = 254
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1325,12 +1346,13 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1043#1088#1091#1087#1087#1072' '#1096#1072#1073#1083#1086#1085#1086#1074':'
+            ExplicitWidth = 232
           end
           object Label6: TLabel
             AlignWithMargins = True
             Left = 7
             Top = 589
-            Width = 132
+            Width = 254
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1338,6 +1360,7 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1064#1072#1073#1083#1086#1085#1099':'
+            ExplicitWidth = 132
           end
           object lstShGroups: TListBox
             AlignWithMargins = True
@@ -1730,11 +1753,11 @@ object fMain: TfMain
     Left = 352
     Top = 432
   end
-  object qryTelegi: TADOQuery
-    Connection = ConnectionRes
-    CursorType = ctStatic
+  object qryTelegi: TFDQuery
     Filtered = True
-    Parameters = <>
+    Connection = ConnectionRes
+    FetchOptions.AssignedValues = [evMode]
+    FetchOptions.Mode = fmAll
     SQL.Strings = (
       'select *'
       'from res')
@@ -1823,6 +1846,11 @@ object fMain: TfMain
       FieldName = 'blank'
       Size = 255
     end
+    object qryTelegideleted: TIntegerField
+      DisplayLabel = #1057#1090#1072#1090#1091#1089
+      FieldName = 'deleted'
+      ReadOnly = True
+    end
   end
   object memTbl: TMemTableEh
     AggregatesActive = True
@@ -1904,6 +1932,10 @@ object fMain: TfMain
         Name = 'blank'
         DataType = ftWideString
         Size = 255
+      end
+      item
+        Name = 'deleted'
+        DataType = ftInteger
       end>
     Filtered = True
     FetchAllOnOpen = True
@@ -1975,12 +2007,23 @@ object fMain: TfMain
       FieldName = 'blank'
       Size = 255
     end
+    object memTbldeleted: TIntegerField
+      FieldName = 'deleted'
+      Visible = False
+    end
   end
-  object ConnectionRes: TADOConnection
-    ConnectionString = 'Provider=MSDASQL.1;Persist Security Info=False;'
+  object ConnectionRes: TFDConnection
+    Params.Strings = (
+      'DriverID=SQLite')
     LoginPrompt = False
-    Provider = 'MSDASQL.1'
     Left = 594
+    Top = 990
+  end
+  object ConnectionSettings: TFDConnection
+    Params.Strings = (
+      'DriverID=SQLite')
+    LoginPrompt = False
+    Left = 706
     Top = 990
   end
   object popDbg: TPopupMenu
@@ -2003,10 +2046,10 @@ object fMain: TfMain
     Left = 1588
     Top = 952
   end
-  object qrySettings: TADOQuery
-    Connection = ConnectionRes
-    CursorType = ctStatic
-    Parameters = <>
+  object qrySettings: TFDQuery
+    Connection = ConnectionSettings
+    FetchOptions.AssignedValues = [evMode]
+    FetchOptions.Mode = fmAll
     SQL.Strings = (
       'select * from ports')
     Left = 881
@@ -2455,10 +2498,6 @@ object fMain: TfMain
     Left = 1826
     Top = 472
   end
-  object frxADOComponents1: TfrxADOComponents
-    Left = 1518
-    Top = 610
-  end
   object myActiomList: TActionList
     Left = 1600
     Top = 88
@@ -2562,22 +2601,6 @@ object fMain: TfMain
     Left = 274
     Top = 180
   end
-  object qry2: TADOQuery
-    Connection = ADOConnection1
-    CursorType = ctStatic
-    Parameters = <>
-    SQL.Strings = (
-      'select * from settings')
-    Left = 1330
-    Top = 552
-  end
-  object ADOConnection1: TADOConnection
-    ConnectionString = 'Provider=MSDASQL.1;Persist Security Info=False;'
-    LoginPrompt = False
-    Provider = 'MSDASQL.1'
-    Left = 1064
-    Top = 348
-  end
   object popListFilesLoad: TPopupMenu
     Left = 78
     Top = 937
@@ -2594,17 +2617,6 @@ object fMain: TfMain
     DataSet = qrySettings
     Left = 1023
     Top = 987
-  end
-  object ADODataDriverEh1: TADODataDriverEh
-    DynaSQLParams.Options = []
-    MacroVars.Macros = <>
-    SelectCommand.Parameters = <>
-    UpdateCommand.Parameters = <>
-    InsertCommand.Parameters = <>
-    DeleteCommand.Parameters = <>
-    GetrecCommand.Parameters = <>
-    Left = 1604
-    Top = 1116
   end
   object DataSetProvider1: TDataSetProvider
     Left = 354

@@ -183,7 +183,7 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
         return;
 	}
 
-    std::string err, jsonStr;
+    std::string err;
 	std::string file_name_str = file_name.c_str();
     const bool isIn = (dbgMain->Fields[7]->AsString == L"Вх.");  // тип
 
@@ -196,38 +196,32 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
 
     auto cmd = COMMAND::GET_TELEGA_SINGLE_ATACHMENT;
 
-    // 1) отправка
-    if (!client.socketWrite(str_command, cmd, &err)) {
-        ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-        return;
-    }
-
-    // 2) чтение
-    std::vector<uint8_t> str;
-    if (!client.socketReadBin(str, /*progress*/nullptr, &err) || str.empty()) {
-        ShowMessage("Файл \"" + file_name + "\" - не был найден! "
-                           + AnsiString(err.c_str()));
-        return;
-    }
-
-    // 3) Диалог сохранения файла
+    // Сначала выбираем путь: при отмене диалога файл не скачивается впустую.
     std::unique_ptr<TSaveDialog> dlg(new TSaveDialog(this));
     dlg->FileName = file_name;            // предлагаем исходное имя
     dlg->Filter = "Все файлы (*.*)|*.*";  // фильтр
     if (!dlg->Execute())
         return; // пользователь отменил
 
-    // 4) Сохраняем в выбранный файл
-    try {
-        std::ofstream out(dlg->FileName.c_str(), std::ios::binary);
-        out.write(reinterpret_cast<const char*>(str.data()), str.size());
-        out.close();
+    // Оба способа сохранения теперь используют одну транзакцию:
+    // запрос + заголовок + ровно объявленное число байт + временный .part.
+    std::uint64_t receivedSize = 0;
+    const std::string outPath = AnsiString(dlg->FileName).c_str();
+    if (!client.requestFileToPath(
+            str_command,
+            cmd,
+            outPath,
+            nullptr,
+            &receivedSize,
+            &err,
+            true)) {
+        ShowMessage("Ошибка сохранения файла \"" + file_name + "\":\n" +
+                    AnsiString(err.c_str()));
+        return;
+    }
 
-        ShowMessage("Файл успешно сохранён:\n" + dlg->FileName);
-    }
-    catch (const std::exception& e) {
-        ShowMessage("Ошибка сохранения: " + String(e.what()));
-    }
+    ShowMessage("Файл успешно сохранён:\n" + dlg->FileName +
+                "\nРазмер: " + UIntToStr(receivedSize) + " байт");
 }
 //---------------------------------------------------------------------------
 

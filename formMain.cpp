@@ -1,4 +1,4 @@
-//---------------------------------------------------------------------------
+﻿//---------------------------------------------------------------------------
 #include <vcl.h>
 #pragma hdrstop
 #include <string>
@@ -8,11 +8,14 @@
 #include <iomanip>
 #include <vector>
 #include <memory>
-#include <future>
+#include <atomic>
+#include <cstdio>
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
 #include "formRes.h"
+#include "Database\ResDbMigration.h"
+#include "Database\SqliteDb.h"
 #include <iostream>
 #include <string>
 #include <regex>
@@ -28,7 +31,6 @@
 #include <System.Threading.hpp>
 
 
-#pragma link "ADODataDriverEh"
 #pragma link "DataDriverEh"
 #pragma link "DBAxisGridsEh"
 #pragma link "DBGridEh"
@@ -51,7 +53,6 @@
 
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
-#pragma link "ADODataDriverEh"
 #pragma link "DataDriverEh"
 #pragma link "DBAxisGridsEh"
 #pragma link "DBGridEh"
@@ -63,8 +64,6 @@
 #pragma link "MemTableDataEh"
 #pragma link "MemTableEh"
 #pragma link "ToolCtrlsEh"
-#pragma link "ADODataDriverEh"
-#pragma link "ADODataDriverEh"
 #pragma link "DataDriverEh"
 #pragma link "DBAxisGridsEh"
 #pragma link "DBGridEh"
@@ -76,7 +75,6 @@
 #pragma link "MemTableDataEh"
 #pragma link "MemTableEh"
 #pragma link "ToolCtrlsEh"
-#pragma link "ADODataDriverEh"
 #pragma link "DataDriverEh"
 #pragma link "DBAxisGridsEh"
 #pragma link "DBGridEh"
@@ -90,7 +88,6 @@
 #pragma link "ToolCtrlsEh"
 #pragma link "PrnDbgeh"
 #pragma link "frxClass"
-#pragma link "frxADOComponents"
 #pragma link "frxDBSet"
 #pragma link "frxPreview"
 #pragma link "frxExportBaseDialog"
@@ -162,24 +159,30 @@ size_t getFileSize(const std::string& fs)
 	return rc == 0 ? stat_buf.st_size : -1;
 }
 
-#include "chekMestoMultiEkz.h"
-
 //#include <my_json/ConverterJSON.h>
 //#include <my_json/ConverterJSON.cpp>
-
-String sqlCSstart = "DSN=SQLite3 Datasource;Database=";
-String sqlCSsend = ";StepAPI=0;SyncPragma=NORMAL;NoTXN=0;Timeout=100000;ShortNames=0;LongNames=0;NoCreat=0;NoWCHAR=0;FKSupport=0;JournalMode=;OEMCP=0;LoadExt=;BigInt=0;JDConv=0;PWD=";
-
-
-#include <my_json/Telega.cpp>
-#include <my_json/Telega.cpp>
-#define CSTRING_RES = Provider=MSDASQL.1;Persist Security Info=False;Extended Properties="DSN=SQLite3 Datasource;Database=E:\Projects-client asio_0508\Projects-client asio\Projects\Win32\Debug\Res.db3;StepAPI=0;SyncPragma=NORMAL;NoTXN=0;Timeout=100000;ShortNames=0;LongNames=0;NoCreat=0;NoWCHAR=0;FKSupport=0;JournalMode=;OEMCP=0;LoadExt=;BigInt=0;JDConv=0;"
+#include <my_json/Telega.h>
 using namespace std;
 typedef std::map<std::string,std::map<std::string, Request>> mapTemplates;
 
-
-
-
+namespace {
+void EqualizeSettingsColumnWidths(TDBGridEh* grid)
+{
+	if (!grid || grid->Columns->Count == 0)
+		return;
+	// AutoFitColWidths preserves the initial proportions of dynamic columns.
+	// Those proportions differ for INTEGER and VARCHAR fields (notably in ports),
+	// so give every settings column the same base width before fitting the grid.
+	grid->AutoFitColWidths = false;
+	for (int i = 0; i < grid->Columns->Count; ++i) {
+		TColumnEh* column = grid->Columns->Items[i];
+		column->AutoFitColWidth = true;
+		column->Width = 100;
+	}
+	grid->AutoFitColWidths = true;
+	grid->Columns->FixupAutoFitColWidths(grid->ClientWidth);
+}
+}
 
 
 
@@ -342,8 +345,18 @@ void TfMain::pushLog(const String& s)
 __fastcall TfMain::TfMain(TComponent* Owner)
 	: TForm(Owner)
 {
-	ConnectionRes->ConnectionString = sqlCSstart +	ExtractFileDir(Application->ExeName) + "\\Res.db3" + sqlCSsend;
-	ConnectionRes->Connected = true;
+	ClientDb::EnsureReady();
+	const String exeDir = ExtractFileDir(Application->ExeName);
+	String dbError;
+	if (!ensureLocalDatabases(exeDir, &dbError)) {
+		ShowMessage(dbError);
+		throw Exception(dbError);
+	}
+	const LocalDbPaths dbPaths = makeLocalDbPaths(exeDir);
+	ClientDb::Open(ConnectionSettings, dbPaths.settingsDb);
+	ClientDb::Open(ConnectionRes, dbPaths.searchResDb);
+	ClientDb::PrepareForLocalSort(qrySettings);
+	ClientDb::PrepareForLocalSort(qryTelegi);
 	DBGridEhCenter()->FilterEditCloseUpApplyFilter = true;
 	qryTelegi->SQL->Clear();
 	qryTelegi->SQL->Add("delete from res");
@@ -400,17 +413,6 @@ std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, cons
 	delete fileStream;
 	return serializedData;
 }
-void connectLocal(TADOConnection* con_, String base_)
-{
-	static String sqlCSstart = "DSN=SQLite3 Datasource;Database=";
-	static String sqlCSsend = ";StepAPI=0;SyncPragma=NORMAL;NoTXN=0;Timeout=100000;ShortNames=0;LongNames=0;NoCreat=0;NoWCHAR=0;FKSupport=0;JournalMode=;OEMCP=0;LoadExt=;BigInt=0;JDConv=0;PWD=";
-
-	con_->Connected = false;
-
-	con_->ConnectionString = sqlCSstart + base_ + sqlCSsend;
-
-	con_->Connected = true;
-}
 
 void TfMain::InitDbgMenuDS()
 {
@@ -435,6 +437,11 @@ void TfMain::loadTextToEditFromServer()
 	rchEdt->Lines->Clear();
 	if(!checkUser() && useF12Control())
 		return;
+
+	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+		ShowMessage(deletedFileMessage());
+		return;
+	}
 
 	AnsiString ss;
 
@@ -480,7 +487,7 @@ void TfMain::loadTextToEditFromServer()
 
 }
 //---------------------------------------------------------------------------
-std::map<String,String> TfMain::getMapFromQry(TADOQuery* qry, const String& table_name)
+std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table_name)
 {
 	std::map<String,String> m;
 	qry->SQL->Text = "select * from " + table_name;
@@ -519,7 +526,7 @@ void TfMain::registryOnServer(const std::string& user_name)
 {
     try {
         // Проверяем, что сокет подключен перед регистрацией
-        if (!client_.getSocket().is_open()) {
+        if (!client_.isConnected()) {
             ShowMessage("Ошибка: сокет не подключен для регистрации");
             return;
         }
@@ -735,7 +742,11 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 {
-
+	if (saveRunning.load(std::memory_order_acquire)) {
+		Action = caNone;
+		ShowMessage("Дождитесь завершения сохранения файлов.");
+		return;
+	}
 	auto safeRelease = [this](auto* &fr) {
 
 		if (fr) {
@@ -778,7 +789,10 @@ void TfMain::clear()
 
 void __fastcall TfMain::btnConnectClick(TObject *Sender)
 {
-
+	if (saveRunning.load(std::memory_order_acquire)) {
+		ShowMessage("Дождитесь завершения сохранения файлов.");
+		return;
+	}
 	//AnsiString port, host;
    /*
 	if(edtPort->Text == "")
@@ -817,12 +831,6 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 
 
 		clear();
-
-		auto port = it->second;
-		auto host = Edit2->Text;
-		AnsiString err;
-
-		bool connecting = client_.tryConnect(host,port,err);
 
 		if(tryConnect() && auth_)
 		{
@@ -936,12 +944,11 @@ void TfMain::disConnect()
 void TfMain::disconnectTransportOnly()
 {
 	client_.disConnect();  // безопасно: не бросает, закрывает всё внутри
-	lbStatus->Caption = "Статус: отключено от сервера";
 }
-
 void TfMain::disconnectUiFull()
 {
 	disconnectTransportOnly();
+	lbStatus->Caption = "Статус: отключено от сервера";
 	PageControl1->ActivePageIndex = 0;
 	componentsEnable(false);
 }
@@ -1105,7 +1112,13 @@ void __fastcall TfMain::Button6Click(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-inline UnicodeString US(const std::string& s){ return AnsiString(s.c_str()); }
+// JSON received from the server stores text as UTF-8.  Converting these bytes
+// through AnsiString makes FireDAC persist mojibake (for example, "Р..." in
+// place of Cyrillic text) because its string parameters are Unicode.
+inline UnicodeString US(const std::string& s)
+{
+	return UTF8String(s.c_str());
+}
 
 
 //---------------------------------------------------------------------------
@@ -1114,30 +1127,31 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     static const String SQL_INSERT_RES =
         "insert into res ("
         "num, date, podp_num, date_podp, tel_num, isp, from_to, rel, dir, type, kr, "
-        "pril_name, pril_count, last_mesto, gde_sht, blank"
+        "pril_name, pril_count, last_mesto, gde_sht, blank, deleted"
         ") values ("
         ":num, :date, :podp_num, :date_podp, :tel_num, :isp, :from_to, :rel, :dir, :type, :kr, "
-        ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank"
+        ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted"
         ")";
 
     qryTelegi->Close();
     qryTelegi->SQL->Text = SQL_INSERT_RES;
 
     // типы параметров
-    auto P = qryTelegi->Parameters;
-    P->ParamByName("num")->DataType        = ftString;
-    P->ParamByName("podp_num")->DataType   = ftString;
-    P->ParamByName("tel_num")->DataType    = ftString;
-    P->ParamByName("isp")->DataType        = ftString;
-    P->ParamByName("from_to")->DataType    = ftString;
-	P->ParamByName("dir")->DataType        = ftString;
+    auto P = qryTelegi->Params;
+    P->ParamByName("num")->DataType        = ftWideString;
+    P->ParamByName("podp_num")->DataType   = ftWideString;
+    P->ParamByName("tel_num")->DataType    = ftWideString;
+    P->ParamByName("isp")->DataType        = ftWideString;
+    P->ParamByName("from_to")->DataType    = ftWideString;
+	P->ParamByName("dir")->DataType        = ftWideString;
 	P->ParamByName("type")->DataType 	   = ftWideString;
-	P->ParamByName("kr")->DataType         = ftString;
-    P->ParamByName("pril_name")->DataType  = ftString;
-    P->ParamByName("pril_count")->DataType = ftString;
-    P->ParamByName("last_mesto")->DataType = ftString;
-    P->ParamByName("gde_sht")->DataType    = ftString;
-    P->ParamByName("blank")->DataType      = ftString;
+	P->ParamByName("kr")->DataType         = ftWideString;
+    P->ParamByName("pril_name")->DataType  = ftWideString;
+    P->ParamByName("pril_count")->DataType = ftWideString;
+    P->ParamByName("last_mesto")->DataType = ftWideString;
+    P->ParamByName("gde_sht")->DataType    = ftWideString;
+    P->ParamByName("blank")->DataType      = ftWideString;
+    P->ParamByName("deleted")->DataType    = ftInteger;
 
     P->ParamByName("rel")->DataType        = ftInteger;
     P->ParamByName("date")->DataType       = ftDate;
@@ -1148,10 +1162,10 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     ggSaveProgress->MaxValue = telegi.size();
     ggSaveProgress->Progress = 0;
 
-    TADOConnection* conn = qryTelegi->Connection;
+    TFDCustomConnection* conn = qryTelegi->Connection;
     bool tranStarted = false;
 
-    try { conn->BeginTrans(); tranStarted = true; }
+    try { conn->StartTransaction(); tranStarted = true; }
     catch (const Exception& e) { ShowMessage(L"Не удалось начать транзакцию: " + e.Message); }
 
     auto normalize_gde_sht = [](std::string s)
@@ -1167,7 +1181,12 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         std::replace(t.from_to.begin(), t.from_to.end(), '\'', '"');
         std::replace(t.kr.begin(),      t.kr.end(),      '\'', '"');
 
-        const String type = (t.type == Telega::TYPE::VHOD) ? L"Вх." : L"Исх.";
+        String type;
+        switch (t.type) {
+        case Telega::TYPE::ISHOD: type = L"Исх."; break;
+        case Telega::TYPE::NOTTG: type = L"Не тг."; break;
+        default: type = L"Вх."; break;
+        }
 
         try
         {
@@ -1202,6 +1221,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             P->ParamByName("last_mesto")->Value = US(t.last_mesto);
             P->ParamByName("gde_sht")->Value    = US(normalize_gde_sht(t.gde_sht));
             P->ParamByName("blank")->Value      = US(t.blank);
+            P->ParamByName("deleted")->Value    = t.deleted ? 1 : 0;
 
             qryTelegi->ExecSQL();
         }
@@ -1222,8 +1242,8 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
 
     if (tranStarted)
     {
-        try { conn->CommitTrans(); }
-        catch (...) { conn->RollbackTrans(); throw; }
+        try { conn->Commit(); }
+        catch (...) { conn->Rollback(); throw; }
     }
 
     ggSaveProgress->Progress = ggSaveProgress->MaxValue;
@@ -1340,6 +1360,12 @@ void TfMain::setColor(String sS)
 void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Handled)
 {
     clear();
+
+    if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+        ShowMessage(deletedFileMessage());
+        Handled = true;
+        return;
+    }
 
     const String ss = dbgEh->Fields[9]->AsString;
     if (ss.IsEmpty()) {
@@ -1535,6 +1561,29 @@ void __fastcall TfMain::dbgEhCellClick(TColumnEh *Column)
    		tmLoadText->Enabled = true;
 }
 //---------------------------------------------------------------------------
+
+void __fastcall TfMain::dbgEhDrawColumnCell(TObject *Sender, const TRect &Rect,
+	int DataCol, TColumnEh *Column, Gridseh::TGridDrawState State)
+{
+	TDBGridEh* grid = static_cast<TDBGridEh*>(Sender);
+	TDataSet* ds = grid->DataSource ? grid->DataSource->DataSet : nullptr;
+	const bool deleted = isDeletedRow(ds);
+
+	if (deleted) {
+		grid->Canvas->Font->Color = clGrayText;
+		grid->Canvas->Font->Style = grid->Canvas->Font->Style << fsItalic;
+	}
+
+	if (Column && Column->FieldName == "deleted") {
+		grid->Canvas->FillRect(Rect);
+		const String text = deleted ? L"удалён" : L"";
+		grid->Canvas->TextRect(Rect, Rect.Left + 4, Rect.Top + 2, text);
+		return;
+	}
+
+	grid->DefaultDrawColumnCell(Rect, DataCol, Column, State);
+}
+//---------------------------------------------------------------------------
 void __fastcall TfMain::cmbGodChange(TObject *Sender)
 {
 	cmbGod->Enabled = false;
@@ -1556,76 +1605,9 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 
 
 int TfMain::SaveFileVh2(const std::string& out_dir,
-					   const std::pair<std::string, std::string>& f)
+					   const std::pair<std::string, std::string>& f,
+					   bool flushStreamToOs)
 {
-
-	std::string err;
-	header hdr{};
-
-
-	constexpr int MAX_TRIES = 5;
-	constexpr int RETRY_DELAY_MS = 500;
-
-
-	bool ok = true;
-
-
-	for (int attempt = 2; attempt <= MAX_TRIES + 1; ++attempt)
-	{
-		err.clear();
-
-
-
-		// отправка
-		if (!client_.socketWrite(f.second, COMMAND::GETBINFILE, &err)) {
-			pushLog("Ошибка отправки: " + AnsiString(err.c_str()));
-			ok = false;
-			break;
-		}
-
-		// чтение заголовка
-		if (!client_.readHeader(hdr, &err)) {
-			pushLog("Ошибка чтения заголовка: " + AnsiString(err.c_str()));
-			ok = false;
-
-		}
-
-        // проверка по строке
-		if (hdr.command == COMMAND::SOMEERROR)
-		{
-			ok = false;
-			break;
-		}
-
-		// проверка по строке
-		if (hdr.command == COMMAND::SERVER_BUSY_ERROR)
-		{
-			std::this_thread::sleep_for(
-				std::chrono::milliseconds(RETRY_DELAY_MS)
-			);
-
-            pushLog(
-			"Запрос файла \"" + String(f.second.c_str()) +
-			"\", попытка " + String(attempt) + " из " + String(MAX_TRIES)
-			);
-
-			continue;
-		}
-
-		ok = true;
-		break;
-	}
-
-	if (!ok)
-	{
-		pushLog(
-			"Файл \"" + String(f.second.c_str()) +
-			"\" не получен: " + String(err.c_str())
-		);
-		return 0;
-	}
-
-
     std::string file_name = f.first;
     std::string full_file_name = out_dir + "\\" + file_name;
 	std::string pref;
@@ -1647,77 +1629,62 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
             return 0;
         }
     }
-	// Прогресс только из главного потока (фоновый TTask не трогает VCL напрямую).
-	{
-		std::promise<void> uiReady;
-		std::future<void> uiWait = uiReady.get_future();
-		const std::size_t maxBytes = static_cast<std::size_t>(hdr.size);
-		TThread::Queue(nullptr, [this, maxBytes, &uiReady]() {
-			ggSaveProgress->Progress = 0;
-			ggSaveProgress->MaxValue = static_cast<int>(maxBytes);
-			uiReady.set_value();
-		});
-		uiWait.wait();
-	}
-
-	try {
-		if (!client_.getSocket().is_open()) {
-			pushLog("Ошибка: сокет не подключен для сохранения файла");
-			return 0;
+	constexpr int MAX_TRIES = 5;
+	constexpr int RETRY_DELAY_MS = 500;
+	std::string err;
+	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt) {
+		std::uint64_t receivedSize = 0;
+		if (client_.requestFileToPath(
+				f.second,
+				COMMAND::GETBINFILE,
+				full_file_name,
+				nullptr,
+				&receivedSize,
+				&err,
+				flushStreamToOs)) {
+			std::string result;
+			if (file_name == f.first)
+				result = "\"" + f.first + "\"";
+			else
+				result = "\"" + f.first + "\" (\"" + file_name + "\")";
+			pushLog(("Файл " + result + ", " + std::to_string(receivedSize) +
+				" байт - успешно сохранен!").c_str());
+			return 1;
 		}
-		
-		SocketFileSaver saver(client_.getSocket(), full_file_name, hdr.size, 64 * 1024,
-				[this](std::size_t bytes) {
-					TThread::Queue(nullptr, [this, bytes]() {
-						ggSaveProgress->AddProgress(static_cast<int>(bytes));
-					});
-				});
-
-		err = "";
-
-        if (!saver.saveToFile(err)) {
-			pushLog("Ошибка сохранения файла \"" + String(f.first.c_str()) + "\": " + String(err.c_str()));
-			// Проблемный файл не перезапускаем: реконнект и переход к следующему.
-			reconnectTransport(false);
-            return 0;
-        }
-
-        std::string result;
-        if (file_name == f.first)
-            result = "\"" + f.first + "\"";
-		else
-			result = "\"" + f.first + "\" (\"" + file_name + "\")";
-
-		pushLog(("Файл " + result + ", " + std::to_string(hdr.size) + " байт - успешно сохранен!").c_str());
+		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES) {
+			pushLog(
+				"Сервер занят при запросе файла \"" + String(f.second.c_str()) +
+				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
+			);
+			if (!reconnectTransport(false))
+				break;
+			std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+			continue;
+		}
+		break;
 	}
-	catch (const std::exception& e) {
-		pushLog("Ошибка при сохранении файла: " + String(e.what()));
-		return 0;
-	}
-	catch (...) {
-		pushLog("Неизвестная ошибка при сохранении файла");
-		return 0;
-	}
-
-    return 1;
+	pushLog("Ошибка сохранения файла \"" + String(f.first.c_str()) + "\": " +
+		String(err.c_str()));
+	// После неполной сетевой передачи поток протокола больше нельзя продолжать.
+	// requestFileToPath закрывает такой сокет; восстанавливаем транспорт для
+	// следующих файлов пакета и для последующих действий пользователя.
+	if (!client_.isConnected())
+		reconnectTransport(false);
+	return 0;
 }
 
 
 
 int TfMain::SaveFileVh(const std::string& out_dir,
 					   const std::pair<std::string, std::string>& f,
-					   bool makeDocx)
+					   bool makeDocx,
+					   bool flushStreamToOs)
 {
 
 	std::vector<uint8_t> str;
 
-		try {
-			if (!client_.getSocket().is_open()) {
-				pushLog("socket is NOT open");
-				return 0;
-			}
-		} catch (...) {
-			pushLog("socket is NOT initialized");
+		if (!client_.isConnected()) {
+			pushLog("socket is NOT open");
 			return 0;
 		}
 
@@ -1730,7 +1697,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	std::string err;
 	bool ok = false;
 
-	for (int attempt = 2; attempt <= MAX_TRIES+1; ++attempt)
+	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt)
 	{
 		str.clear();
 		err.clear();
@@ -1743,15 +1710,16 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 			break;
 
 		// проверка по строке
-		if (err.find("SERVER_BUSY") != std::string::npos)
+		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
 		{
+			if (!reconnectTransport(false))
+				break;
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds(RETRY_DELAY_MS)
 			);
-
             pushLog(
 			"Запрос файла \"" + String(f.second.c_str()) +
-			"\", попытка " + String(attempt) + " из " + String(MAX_TRIES)
+			"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
 
 
@@ -1768,6 +1736,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 			"Файл \"" + String(f.second.c_str()) +
 			"\" не получен: " + String(err.c_str())
 		);
+		if (!client_.isConnected())
+			reconnectTransport(false);
 		return 0;
 	}
 
@@ -1843,6 +1813,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 		if (file)
         {
             fwrite(&str[0], sizeof(BYTE), str.size(), file);
+			if (flushStreamToOs)
+				fflush(file);
             fclose(file);
 		}
 		else
@@ -1864,7 +1836,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 }
 
 
-int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f)
+int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f,
+	bool flushStreamToOs)
 {
 	constexpr int MAX_TRIES = 5;
 	constexpr int RETRY_DELAY_MS = 500;
@@ -1875,76 +1848,36 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 
 	std::vector<uint8_t> str;
 
-	for (int attempt = 2; attempt <= MAX_TRIES+1; ++attempt)
+	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt)
 	{
 		err.clear();
 		str.clear();
-
-
-
-		// 1) отправляем запрос
-		if (!client_.socketWrite(std::string(zip_dir.c_str()),
-								 COMMAND::GETBINFILE,
-								 &err))
-		{
-			pushLog("Ошибка отправки: " + String(err.c_str()));
-
-			if (err.find("SERVER_BUSY") != std::string::npos)
-			{
-				std::this_thread::sleep_for(
-					std::chrono::milliseconds(RETRY_DELAY_MS)
-				);
-				continue;
-			}
-
+		ok = client_.requestBinFile(std::string(zip_dir.c_str()), str, nullptr, &err);
+		if (ok && !str.empty())
 			break;
-		}
-
-		// 2) читаем бинарный ответ
-		if (!client_.socketReadBin(str, nullptr, &err))
+		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
 		{
-			pushLog("Ошибка чтения: " + String(err.c_str()));
-
-			if (err.find("SERVER_BUSY") != std::string::npos)
-			{
-				std::this_thread::sleep_for(
-					std::chrono::milliseconds(RETRY_DELAY_MS)
-				);
-
-                pushLog(
-					"Запрос файла \"" + zip_dir +
-					"\", попытка " + String(attempt) +
-					" из " + String(MAX_TRIES)
-				);
-
-				continue;
-			}
-
-			break;
+			if (!reconnectTransport(false))
+				break;
+			pushLog(
+				"Сервер занят при запросе файла \"" + zip_dir +
+				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
+			);
+			std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+			continue;
 		}
-
-		if (!str.empty())
-		{
-			ok = true;
-			break;
-		}
-
-		pushLog("Файл пустой, повтор запроса");
-
-		std::this_thread::sleep_for(
-			std::chrono::milliseconds(RETRY_DELAY_MS)
-		);
+		break;
 	}
 
 	if (!ok || str.empty())
 	{
 		pushLog(
 			"Файл \"" + zip_dir +
-			"\" не получен после " +
-			String(MAX_TRIES) +
-			" попыток. Последняя ошибка: " +
+			"\" не получен. Ошибка: " +
 			String(err.c_str())
 		);
+		if (!client_.isConnected())
+			reconnectTransport(false);
 		return 0;
 	}
 
@@ -1964,6 +1897,8 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 	if (file)
 	{
 		fwrite(&str[0], sizeof(BYTE), str.size(), file);
+		if (flushStreamToOs)
+			fflush(file);
 		fclose(file);
 	}
 	else
@@ -2028,8 +1963,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	// ===== подготовка данных (в UI потоке) =====
 
-	saveRunning.store(true, std::memory_order_release);
-
 	std::map<std::string, std::string> pril_map_vh;
     std::map<std::string, std::string> text_map;
 	std::map<String, std::vector<String>> pril_map_ish;
@@ -2061,6 +1994,11 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 		String num  = dbgEh->DataSource->DataSet->FieldValues["num"];
         String type = dbgEh->DataSource->DataSet->FieldValues["type"];
+
+		if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+			preLog->Add("Шт. " + num + " - файл удалён (только след в индексе)");
+			continue;
+		}
 
         if (pril_count == 0 && !(chkText->Checked || chkDocx->Checked)) {
             preLog->Add("Шт. " + num + " - не содержит приложений!");
@@ -2113,6 +2051,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
     }
 
     // ===== старт прогресса (UI поток) =====
+	saveRunning.store(true, std::memory_order_release);
     saveFilesDone.store(0, std::memory_order_relaxed);
     saveFilesTotal.store((uint32_t)total_file_count, std::memory_order_relaxed);
 
@@ -2128,7 +2067,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	tmSaveProgress->Enabled = true;
 
-    const bool makeDocx = chkDocx->Checked;  // фиксируем состояние чекбокса сейчас
 	const std::string out_dir_copy = out_dir_async;
 
     auto ctx = std::make_shared<SaveTaskContext>();
@@ -2140,31 +2078,33 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	ctx->out_dir  = out_dir_copy;
 	ctx->makeDocx = chkDocx->Checked;
 
-
-
 	// ===== фон =====
-	System::Threading::TTask::Run([this, ctx, guard = std::move(compGuard)]()
+	// Освобождение guard должно происходить в UI-потоке, а не в деструкторе
+	// фоновой задачи.
+	compGuard.dismiss();
+	System::Threading::TTask::Run([this, ctx]()
 	{
 		int count_suc_files = 0;
-		// Временный костыль: пауза между файлами снижает гонки loopback/UI при пакетном сохранении.
-		constexpr int kInterFileDelayMs = 200;
+		const int totalFiles = static_cast<int>(
+			ctx->text_map.size() + ctx->pril_vh.size() + ctx->pril_ish.size());
+		int fileOrdinal = 0;
 		try
 		{
 			for (const auto& f : ctx->text_map) {
-				count_suc_files += SaveFileVh(ctx->out_dir, f, ctx->makeDocx);
-				Sleep(kInterFileDelayMs);
+				const bool isLastInBatch = (++fileOrdinal == totalFiles);
+				count_suc_files += SaveFileVh(ctx->out_dir, f, ctx->makeDocx, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_vh) {
-				count_suc_files += SaveFileVh2(ctx->out_dir, f);
-				Sleep(kInterFileDelayMs);
+				const bool isLastInBatch = (++fileOrdinal == totalFiles);
+				count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_ish) {
-				count_suc_files += SaveFileIsh(ctx->out_dir, f);
-				Sleep(kInterFileDelayMs);
+				const bool isLastInBatch = (++fileOrdinal == totalFiles);
+				count_suc_files += SaveFileIsh(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 		}
@@ -2175,20 +2115,18 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 
 
-		pendingLog.push_back(
-				String(count_suc_files) + " из " +
-				String((int)saveFilesTotal.load()) +
-				" файлов успешно сохранены!"
-			);
-
-		Sleep(tmSaveProgress->Interval+10);
-		tmSaveProgress->Enabled = false;
-		tmSaveProgressTimer(nullptr);
-
-		ggSaveProgress->Progress = ggSaveProgress->MaxValue;
-		saveRunning.store(false, std::memory_order_release);
-
-
+		pushLog(
+			String(count_suc_files) + " из " +
+			String((int)saveFilesTotal.load()) +
+			" файлов успешно сохранены!"
+		);
+		TThread::Queue(nullptr, [this]() {
+			saveRunning.store(false, std::memory_order_release);
+			tmSaveProgressTimer(nullptr);
+			ggSaveProgress->Progress = ggSaveProgress->MaxValue;
+			componentsEnable(true);
+			gSaveProcessing.store(false, std::memory_order_release);
+		});
 	});
 
 
@@ -2455,6 +2393,10 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 	}
 
+	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+		tmLoadText->Enabled = false;
+		return;
+	}
 
 	std::lock_guard<std::mutex> lock(clickMutex);
 	String new_num = dbgEh->Fields[0]->AsString;
@@ -3106,6 +3048,7 @@ void __fastcall TfMain::tbcSettingsChange(TObject *Sender)
         qrySettings->Close();
         qrySettings->SQL->Text = "SELECT * FROM " + selectedTab;
         qrySettings->Open();
+		EqualizeSettingsColumnWidths(dbghSettings);
       //  ShowMessage("Таблица \"" + selectedTab + "\" успешно загружена.");
     } catch (const Exception &e) {
         ShowMessage("Ошибка при загрузке таблицы: " + e.Message);

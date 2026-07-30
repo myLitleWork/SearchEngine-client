@@ -3,7 +3,12 @@
 #ifndef myAsioClientH
 #define myAsioClientH
 
+#include <atomic>
+#include <cstdint>
+#include <functional>
 #include <mutex>
+#include <string>
+#include <vector>
 #include <boost/asio.hpp>
 
 	enum { max_length = 2048 };
@@ -54,6 +59,10 @@ using boost::asio::ip::tcp;
 
 class MyAsioClient
 {
+public:
+	using FileProgressCallback = std::function<void(std::uint64_t, std::uint64_t)>;
+
+private:
     boost::asio::io_context io_context_;
     tcp::resolver* resolver_{nullptr};
 	tcp::socket*   socket_{nullptr};
@@ -64,11 +73,20 @@ class MyAsioClient
 
 public:
 	void disConnect();
+	bool isConnected();
 
     bool requestBinFile(const std::string& path,
                     std::vector<uint8_t>& out,
                     std::atomic_uint64_t* progress = nullptr,
                     std::string* errMsg = nullptr);
+
+	bool requestFileToPath(const std::string& request,
+						  COMMAND command,
+						  const std::string& outPath,
+						  FileProgressCallback onProgress = nullptr,
+						  std::uint64_t* receivedSize = nullptr,
+						  std::string* errMsg = nullptr,
+						  bool flushStreamToOs = false);
 
 
     // уже есть у тебя:

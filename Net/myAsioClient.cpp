@@ -4,14 +4,14 @@
 
 #include "myAsioClient.h"
 #include <algorithm>
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <atomic>
 #include <chrono>
-#include <thread>
 #include <cstring>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <memory>
 #include <vector>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -26,6 +26,14 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
                              std::size_t len,
                              std::string* errMsg)
 {
+	struct ReadState {
+		boost::system::error_code readEc;
+		std::size_t bytesRead{0};
+		bool readDone{false};
+		bool timerDone{false};
+		bool timedOut{false};
+	};
+
 	auto* p = static_cast<std::uint8_t*>(dest);
 	std::size_t totalRead = 0;
 	constexpr std::size_t kBuf = 64 * 1024;
@@ -35,25 +43,23 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 	while (totalRead < len) {
 		const std::size_t need = len - totalRead;
 		const std::size_t toRead = (std::min)(need, buffer.size());
-
-		boost::system::error_code readEc;
-		std::size_t bytesRead = 0;
-		bool readDone = false;
-		bool timedOut = false;
+		auto state = std::make_shared<ReadState>();
 
 		socket.async_read_some(
 			boost::asio::buffer(buffer.data(), toRead),
-			[&](const boost::system::error_code& ec, std::size_t n) {
-				readEc = ec;
-				bytesRead = n;
-				readDone = true;
-				timer.cancel();
+			[state, &timer](const boost::system::error_code& ec, std::size_t n) {
+				state->readEc = ec;
+				state->bytesRead = n;
+				state->readDone = true;
+				boost::system::error_code ignored;
+				timer.cancel(ignored);
 			});
 
 		timer.expires_after(kSocketReadIdleTimeout);
-		timer.async_wait([&](const boost::system::error_code& ec) {
-			if (!ec && !readDone) {
-				timedOut = true;
+		timer.async_wait([state, &socket](const boost::system::error_code& ec) {
+			state->timerDone = true;
+			if (!ec && !state->readDone) {
+				state->timedOut = true;
 				boost::system::error_code ignored;
 				socket.cancel(ignored);
 			}
@@ -61,28 +67,32 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 
 		auto& ctx = static_cast<boost::asio::io_context&>(socket.get_executor().context());
 		ctx.restart();
-		while (!readDone && !timedOut) {
-			ctx.run_one();
+		while (!state->readDone || !state->timerDone) {
+			if (ctx.run_one() == 0) {
+				if (errMsg)
+					*errMsg = "Внутренняя ошибка ожидания операции чтения";
+				return false;
+			}
 		}
 
-		if (timedOut) {
+		if (state->timedOut) {
 			if (errMsg)
 				*errMsg = "Таймаут чтения из сокета (idle " +
 					std::to_string(kSocketReadIdleTimeout.count()) + " с)";
 			return false;
 		}
-		if (readEc) {
+		if (state->readEc) {
 			if (errMsg)
-				*errMsg = readEc.message();
+				*errMsg = state->readEc.message();
 			return false;
 		}
-		if (bytesRead == 0) {
+		if (state->bytesRead == 0) {
 			if (errMsg)
 				*errMsg = "Соединение закрыто до завершения чтения";
 			return false;
 		}
-		std::memcpy(p + totalRead, buffer.data(), bytesRead);
-		totalRead += bytesRead;
+		std::memcpy(p + totalRead, buffer.data(), state->bytesRead);
+		totalRead += state->bytesRead;
 	}
 	return true;
 }
@@ -91,6 +101,8 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 
 void MyAsioClient::disConnect()
 {
+	std::lock_guard<std::mutex> lk(io_mutex_);
+
 	if (socket_) {
         boost::system::error_code ec;
 		if (socket_->is_open()) {
@@ -109,6 +121,12 @@ void MyAsioClient::disConnect()
 
 }
 
+bool MyAsioClient::isConnected()
+{
+	std::lock_guard<std::mutex> lk(io_mutex_);
+	return socket_ && socket_->is_open();
+}
+
 bool MyAsioClient::requestBinFile(const std::string& path,
 								  std::vector<uint8_t>& out,
 								  std::atomic_uint64_t* progress,
@@ -119,6 +137,11 @@ bool MyAsioClient::requestBinFile(const std::string& path,
     out.clear();
     try
 	{
+		if (!socket_ || !socket_->is_open()) {
+			if (errMsg) *errMsg = "Socket is not connected";
+			return false;
+		}
+
 		// --- write request ---
         header req{};
         req.size = static_cast<uint32_t>(path.size());
@@ -130,8 +153,11 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 
         // --- read response header ---
 		header resp{};
-		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg))
+		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg)) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
 			return false;
+		}
 
 		if (resp.command == COMMAND::SOMEERROR) {
 			if (errMsg) *errMsg = "Server returned SOMEERROR";
@@ -139,7 +165,9 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 		}
 
 		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
-			if (errMsg) *errMsg = "Server returned SERVER_BUSY_ERROR";
+			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
+			boost::system::error_code ignored;
+			socket_->close(ignored);
 			return false;
 		}
 
@@ -156,8 +184,11 @@ bool MyAsioClient::requestBinFile(const std::string& path,
         while (off < total)
         {
             const std::size_t chunk = std::min(block, total - off);
-            if (!read_exact_idle_timeout(*socket_, out.data() + off, chunk, errMsg))
+            if (!read_exact_idle_timeout(*socket_, out.data() + off, chunk, errMsg)) {
+				boost::system::error_code ignored;
+				socket_->close(ignored);
                 return false;
+			}
             off += chunk;
             if (progress) progress->store(off, std::memory_order_relaxed);
         }
@@ -166,9 +197,172 @@ bool MyAsioClient::requestBinFile(const std::string& path,
     }
     catch (const std::exception& e)
     {
+		if (socket_) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+		}
         if (errMsg) *errMsg = e.what();
         return false;
     }
+}
+
+bool MyAsioClient::requestFileToPath(const std::string& request,
+									COMMAND command,
+									const std::string& outPath,
+									FileProgressCallback onProgress,
+									std::uint64_t* receivedSize,
+									std::string* errMsg,
+									bool flushStreamToOs)
+{
+	std::lock_guard<std::mutex> lk(io_mutex_);
+	namespace fs = std::filesystem;
+
+	if (receivedSize)
+		*receivedSize = 0;
+	if (errMsg)
+		errMsg->clear();
+
+	const fs::path targetPath(outPath);
+	const fs::path partPath(outPath + ".part");
+	std::error_code fsEc;
+	fs::remove(partPath, fsEc);
+
+	std::ofstream file(partPath, std::ios::binary | std::ios::trunc);
+	if (!file.is_open()) {
+		if (errMsg)
+			*errMsg = "Не удалось открыть временный файл для записи: " + partPath.string();
+		return false;
+	}
+
+	auto removePart = [&]() {
+		if (file.is_open())
+			file.close();
+		std::error_code ignored;
+		fs::remove(partPath, ignored);
+	};
+
+	auto invalidateTransport = [&]() {
+		if (socket_) {
+			boost::system::error_code ignored;
+			socket_->shutdown(tcp::socket::shutdown_both, ignored);
+			socket_->close(ignored);
+		}
+	};
+
+	try {
+		if (!socket_ || !socket_->is_open()) {
+			if (errMsg) *errMsg = "Socket is not connected";
+			removePart();
+			return false;
+		}
+
+		header req{};
+		req.size = static_cast<uint_fast64_t>(request.size());
+		req.command = command;
+
+		boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
+		if (!request.empty())
+			boost::asio::write(*socket_, boost::asio::buffer(request.data(), request.size()));
+
+		header resp{};
+		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg)) {
+			invalidateTransport();
+			removePart();
+			return false;
+		}
+
+		if (resp.command == COMMAND::SOMEERROR) {
+			if (errMsg) *errMsg = "Сервер не нашёл запрошенный файл";
+			removePart();
+			return false;
+		}
+		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
+			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
+			invalidateTransport();
+			removePart();
+			return false;
+		}
+
+		const std::uint64_t total = static_cast<std::uint64_t>(resp.size);
+		last_total_.store(total, std::memory_order_relaxed);
+		if (total == 0) {
+			if (errMsg) *errMsg = "Сервер вернул пустой файл";
+			removePart();
+			return false;
+		}
+
+		if (onProgress)
+			onProgress(0, total);
+
+		constexpr std::size_t block = 64 * 1024;
+		std::vector<std::uint8_t> buffer(block);
+		std::uint64_t totalRead = 0;
+
+		while (totalRead < total) {
+			const std::size_t chunk = static_cast<std::size_t>(
+				(std::min)(static_cast<std::uint64_t>(buffer.size()), total - totalRead));
+
+			if (!read_exact_idle_timeout(*socket_, buffer.data(), chunk, errMsg)) {
+				invalidateTransport();
+				removePart();
+				return false;
+			}
+
+			file.write(reinterpret_cast<const char*>(buffer.data()), chunk);
+			if (!file) {
+				if (errMsg) *errMsg = "Ошибка записи во временный файл";
+				invalidateTransport(); // остаток ответа нельзя оставлять в потоке протокола
+				removePart();
+				return false;
+			}
+
+			totalRead += chunk;
+			if (receivedSize)
+				*receivedSize = totalRead;
+			if (onProgress)
+				onProgress(totalRead, total);
+		}
+
+		if (flushStreamToOs) {
+			file.flush();
+			if (!file) {
+				if (errMsg) *errMsg = "Ошибка сброса буфера временного файла";
+				removePart();
+				return false;
+			}
+		}
+
+		file.close();
+		if (!file) {
+			if (errMsg) *errMsg = "Ошибка закрытия временного файла";
+			removePart();
+			return false;
+		}
+
+		fsEc.clear();
+		fs::remove(targetPath, fsEc);
+		fsEc.clear();
+		fs::rename(partPath, targetPath, fsEc);
+		if (fsEc) {
+			if (errMsg) *errMsg = "Не удалось сохранить файл: " + fsEc.message();
+			removePart();
+			return false;
+		}
+
+		return true;
+	}
+	catch (const std::exception& e) {
+		invalidateTransport();
+		removePart();
+		if (errMsg) *errMsg = e.what();
+		return false;
+	}
+	catch (...) {
+		invalidateTransport();
+		removePart();
+		if (errMsg) *errMsg = "Неизвестная ошибка передачи файла";
+		return false;
+	}
 }
 
 
@@ -177,10 +371,13 @@ bool MyAsioClient::tryConnect(const std::string& host,
                               const std::string& port,
                               std::string& errMsg)
 {
+	std::lock_guard<std::mutex> lk(io_mutex_);
+
 	try {
 		if (socket_) { delete socket_; socket_ = nullptr; }
 		if (resolver_) { delete resolver_; resolver_ = nullptr; }
 
+		io_context_.restart();
 		socket_ = new tcp::socket(io_context_);
 		resolver_ = new tcp::resolver(io_context_);
 
@@ -202,86 +399,58 @@ bool MyAsioClient::tryConnect(const std::string& host,
 			return false;
 		}
 
-		// Используем асинхронное подключение с таймаутом (2 секунды)
-		// Это предотвращает долгое зависание при недоступном сервере
-		boost::asio::deadline_timer timer(io_context_);
-		timer.expires_from_now(boost::posix_time::seconds(2));
-		
-		std::atomic<bool> completed(false);
-		boost::system::error_code connect_ec = boost::asio::error::would_block;
+		// Подключение и таймер обслуживаются в одном потоке. Перед выходом
+		// обязательно завершаем оба callback, чтобы в io_context не оставались
+		// обработчики со ссылками на уже уничтоженные локальные переменные.
+		boost::asio::steady_timer timer(io_context_);
+		timer.expires_after(std::chrono::seconds(2));
 
-		// Обработчик успешного подключения
+		boost::system::error_code connectEc = boost::asio::error::would_block;
+		bool connectDone = false;
+		bool timerDone = false;
+		bool timedOut = false;
+
 		boost::asio::async_connect(*socket_, endpoints,
 			[&](const boost::system::error_code& ec, const tcp::endpoint&) {
-				if (!completed.exchange(true)) {
-					connect_ec = ec;
-					timer.cancel();
-				}
+				connectEc = ec;
+				connectDone = true;
+				boost::system::error_code ignored;
+				timer.cancel(ignored);
 			});
 
-		// Обработчик таймаута
 		timer.async_wait([&](const boost::system::error_code& ec) {
-			if (!completed.exchange(true) && ec != boost::asio::error::operation_aborted) {
-				socket_->cancel();
-				connect_ec = boost::asio::error::timed_out;
+			timerDone = true;
+			if (!ec && !connectDone) {
+				timedOut = true;
+				boost::system::error_code ignored;
+				socket_->cancel(ignored);
 			}
 		});
 
-		// Запускаем io_context с ограничением времени
-		// Используем run() в отдельном потоке с таймаутом
-		std::thread run_thread([this]() {
-			try {
-				io_context_.run();
-			} catch (...) {
-				// Игнорируем исключения в потоке
+		while (!connectDone || !timerDone) {
+			if (io_context_.run_one() == 0) {
+				errMsg = "Connection operation stopped unexpectedly";
+				if (socket_) { delete socket_; socket_ = nullptr; }
+				if (resolver_) { delete resolver_; resolver_ = nullptr; }
+				return false;
 			}
-		});
-		
-		// Ждем завершения операции (максимум 3 секунды)
-		auto start_time = std::chrono::steady_clock::now();
-		const auto max_timeout = std::chrono::seconds(3);
-		
-		while (!completed.load()) {
-			if (std::chrono::steady_clock::now() - start_time > max_timeout) {
-				io_context_.stop();
-				if (!completed.exchange(true)) {
-					connect_ec = boost::asio::error::timed_out;
-				}
-				break;
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
-		
-		// Ждем завершения потока
-		if (run_thread.joinable()) {
-			run_thread.join();
-		}
-		
-		// Сбрасываем io_context для следующего использования
-		io_context_.reset();
 
-		// Проверяем результат подключения
-		if (connect_ec == boost::asio::error::would_block) {
-			// Операция не завершилась - таймаут
+		if (timedOut) {
 			errMsg = "Connection timeout";
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
 		}
-		
-		if (connect_ec) {
-			// Есть ошибка подключения
-			if (connect_ec == boost::asio::error::timed_out) {
-				errMsg = "Connection timeout";
-			} else {
-				errMsg = "Connection failed: " + connect_ec.message();
-			}
+
+		if (connectEc) {
+			errMsg = "Connection failed: " + connectEc.message();
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
 		}
 
-		// Подключение успешно (connect_ec == 0)
+		// Подключение успешно.
         return true;
     }
     catch (const std::exception& e) {
@@ -335,6 +504,8 @@ bool MyAsioClient::socketWrite(const std::string& s,
             boost::asio::write(*socket_, boost::asio::buffer(s.data(), s.size()));
         return true;
     } catch (const std::exception& e) {
+		boost::system::error_code ignored;
+		socket_->close(ignored);
         if (errMsg) *errMsg = e.what();
         return false;
     }
@@ -360,6 +531,8 @@ bool MyAsioClient::socketWrite(const std::vector<uint8_t>& data,
             boost::asio::write(*socket_, boost::asio::buffer(data.data(), data.size()));
         return true;
     } catch (const std::exception& e) {
+		boost::system::error_code ignored;
+		socket_->close(ignored);
         if (errMsg) *errMsg = e.what();
         return false;
     }
@@ -379,8 +552,11 @@ bool MyAsioClient::socketRead(std::string& out,
     out.clear();
     try {
         // 1) читаем заголовок ровно sizeof(header)
-        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg))
+        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg)) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
             return false;
+		}
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
             return false;
@@ -401,8 +577,11 @@ bool MyAsioClient::socketRead(std::string& out,
             const std::size_t chunk = std::min(block, left);
             buf.resize(chunk);
 
-            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg))
+            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg)) {
+				boost::system::error_code ignored;
+				socket_->close(ignored);
                 return false;
+			}
 
             out.append(buf.data(), buf.size());
             left -= chunk;
@@ -412,6 +591,8 @@ bool MyAsioClient::socketRead(std::string& out,
 
         return true;
     } catch (const std::exception& e) {
+		boost::system::error_code ignored;
+		socket_->close(ignored);
         if (errMsg) *errMsg = e.what();
         return false;
     }
@@ -431,8 +612,11 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
     out.clear();
     try {
         // 1) читаем заголовок
-        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg))
+        if (!read_exact_idle_timeout(*socket_, &myHeader_, sizeof(myHeader_), errMsg)) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
             return false;
+		}
         if (myHeader_.command == COMMAND::SOMEERROR) {
             if (errMsg) *errMsg = "Server returned SOMEERROR";
             return false;
@@ -452,8 +636,11 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
             const std::size_t chunk = std::min(block, left);
             buf.resize(chunk);
 
-            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg))
+            if (!read_exact_idle_timeout(*socket_, buf.data(), chunk, errMsg)) {
+				boost::system::error_code ignored;
+				socket_->close(ignored);
                 return false;
+			}
 
             out.insert(out.end(), buf.begin(), buf.end());
             left -= chunk;
@@ -463,6 +650,8 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
 
         return true;
     } catch (const std::exception& e) {
+		boost::system::error_code ignored;
+		socket_->close(ignored);
         if (errMsg) *errMsg = e.what();
         return false;
     }
@@ -486,8 +675,11 @@ bool MyAsioClient::readHeader(header& hdr, std::string* errMsg)
         return false;
     }
     
-    if (!read_exact_idle_timeout(*socket_, &hdr, sizeof(hdr), errMsg))
+    if (!read_exact_idle_timeout(*socket_, &hdr, sizeof(hdr), errMsg)) {
+		boost::system::error_code ignored;
+		socket_->close(ignored);
         return false;
+	}
     return true;
 }
 

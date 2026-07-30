@@ -11,7 +11,8 @@ public:
                     const std::string& outPath,
                     std::size_t fileSize,
                     std::size_t bufferSize = 64 * 1024,
-                    ProgressCallback onProgress = nullptr);
+                    ProgressCallback onProgress = nullptr,
+                    bool flushStreamToOs = false);
 
     bool saveToFile(std::string& errorMsg);
 
@@ -21,4 +22,5 @@ private:
     std::size_t fileSize_;
     std::size_t bufferSize_;
     ProgressCallback progressCallback_;
+    bool flushStreamToOs_;
 };

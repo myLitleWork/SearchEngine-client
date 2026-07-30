@@ -1,24 +1,25 @@
-﻿#include "SocketFileSaver.h"
+#include "SocketFileSaver.h"
 #include <cstdint>
 #include <fstream>
 #include <vector>
 #include <filesystem>
 #include <chrono>
+#include <memory>
 #include <boost/system/error_code.hpp>
 #include <boost/asio/steady_timer.hpp>
-
-
 
 SocketFileSaver::SocketFileSaver(boost::asio::ip::tcp::socket& socket,
                                  const std::string& outPath,
                                  std::size_t fileSize,
                                  std::size_t bufferSize,
-                                 ProgressCallback onProgress)
+                                 ProgressCallback onProgress,
+                                 bool flushStreamToOs)
     : socket_(socket),
       outPath_(outPath),
       fileSize_(fileSize),
       bufferSize_(bufferSize),
-      progressCallback_(onProgress) {}
+      progressCallback_(onProgress),
+      flushStreamToOs_(flushStreamToOs) {}
 
 bool SocketFileSaver::saveToFile(std::string& errorMsg)
 {
@@ -42,28 +43,34 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
     boost::asio::steady_timer timer(socket_.get_executor());
 
     while (totalRead < fileSize_) {
-        std::size_t toRead = std::min(bufferSize_, fileSize_ - totalRead);
+        struct ReadState {
+            boost::system::error_code readEc;
+            std::size_t bytesRead{0};
+            bool readDone{false};
+            bool timerDone{false};
+            bool timedOut{false};
+        };
 
-        boost::system::error_code readEc;
-        std::size_t bytesRead = 0;
-        bool readDone = false;
-        bool timedOut = false;
+        std::size_t toRead = std::min(bufferSize_, fileSize_ - totalRead);
+        auto state = std::make_shared<ReadState>();
 
         // Запускаем асинхронное чтение + таймер и "ждём" через run_one().
         socket_.async_read_some(
             boost::asio::buffer(buffer.data(), toRead),
-            [&](const boost::system::error_code& ec, std::size_t n) {
-                readEc = ec;
-                bytesRead = n;
-                readDone = true;
-                timer.cancel(); // остановить таймер, если чтение завершилось
+            [state, &timer](const boost::system::error_code& ec, std::size_t n) {
+                state->readEc = ec;
+                state->bytesRead = n;
+                state->readDone = true;
+                boost::system::error_code ignored;
+                timer.cancel(ignored); // остановить таймер, если чтение завершилось
             }
         );
 
         timer.expires_after(kIdleTimeout);
-        timer.async_wait([&](const boost::system::error_code& ec) {
-            if (!ec && !readDone) {
-                timedOut = true;
+        timer.async_wait([state, this](const boost::system::error_code& ec) {
+            state->timerDone = true;
+            if (!ec && !state->readDone) {
+                state->timedOut = true;
                 // Прерываем операции на сокете (чтобы async_read_some завершился).
                 boost::system::error_code ignored;
                 socket_.cancel(ignored);
@@ -74,11 +81,16 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
         // Реально под сокетом используется io_context, у него и есть restart()/run_one().
         auto& ctx = static_cast<boost::asio::io_context&>(socket_.get_executor().context());
         ctx.restart();
-        while (!readDone && !timedOut) {
-            ctx.run_one();
+        while (!state->readDone || !state->timerDone) {
+            if (ctx.run_one() == 0) {
+                errorMsg = "Внутренняя ошибка ожидания операции чтения.";
+                file.close();
+                std::filesystem::remove(tmpPath, fsEc);
+                return false;
+            }
         }
 
-        if (timedOut) {
+        if (state->timedOut) {
             errorMsg = "Таймаут чтения из сокета (ожидалось ещё " +
                        std::to_string(fileSize_ - totalRead) + " байт). Файл не будет сохранён.";
             file.close();
@@ -86,14 +98,14 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
             return false;
         }
 
-        if (readEc) {
-            errorMsg = "Ошибка чтения сокета: " + readEc.message();
+        if (state->readEc) {
+            errorMsg = "Ошибка чтения сокета: " + state->readEc.message();
             file.close();
             std::filesystem::remove(tmpPath, fsEc);
             return false;
         }
 
-        if (bytesRead == 0) {
+        if (state->bytesRead == 0) {
             errorMsg = "Соединение закрыто до завершения передачи (получено " +
                        std::to_string(totalRead) + " из " + std::to_string(fileSize_) + " байт).";
             file.close();
@@ -101,7 +113,7 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
             return false;
         }
 
-        file.write(reinterpret_cast<const char*>(buffer.data()), bytesRead);
+        file.write(reinterpret_cast<const char*>(buffer.data()), state->bytesRead);
         if (!file) {
             errorMsg = "Ошибка записи в файл.";
             file.close();
@@ -109,13 +121,25 @@ bool SocketFileSaver::saveToFile(std::string& errorMsg)
             return false;
         }
 
-        totalRead += bytesRead;
+        totalRead += state->bytesRead;
 
         if (progressCallback_)
-            progressCallback_(bytesRead);
+            progressCallback_(state->bytesRead);
+    }
+
+    // Только для последнего файла в пакете: сброс буфера ofstream в ОС перед close/rename.
+    if (flushStreamToOs_) {
+        file.flush();
+        if (!file) {
+            errorMsg = "Ошибка flush перед закрытием временного файла.";
+            file.close();
+            std::filesystem::remove(tmpPath, fsEc);
+            return false;
+        }
     }
 
     file.close();
+
     // Атомарно "доставляем" файл в целевой путь.
     std::filesystem::remove(outPath_, fsEc); // если был старый/частичный (на всякий случай)
     std::filesystem::rename(tmpPath, outPath_, fsEc);

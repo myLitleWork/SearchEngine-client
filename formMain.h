@@ -16,10 +16,11 @@
 #include <Vcl.Dialogs.hpp>
 #include <Vcl.ExtCtrls.hpp>
 #include <Data.DB.hpp>
-#include <Data.Win.ADODB.hpp>
+#include <FireDAC.Comp.Client.hpp>
+#include <FireDAC.Comp.DataSet.hpp>
+#include <FireDAC.Stan.Param.hpp>
 #include <Vcl.DBGrids.hpp>
 #include <Vcl.Grids.hpp>
-#include "ADODataDriverEh.hpp"
 #include "DataDriverEh.hpp"
 #include "DBAxisGridsEh.hpp"
 #include "DBGridEh.hpp"
@@ -31,13 +32,10 @@
 #include "MemTableDataEh.hpp"
 #include "MemTableEh.hpp"
 #include "ToolCtrlsEh.hpp"
-#include "EhLibADO.hpp"
 #include "EhLibMTE.hpp"
-#include "searchEH.h"
 #include <Vcl.Menus.hpp>
 #include "PrnDbgeh.hpp"
 #include "frxClass.hpp"
-#include "frxADOComponents.hpp"
 #include "frxDBSet.hpp"
 #include "frxPreview.hpp"
 #include <Vcl.WinXPickers.hpp>
@@ -48,6 +46,23 @@
 #include <Vcl.CheckLst.hpp>
 #include "frxExportBaseDialog.hpp"
 #include "frxExportXLS.hpp"
+#include <FireDAC.DApt.hpp>
+#include <FireDAC.DApt.Intf.hpp>
+#include <FireDAC.DatS.hpp>
+#include <FireDAC.Phys.hpp>
+#include <FireDAC.Phys.Intf.hpp>
+#include <FireDAC.Phys.SQLite.hpp>
+#include <FireDAC.Phys.SQLiteDef.hpp>
+#include <FireDAC.Phys.SQLiteWrapper.Stat.hpp>
+#include <FireDAC.Stan.Async.hpp>
+#include <FireDAC.Stan.Def.hpp>
+#include <FireDAC.Stan.Error.hpp>
+#include <FireDAC.Stan.ExprFuncs.hpp>
+#include <FireDAC.Stan.Intf.hpp>
+#include <FireDAC.Stan.Option.hpp>
+#include <FireDAC.Stan.Pool.hpp>
+#include <FireDAC.UI.Intf.hpp>
+#include <FireDAC.VCLUI.Wait.hpp>
 #include <boost/asio.hpp>
 #include <cstring>
 #include <iostream>
@@ -85,7 +100,7 @@ __published:	// IDE-managed Components
 	TEdit *Edit2;
 	TButton *btnConnect;
 	TDataSource *srcSearch;
-	TADOQuery *qryTelegi;
+	TFDQuery *qryTelegi;
 	TMemTableEh *memTbl;
 	TIntegerField *qryTeleginum;
 	TDateField *qryTelegidate;
@@ -97,12 +112,13 @@ __published:	// IDE-managed Components
 	TFloatField *qryTelegirel;
 	TWideStringField *qryTelegidir;
 	TIntegerField *qryTelegitel_num;
-	TADOConnection *ConnectionRes;
+	TFDConnection *ConnectionRes;
+	TFDConnection *ConnectionSettings;
 	TPopupMenu *popDbg;
 	TPrintDBGridEh *dbp;
 	TLabel *lbStatus;
 	TComboBox *cmbGod;
-	TADOQuery *qrySettings;
+	TFDQuery *qrySettings;
 	TIntegerField *memTblnum;
 	TDateField *memTbldate;
 	TDateField *memTbldate_podp;
@@ -127,7 +143,6 @@ __published:	// IDE-managed Components
 	TGauge *ggSaveProgress;
 	TfrxReport *frxReport;
 	TfrxDBDataset *frxDBDataset1;
-	TfrxADOComponents *frxADOComponents1;
 	TActionList *myActiomList;
 	TDataSetDriverEh *drvEh;
 	TAction *actDoSearch;
@@ -146,8 +161,6 @@ __published:	// IDE-managed Components
 	TTimer *tmLoginIn;
 	TTimer *tmLoginOut;
 	TLabel *lblUser;
-	TADOQuery *qry2;
-	TADOConnection *ADOConnection1;
 	TPopupMenu *popListFilesLoad;
 	TMenuItem *popItemClearFilesOnLoad;
 	TMenuItem *delFileLoad;
@@ -202,7 +215,6 @@ __published:	// IDE-managed Components
 	TTabSheet *tbSettings;
 	TTabControl *tbcSettings;
 	TDBGridEh *dbghSettings;
-	TADODataDriverEh *ADODataDriverEh1;
 	TDataSetProvider *DataSetProvider1;
 	TClientDataSet *ClientDataSet1;
 	TGridPanel *grdParam;
@@ -218,6 +230,8 @@ __published:	// IDE-managed Components
 	TWideStringField *memTbllast_mesto;
 	TWideStringField *memTblgde_sht;
 	TWideStringField *memTblblank;
+	TIntegerField *qryTelegideleted;
+	TIntegerField *memTbldeleted;
 	TButton *Button2;
 	TEdit *edtLatency;
 	TDBGridEh *dbgMenu;
@@ -241,6 +255,8 @@ __published:	// IDE-managed Components
 	void __fastcall N1Click(TObject *Sender);
 	void __fastcall dbgEhColumns6CellButtons0Click(TObject *Sender, bool &Handled);
 	void __fastcall dbgEhCellClick(TColumnEh *Column);
+	void __fastcall dbgEhDrawColumnCell(TObject *Sender, const TRect &Rect, int DataCol,
+		TColumnEh *Column, Gridseh::TGridDrawState State);
 	void __fastcall cmbGodChange(TObject *Sender);
 	void __fastcall btnSaveClick(TObject *Sender);
 	void __fastcall chkSQLClick(TObject *Sender);
@@ -315,7 +331,7 @@ private:	// User declarations
 
     friend class ComponentsGuard;
 
-	std::map<String,String> getMapFromQry(TADOQuery* qry, const String& table_name);
+	std::map<String,String> getMapFromQry(TFDQuery* qry, const String& table_name);
 
 	std::map<std::string,std::map<std::string, Request>> mTemplates{};
 
@@ -369,7 +385,7 @@ public:		// User declarations
 	TfrWay *myFrWay;
 
 
-	// прогресс
+	// ????????
 	std::atomic_bool     saveRunning{false};
 	std::atomic_uint32_t saveFilesDone{0};
 	std::atomic_uint32_t saveFilesTotal{0};
@@ -388,9 +404,9 @@ public:		// User declarations
 
 	void pushLog(const String& s);
 
-	// простая потокобезопасная очередь логов
+	// ??????? ???????????????? ??????? ?????
 	std::mutex log_mtx;
-	std::vector<String> pendingLog;   // строки, которые фон накидывает, GUI забирает
+	std::vector<String> pendingLog;   // ??????, ??????? ??? ??????????, GUI ????????
 
 
 	void __fastcall componentsEnable(bool b);
@@ -411,9 +427,12 @@ public:		// User declarations
 	void loadTextToEditFromServer();
 	std::vector<String> SelectFiles();
 
-	int SaveFileVh(const std::string& out_dir, const std::pair<std::string, std::string>& f, bool makeDocx = false);
-	int SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f);
-    int SaveFileVh2(const std::string& out_dir, const std::pair<std::string, std::string>& f);
+	int SaveFileVh(const std::string& out_dir, const std::pair<std::string, std::string>& f, bool makeDocx = false,
+		bool flushStreamToOs = false);
+	int SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f,
+		bool flushStreamToOs = false);
+    int SaveFileVh2(const std::string& out_dir, const std::pair<std::string, std::string>& f,
+		bool flushStreamToOs = false);
 
 	bool save_pocessing = false;
 
