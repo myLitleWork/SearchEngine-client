@@ -4,6 +4,56 @@
 #define formMainH
 
 #include "WordBatchProcessor.h"
+#include "DataDriverEh.hpp"
+#include "DBAxisGridsEh.hpp"
+#include "DBGridEh.hpp"
+#include "DBGridEhGrouping.hpp"
+#include "DBGridEhToolCtrls.hpp"
+#include "DynVarsEh.hpp"
+#include "EhLibVCL.hpp"
+#include "frxClass.hpp"
+#include "frxDBSet.hpp"
+#include "frxExportBaseDialog.hpp"
+#include "frxExportXLS.hpp"
+#include "GridsEh.hpp"
+#include "MemTableDataEh.hpp"
+#include "MemTableEh.hpp"
+#include "PrnDbgEh.hpp"
+#include "ToolCtrlsEh.hpp"
+#include <Data.DB.hpp>
+#include <Datasnap.DBClient.hpp>
+#include <Datasnap.Provider.hpp>
+#include <FireDAC.Comp.Client.hpp>
+#include <FireDAC.Comp.DataSet.hpp>
+#include <FireDAC.DApt.hpp>
+#include <FireDAC.DApt.Intf.hpp>
+#include <FireDAC.DatS.hpp>
+#include <FireDAC.Phys.hpp>
+#include <FireDAC.Phys.Intf.hpp>
+#include <FireDAC.Phys.SQLite.hpp>
+#include <FireDAC.Phys.SQLiteDef.hpp>
+#include <FireDAC.Phys.SQLiteWrapper.Stat.hpp>
+#include <FireDAC.Stan.Async.hpp>
+#include <FireDAC.Stan.Def.hpp>
+#include <FireDAC.Stan.Error.hpp>
+#include <FireDAC.Stan.ExprFuncs.hpp>
+#include <FireDAC.Stan.Intf.hpp>
+#include <FireDAC.Stan.Option.hpp>
+#include <FireDAC.Stan.Param.hpp>
+#include <FireDAC.Stan.Pool.hpp>
+#include <FireDAC.UI.Intf.hpp>
+#include <FireDAC.VCLUI.Wait.hpp>
+#include <System.Actions.hpp>
+#include <System.Classes.hpp>
+#include <Vcl.ActnList.hpp>
+#include <Vcl.ComCtrls.hpp>
+#include <Vcl.Controls.hpp>
+#include <Vcl.Dialogs.hpp>
+#include <Vcl.ExtCtrls.hpp>
+#include <Vcl.Menus.hpp>
+#include <Vcl.Samples.Gauges.hpp>
+#include <Vcl.StdCtrls.hpp>
+#include <memory>
 //---------------------------------------------------------------------------
 #include <System.Classes.hpp>
 #include <System.Generics.Collections.hpp>
@@ -398,6 +448,7 @@ public:		// User declarations
 		std::map<String, std::vector<String>> pril_ish;
 		std::string out_dir;
 		bool makeDocx = false;
+		std::shared_ptr<DocxConversionSession> docxSession;
 	};
 
 
@@ -428,7 +479,7 @@ public:		// User declarations
 	std::vector<String> SelectFiles();
 
 	int SaveFileVh(const std::string& out_dir, const std::pair<std::string, std::string>& f, bool makeDocx = false,
-		bool flushStreamToOs = false);
+		bool flushStreamToOs = false, DocxConversionSession* docxSession = nullptr);
 	int SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f,
 		bool flushStreamToOs = false);
     int SaveFileVh2(const std::string& out_dir, const std::pair<std::string, std::string>& f,
@@ -466,9 +517,6 @@ public:		// User declarations
 	 bool auth_ = false;
 	 std::string token_dir_;
 	 String last_loaded_num_;
-
-     std::mutex logMtx;
-	 std::deque<String> logQueue;
 
 	 std::atomic_bool gLogInBusy{false};
 	 std::atomic_bool gLogoutBusy{false};

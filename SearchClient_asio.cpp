@@ -3,6 +3,7 @@
 #include <vcl.h>
 #pragma hdrstop
 #include <tchar.h>
+#include "WordBatchProcessor.h"
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
 USEFORM("formRes.cpp", fRes);
@@ -13,6 +14,14 @@ USEFORM("formRes.cpp", fRes);
 //---------------------------------------------------------------------------
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {
+#ifdef _DEBUG
+	if (IsDocxTimeoutSelfTestInvocation())
+		return RunDocxTimeoutSelfTestFromCommandLine();
+#endif
+
+	if (IsDocxWorkerInvocation())
+		return RunDocxWorkerFromCommandLine();
+
 	try
 	{
 		Application->Initialize();

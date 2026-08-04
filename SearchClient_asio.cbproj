@@ -6,7 +6,7 @@
         <AppType>Application</AppType>
         <MainSource>SearchClient_asio.cpp</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <CC_Suffix Condition="'$(CC_Suffix)'==''">c</CC_Suffix>
@@ -188,6 +188,10 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <DependentOn>Database\SqliteDb.h</DependentOn>
             <BuildOrder>9</BuildOrder>
         </CppCompile>
+        <CppCompile Include="DocxConversionWorker.cpp">
+            <DependentOn>WordBatchProcessor.h</DependentOn>
+            <BuildOrder>34</BuildOrder>
+        </CppCompile>
         <DelphiCompile Include="EhLibMTE.pas">
             <BuildOrder>5</BuildOrder>
         </DelphiCompile>
@@ -314,11 +318,11 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <BuildOrder>27</BuildOrder>
         </CppCompile>
         <FormResources Include="formMain.dfm"/>
+        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <FormResources Include="formRes.dfm"/>
         <FormResources Include="Frames\FrameAttachments.dfm"/>
         <FormResources Include="Frames\FramePdtv.dfm"/>
         <FormResources Include="Frames\FrameWay.dfm"/>
-        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -1295,8 +1299,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>copy &quot;$(OUTPUTDIR)$(OUTPUTNAME).exe&quot; &quot;D:\MyDeploy\&quot; /Y
-</PostBuildEvent>
+        <PostBuildEvent>copy &quot;$(OUTPUTDIR)$(OUTPUTNAME).exe&quot; &quot;D:\MyDeploy\&quot; /Y</PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win64'">
@@ -1304,8 +1307,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>copy &quot;$(OUTPUTDIR)$(OUTPUTNAME).exe&quot; &quot;D:\MyDeploy\&quot; /Y
-</PostBuildEvent>
+        <PostBuildEvent>copy &quot;$(OUTPUTDIR)$(OUTPUTNAME).exe&quot; &quot;D:\MyDeploy\&quot; /Y</PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
 </Project>

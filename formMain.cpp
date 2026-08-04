@@ -92,6 +92,22 @@
 #pragma link "frxPreview"
 #pragma link "frxExportBaseDialog"
 #pragma link "frxExportXLS"
+#pragma link "DataDriverEh"
+#pragma link "DBAxisGridsEh"
+#pragma link "DBGridEh"
+#pragma link "DBGridEhGrouping"
+#pragma link "DBGridEhToolCtrls"
+#pragma link "DynVarsEh"
+#pragma link "EhLibVCL"
+#pragma link "frxClass"
+#pragma link "frxDBSet"
+#pragma link "frxExportBaseDialog"
+#pragma link "frxExportXLS"
+#pragma link "GridsEh"
+#pragma link "MemTableDataEh"
+#pragma link "MemTableEh"
+#pragma link "PrnDbgEh"
+#pragma link "ToolCtrlsEh"
 #pragma resource "*.dfm"
 
 
@@ -336,7 +352,7 @@ void __fastcall TfMain::GridColumnMenuClick(TObject *Sender)
 
 void TfMain::pushLog(const String& s)
 {
-	std::lock_guard<std::mutex> lk(logMtx);
+	std::lock_guard<std::mutex> lk(log_mtx);
 	pendingLog.push_back(s);
 }
 
@@ -1678,7 +1694,8 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 int TfMain::SaveFileVh(const std::string& out_dir,
 					   const std::pair<std::string, std::string>& f,
 					   bool makeDocx,
-					   bool flushStreamToOs)
+					   bool flushStreamToOs,
+					   DocxConversionSession* docxSession)
 {
 
 	std::vector<uint8_t> str;
@@ -1777,7 +1794,19 @@ int TfMain::SaveFileVh(const std::string& out_dir,
     {
         try {
             String shtPath = ExtractFilePath(Application->ExeName) + "sht.docm";
-            String outDocx = ChangeFileExt(String(out_dir.c_str()) + "\\" + String(f.first.c_str()), ".docx");
+            const String requestedOutDocx = ChangeFileExt(
+                String(out_dir.c_str()) + "\\" + String(f.first.c_str()), ".docx");
+            String outDocx = requestedOutDocx;
+
+            for (int suffix = 1; FileExists(outDocx) && suffix <= 999; ++suffix) {
+                outDocx = ExtractFilePath(requestedOutDocx) +
+                    "(" + String(suffix) + ") " + ExtractFileName(requestedOutDocx);
+            }
+            if (FileExists(outDocx)) {
+                pushLog("Не удалось подобрать свободное имя DOCX для файла \"" +
+                    String(f.first.c_str()) + "\"");
+                return 0;
+            }
 
             // Преобразуем байты в текст, применяя OemToAnsi
             AnsiString raw((const char*)&str[0], str.size());
@@ -1789,16 +1818,37 @@ int TfMain::SaveFileVh(const std::string& out_dir,
             String text = sl->Text;
 			delete sl;
 
+			pushLog("DOCX: запуск обработки файла \"" + String(f.first.c_str()) + "\"");
+			DocxConversionResult conversion;
+			if (docxSession) {
+				conversion = docxSession->Convert(
+					text,
+					outDocx,
+					DOCX_CONVERSION_TIMEOUT_MS);
+			}
+			else {
+				conversion = ConvertPlainTextToDocxWithTimeout(
+					text,
+					L"Обработка_ШТ_2022",
+					outDocx,
+					shtPath,
+					DOCX_CONVERSION_TIMEOUT_MS);
+			}
 
-            auto* ws = WordServer::getInstance();   // singleton
+			if (conversion.status == DocxConversionStatus::TimedOut) {
+				pushLog("Файл \"" + String(f.first.c_str()) +
+					"\" не удалось обработать: " + conversion.message +
+					". Файл пропущен, обработка продолжается.");
+				return 0;
+			}
+			if (conversion.status != DocxConversionStatus::Success) {
+				pushLog("Ошибка при создании DOCX для файла \"" +
+					String(f.first.c_str()) + "\": " + conversion.message);
+				return 0;
+			}
 
-				ProcessPlainText_WS(*ws,             // WordServer
-                    text,
-                    L"Обработка_ШТ_2022",
-                    outDocx,
-					shtPath);
-
-				pushLog("DOCX создан: " + outDocx);
+			pushLog("DOCX создан: " + conversion.outputPath + " (" +
+				String(conversion.elapsedMs) + " мс)");
 
 		}
         catch (const Exception &e) {
@@ -1961,6 +2011,14 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
         return;
     }
 
+	if (chkDocx->Checked) {
+		const String shtPath = ExtractFilePath(Application->ExeName) + "sht.docm";
+		if (!FileExists(shtPath)) {
+			ShowMessage("Не найден шаблон DOCX-макроса: " + shtPath);
+			return;
+		}
+	}
+
 	// ===== подготовка данных (в UI потоке) =====
 
 	std::map<std::string, std::string> pril_map_vh;
@@ -2077,6 +2135,11 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	ctx->out_dir  = out_dir_copy;
 	ctx->makeDocx = chkDocx->Checked;
+	if (ctx->makeDocx) {
+		ctx->docxSession = std::make_shared<DocxConversionSession>(
+			L"Обработка_ШТ_2022",
+			ExtractFilePath(Application->ExeName) + "sht.docm");
+	}
 
 	// ===== фон =====
 	// Освобождение guard должно происходить в UI-потоке, а не в деструкторе
@@ -2091,19 +2154,30 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 		try
 		{
 			for (const auto& f : ctx->text_map) {
-				const bool isLastInBatch = (++fileOrdinal == totalFiles);
-				count_suc_files += SaveFileVh(ctx->out_dir, f, ctx->makeDocx, isLastInBatch);
+				++fileOrdinal;
+				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
+					(ctx->makeDocx ? ": скачивание и DOCX-конвертация \"" : ": скачивание \"") +
+					String(f.first.c_str()) + "\"");
+				const bool isLastInBatch = (fileOrdinal == totalFiles);
+				count_suc_files += SaveFileVh(
+					ctx->out_dir, f, ctx->makeDocx, isLastInBatch, ctx->docxSession.get());
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_vh) {
-				const bool isLastInBatch = (++fileOrdinal == totalFiles);
+				++fileOrdinal;
+				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
+					": скачивание приложения \"" + String(f.first.c_str()) + "\"");
+				const bool isLastInBatch = (fileOrdinal == totalFiles);
 				count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
 
 			for (const auto& f : ctx->pril_ish) {
-				const bool isLastInBatch = (++fileOrdinal == totalFiles);
+				++fileOrdinal;
+				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
+					": скачивание архива \"" + ExtractFileName(f.first) + "\"");
+				const bool isLastInBatch = (fileOrdinal == totalFiles);
 				count_suc_files += SaveFileIsh(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
 			}
@@ -2113,7 +2187,10 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			pushLog("Ошибка в процессе сохранения");
 		}
 
-
+		if (ctx->docxSession) {
+			ctx->docxSession->Close();
+			ctx->docxSession.reset();
+		}
 
 		pushLog(
 			String(count_suc_files) + " из " +

@@ -7,7 +7,7 @@ object fMain: TfMain
   AutoSize = True
   BiDiMode = bdLeftToRight
   BorderWidth = 1
-  Caption = 'SearchClient_asio v4.2'
+  Caption = 'SearchClient_asio v4.3'
   ClientHeight = 1372
   ClientWidth = 1944
   Color = clMoneyGreen
