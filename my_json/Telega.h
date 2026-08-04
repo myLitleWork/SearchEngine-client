@@ -29,4 +29,7 @@ struct Telega
 	std::string last_mesto;
 	TYPE type = TYPE::VHOD;
 	bool deleted = false;
+	// Client-side provenance.  It is assigned after a server response is
+	// decoded and deliberately is not part of the wire JSON format.
+	std::string source_server_id;
 };

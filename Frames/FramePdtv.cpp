@@ -24,8 +24,8 @@
 //TfrPdtv *frPdtv;
 
 //---------------------------------------------------------------------------
-__fastcall TfrPdtv::TfrPdtv(TComponent* _Owner, MyAsioClient& _client, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
-  : TFrameDbg(_Owner, _client, _dbgMain, _dbgMenu)
+__fastcall TfrPdtv::TfrPdtv(TComponent* _Owner, MultiServerManager& manager, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
+  : TFrameDbg(_Owner, manager, _dbgMain, _dbgMenu)
 {
 
 
@@ -66,6 +66,7 @@ void TfrPdtv::FillDbg()
 		mt->EmptyTable();
 
 		auto cmd = COMMAND::GET_ISH_PDTV;
+		const std::string serverId = SourceServerId();
 
 		String numberS, to;
 
@@ -76,7 +77,7 @@ void TfrPdtv::FillDbg()
 		TCursor prev = Screen->Cursor;
 		Screen->Cursor = crHourGlass;
 
-		System::Threading::TTask::Run([this, numberS, to, cmd, prev, safeShow]()
+		System::Threading::TTask::Run([this, numberS, to, cmd, prev, safeShow, serverId]()
 		{
 			std::string number;
 			std::string jsonStr;
@@ -88,18 +89,10 @@ void TfrPdtv::FillDbg()
 				number = AnsiString(numberS).c_str();
 
 				std::string err;
-				if (!client.socketWrite(number, cmd, &err)) {
+				if (!serverManager.requestText(
+						serverId, number, cmd, jsonStr, nullptr, &err)) {
 					ok = false;
-					safeShow(L"������ socketWrite: " + AnsiString(err.c_str()));
-				}
-
-
-				if (ok) {
-					std::string err;
-					if (!client.socketRead(jsonStr, /*progress*/nullptr, &err)) {
-						ok = false;
-						safeShow(L"������ socketRead: " + AnsiString(err.c_str()));
-					}
+					safeShow(L"Ошибка запроса: " + AnsiString(err.c_str()));
 				}
 
 
@@ -359,15 +352,10 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 	std::string err;
 
 	// 1) ��������
-	if (!client.socketWrite(dir_str, COMMAND::FILETEXT, &err)) {
-		ShowMessage("������ ��������: " + AnsiString(err.c_str()));
-		return;
-	}
-
-	// 2) ������
 	std::string str;
-	if (!client.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("������ ������: " + AnsiString(err.c_str()));
+	if (!serverManager.requestText(
+			SourceServerId(), dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return;
 	}
 

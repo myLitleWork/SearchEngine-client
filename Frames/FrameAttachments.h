@@ -41,7 +41,7 @@ public:		// User declarations
 
 	void FillDbg() override;
 
-	__fastcall TfrAttachments(TComponent* Owner, MyAsioClient& client, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
+	__fastcall TfrAttachments(TComponent* Owner, MultiServerManager& manager, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
 };
 //---------------------------------------------------------------------------
 //extern PACKAGE TfrAttachments *frAttachments;

@@ -21,8 +21,8 @@
 //TfrAttachments *frAttachments;
 
 //---------------------------------------------------------------------------
-__fastcall TfrAttachments::TfrAttachments(TComponent* _Owner, MyAsioClient& _client, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
-  : TFrameDbg(_Owner, _client, _dbgMain, _dbgMenu)
+__fastcall TfrAttachments::TfrAttachments(TComponent* _Owner, MultiServerManager& manager, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
+  : TFrameDbg(_Owner, manager, _dbgMain, _dbgMenu)
 {
 	// без виртуальных вызовов здесь
 
@@ -69,14 +69,9 @@ void TfrAttachments::FillDbg()
 	   std::string jsonStr;
 
 		// 1) отправка
-		if (!client.socketWrite(str_command, cmd, &err)) {
-			ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-			return;
-		}
-
-		// 2) чтение
-		if (!client.socketRead(jsonStr, /*progress*/nullptr, &err)) {
-			ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+		if (!serverManager.requestText(
+				SourceServerId(), str_command, cmd, jsonStr, nullptr, &err)) {
+			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 			return;
 		}
 
@@ -207,7 +202,8 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
     // запрос + заголовок + ровно объявленное число байт + временный .part.
     std::uint64_t receivedSize = 0;
     const std::string outPath = AnsiString(dlg->FileName).c_str();
-    if (!client.requestFileToPath(
+	if (!serverManager.requestFileToPath(
+			SourceServerId(),
             str_command,
             cmd,
             outPath,

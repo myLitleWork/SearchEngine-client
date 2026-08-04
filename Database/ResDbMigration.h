@@ -52,6 +52,12 @@ namespace ResDbDetail
 			"CREATE TABLE \"map_vh\" (\"Value\" TEXT(255), \"Key\" TEXT(255));"
 			"DROP TABLE IF EXISTS \"ports\";"
 			"CREATE TABLE \"ports\" (\"port\" integer NOT NULL, \"god\" VARCHAR NOT NULL, PRIMARY KEY (\"port\", \"god\"));"
+			"DROP TABLE IF EXISTS \"server_ports\";"
+			"CREATE TABLE \"server_ports\" (\"server_id\" VARCHAR NOT NULL, \"god\" VARCHAR NOT NULL, "
+			"\"port\" INTEGER NOT NULL, \"enabled\" INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (\"server_id\", \"god\"));"
+			"DROP TABLE IF EXISTS \"servers\";"
+			"CREATE TABLE \"servers\" (\"server_id\" VARCHAR NOT NULL PRIMARY KEY, \"display_name\" VARCHAR NOT NULL, "
+			"\"host\" VARCHAR NOT NULL, \"enabled\" INTEGER NOT NULL DEFAULT 1, \"sort_order\" INTEGER NOT NULL DEFAULT 0);"
 			"DROP TABLE IF EXISTS \"settings\";"
 			"CREATE TABLE \"settings\" (\"key\" VARCHAR NOT NULL, \"value\" VARCHAR, PRIMARY KEY (\"key\"));"
 			"PRAGMA foreign_keys = true;";
@@ -66,7 +72,8 @@ namespace ResDbDetail
 			"\"num\" INTEGER NOT NULL, \"date\" DATE, \"date_podp\" DATE, \"isp\" VARCHAR, \"type\" VARCHAR,"
 			"\"podp_num\" VARCHAR, \"from_to\" VARCHAR, \"rel\" real, \"dir\" VARCHAR, \"tel_num\" INTEGER,"
 			"\"kr\" VARCHAR, \"pril_name\" VARCHAR, \"pril_count\" VARCHAR, \"last_mesto\" VARCHAR,"
-			"\"gde_sht\" VARCHAR, \"blank\" VARCHAR, \"deleted\" INTEGER DEFAULT 0);"
+			"\"gde_sht\" VARCHAR, \"blank\" VARCHAR, \"deleted\" INTEGER DEFAULT 0, "
+			"\"source_server_id\" VARCHAR NOT NULL DEFAULT 'default');"
 			"PRAGMA foreign_keys = true;";
 	}
 
@@ -159,6 +166,30 @@ namespace ResDbDetail
 		VclPtr<TFDConnection> con = openConnection(searchResDbPath);
 		if (!resTableHasColumn(con.get(), L"deleted"))
 			execSql(con.get(), L"ALTER TABLE res ADD COLUMN deleted INTEGER DEFAULT 0");
+	}
+
+	inline void ensureMultiServerSchema(const String& settingsDbPath,
+									const String& searchResDbPath)
+	{
+		{
+			VclPtr<TFDConnection> con = openConnection(settingsDbPath);
+			execSql(con.get(),
+				L"CREATE TABLE IF NOT EXISTS servers ("
+				L"server_id VARCHAR NOT NULL PRIMARY KEY, display_name VARCHAR NOT NULL, "
+				L"host VARCHAR NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, "
+				L"sort_order INTEGER NOT NULL DEFAULT 0)");
+			execSql(con.get(),
+				L"CREATE TABLE IF NOT EXISTS server_ports ("
+				L"server_id VARCHAR NOT NULL, god VARCHAR NOT NULL, port INTEGER NOT NULL, "
+				L"enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (server_id, god))");
+		}
+
+		if (!FileExists(searchResDbPath))
+			return;
+		VclPtr<TFDConnection> con = openConnection(searchResDbPath);
+		if (!resTableHasColumn(con.get(), L"source_server_id"))
+			execSql(con.get(),
+				L"ALTER TABLE res ADD COLUMN source_server_id VARCHAR NOT NULL DEFAULT 'default'");
 	}
 
 	inline bool copyTableAttach(
@@ -339,6 +370,7 @@ inline bool ensureLocalDatabases(const String& exeDir, String* errorMsg)
 		}
 
 		ResDbDetail::ensureResDeletedColumn(paths.searchResDb);
+		ResDbDetail::ensureMultiServerSchema(paths.settingsDb, paths.searchResDb);
 
 		return true;
 	} catch (const Exception& e) {

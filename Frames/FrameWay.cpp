@@ -34,8 +34,8 @@
 //TfrWay *frWay;
 
 
-__fastcall TfrWay::TfrWay(TComponent* _Owner, MyAsioClient& _client, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
-  : TFrameDbg(_Owner, _client, _dbgMain, _dbgMenu)
+__fastcall TfrWay::TfrWay(TComponent* _Owner, MultiServerManager& manager, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
+  : TFrameDbg(_Owner, manager, _dbgMain, _dbgMenu)
 {
 
 
@@ -112,12 +112,13 @@ void TfrWay::FillDbg()
 	const String dirType = dbgMain->Fields[7]->AsString;
 	const COMMAND cmd = (dirType == L"Вх.") ? COMMAND::GET_VH_TELEGA_WAY
 											: COMMAND::GET_ISH_TELEGA_WAY;
+	const std::string serverId = SourceServerId();
 
 
 	Screen->Cursor = crHourGlass;
 
 
-	System::Threading::TTask::Run([this, numberS, cmd]() {
+	System::Threading::TTask::Run([this, numberS, cmd, serverId]() {
 		std::string number = AnsiString(numberS).c_str();
 		std::string jsonStr;
 		bool ok = true;
@@ -127,14 +128,10 @@ void TfrWay::FillDbg()
 		try {
 			std::string err;
 
-			if (!client.socketWrite(number, cmd, &err)) {
-				ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
+			if (!serverManager.requestText(serverId, number, cmd, jsonStr, nullptr, &err)) {
+				const String message = "Ошибка запроса: " + AnsiString(err.c_str());
+				TThread::Queue(nullptr, [message]() { ShowMessage(message); });
 				ok = false;
-			} else {
-				if (!client.socketRead(jsonStr, /*progress*/nullptr, &err)) {
-					ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
-					ok = false;
-				}
 			}
 
 			if (ok) {

@@ -132,6 +132,7 @@
 
 #include "Message.h"
 #include "myAsioClient.h"
+#include "MultiServerManager.h"
 #include "utils.h"
 
 
@@ -282,6 +283,8 @@ __published:	// IDE-managed Components
 	TWideStringField *memTblblank;
 	TIntegerField *qryTelegideleted;
 	TIntegerField *memTbldeleted;
+	TWideStringField *qryTelegisource_server_id;
+	TWideStringField *memTblsource_server_id;
 	TButton *Button2;
 	TEdit *edtLatency;
 	TDBGridEh *dbgMenu;
@@ -395,7 +398,22 @@ private:	// User declarations
 	bool searchSuccess = false;
 	std::string searchError;
 	std::vector<Telega> telegi_async;
+	struct ServerSearchFailure
+	{
+		std::string serverId;
+		std::string displayName;
+		std::string error;
+	};
+	std::vector<ServerSearchFailure> searchFailures_async;
+	int searchServerSuccessCount = 0;
+	int searchServerTotalCount = 0;
 	TObject* lastSender = nullptr;
+
+	void ensureServerCatalogSeeded(const String& fallbackHost);
+	void reloadAvailableYears();
+	bool configureServersForCurrentYear(String* errorMessage = nullptr);
+	std::string currentSourceServerId() const;
+	std::string primaryServerId() const;
 
     int saveResultCount = 0;
     int saveTotalCount = 0;
@@ -428,7 +446,7 @@ private:	// User declarations
 public:		// User declarations
 
 
-	MyAsioClient client_;
+	MultiServerManager serverManager_;
 
 	TfrAttachments *myFrAttachments;
 	TfrPdtv *myFrPdtv;
@@ -441,11 +459,25 @@ public:		// User declarations
 	std::atomic_uint32_t saveFilesTotal{0};
 
 
-    struct SaveTaskContext
+	struct RemoteFileRequest
 	{
-		std::map<std::string, std::string> pril_vh;
-		std::map<std::string, std::string> text_map;
-		std::map<String, std::vector<String>> pril_ish;
+		std::string serverId;
+		std::string outputName;
+		std::string remotePath;
+	};
+
+	struct RemoteArchiveRequest
+	{
+		std::string serverId;
+		String remotePath;
+		std::vector<String> files;
+	};
+
+	struct SaveTaskContext
+	{
+		std::vector<RemoteFileRequest> pril_vh;
+		std::vector<RemoteFileRequest> text_files;
+		std::vector<RemoteArchiveRequest> pril_ish;
 		std::string out_dir;
 		bool makeDocx = false;
 		std::shared_ptr<DocxConversionSession> docxSession;
@@ -478,11 +510,11 @@ public:		// User declarations
 	void loadTextToEditFromServer();
 	std::vector<String> SelectFiles();
 
-	int SaveFileVh(const std::string& out_dir, const std::pair<std::string, std::string>& f, bool makeDocx = false,
+	int SaveFileVh(const std::string& out_dir, const RemoteFileRequest& f, bool makeDocx = false,
 		bool flushStreamToOs = false, DocxConversionSession* docxSession = nullptr);
-	int SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f,
+	int SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& f,
 		bool flushStreamToOs = false);
-    int SaveFileVh2(const std::string& out_dir, const std::pair<std::string, std::string>& f,
+	int SaveFileVh2(const std::string& out_dir, const RemoteFileRequest& f,
 		bool flushStreamToOs = false);
 
 	bool save_pocessing = false;
@@ -490,7 +522,7 @@ public:		// User declarations
 	void disConnect();
 	void disconnectTransportOnly();
 	void disconnectUiFull();
-	bool reconnectTransport(bool reregister = false);
+	bool reconnectTransport(const std::string& serverId = std::string{});
 	bool tryConnect();
 
 	std::mutex clickMutex;

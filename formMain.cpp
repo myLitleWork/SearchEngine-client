@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <thread>
 #include <cstdio>
 #include <System.JSON.hpp>
 #include "stdint.h"
@@ -471,15 +472,11 @@ void TfMain::loadTextToEditFromServer()
 
 
 	std::string err;
-
-	if (!client_.socketWrite(std::string(AnsiString(ss).c_str()), COMMAND::FILETEXT, &err)) {
-		ShowMessage("Ошибка отправки: " + String(err.c_str()));
-		return;
-	}
-
 	std::string str;
-	if (!client_.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + String(err.c_str()));
+	if (!serverManager_.requestText(
+			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
+			COMMAND::FILETEXT, str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + String(err.c_str()));
 		return;
 	}
 
@@ -520,6 +517,123 @@ std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table
 	return std::move(m);
 }
 
+void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
+{
+	std::unique_ptr<TFDQuery> q(new TFDQuery(nullptr));
+	q->Connection = ConnectionSettings;
+	q->SQL->Text = L"SELECT COUNT(*) AS cnt FROM servers";
+	q->Open();
+	if (q->FieldByName(L"cnt")->AsInteger > 0)
+		return;
+
+	TFDCustomConnection* connection = q->Connection;
+	connection->StartTransaction();
+	try {
+		q->Close();
+		q->SQL->Text =
+			L"INSERT INTO servers (server_id, display_name, host, enabled, sort_order) "
+			L"VALUES ('default', 'Основной сервер', :host, 1, 0)";
+		q->ParamByName(L"host")->AsString = fallbackHost;
+		q->ExecSQL();
+
+		q->SQL->Text =
+			L"INSERT OR IGNORE INTO server_ports (server_id, god, port, enabled) "
+			L"SELECT 'default', god, port, 1 FROM ports";
+		q->ExecSQL();
+		connection->Commit();
+	}
+	catch (...) {
+		connection->Rollback();
+		throw;
+	}
+}
+
+void TfMain::reloadAvailableYears()
+{
+	cmbGod->Items->BeginUpdate();
+	try {
+		const String selected = cmbGod->Text;
+		cmbGod->Items->Clear();
+		mapPorts.clear();
+
+		qrySettings->Close();
+		qrySettings->SQL->Text =
+			L"SELECT DISTINCT god FROM server_ports WHERE enabled <> 0 ORDER BY god DESC";
+		qrySettings->Open();
+		while (!qrySettings->Eof) {
+			const String year = qrySettings->FieldByName(L"god")->AsString;
+			cmbGod->Items->Add(year);
+			qrySettings->Next();
+		}
+
+		const int oldIndex = cmbGod->Items->IndexOf(selected);
+		cmbGod->ItemIndex = oldIndex >= 0 ? oldIndex : (cmbGod->Items->Count > 0 ? 0 : -1);
+	}
+	__finally {
+		cmbGod->Items->EndUpdate();
+	}
+}
+
+bool TfMain::configureServersForCurrentYear(String* errorMessage)
+{
+	if (cmbGod->Text.IsEmpty()) {
+		if (errorMessage) *errorMessage = L"Не выбран год поиска";
+		return false;
+	}
+
+	std::vector<ServerEndpoint> endpoints;
+	qrySettings->Close();
+	qrySettings->SQL->Text =
+		L"SELECT s.server_id, s.display_name, s.host, p.port "
+		L"FROM servers s JOIN server_ports p ON p.server_id = s.server_id "
+		L"WHERE s.enabled <> 0 AND p.enabled <> 0 AND p.god = :god "
+		L"ORDER BY s.sort_order, s.display_name, s.server_id";
+	qrySettings->ParamByName(L"god")->AsString = cmbGod->Text;
+	qrySettings->Open();
+
+	while (!qrySettings->Eof) {
+		ServerEndpoint endpoint;
+		endpoint.id = AnsiString(qrySettings->FieldByName(L"server_id")->AsString).c_str();
+		endpoint.displayName = UTF8String(qrySettings->FieldByName(L"display_name")->AsString).c_str();
+		endpoint.host = AnsiString(qrySettings->FieldByName(L"host")->AsString).c_str();
+		endpoint.port = AnsiString(qrySettings->FieldByName(L"port")->AsString).c_str();
+		endpoint.enabled = true;
+		endpoints.push_back(endpoint);
+		qrySettings->Next();
+	}
+
+	if (endpoints.empty()) {
+		if (errorMessage)
+			*errorMessage = L"Для " + cmbGod->Text + L" года не настроено ни одного сервера";
+		return false;
+	}
+
+	serverManager_.configure(endpoints, endpoints.front().id);
+	serverManager_.setUser(user_);
+	Edit2->Text = String(endpoints.front().host.c_str());
+	return true;
+}
+
+std::string TfMain::primaryServerId() const
+{
+	return serverManager_.primaryServerId();
+}
+
+std::string TfMain::currentSourceServerId() const
+{
+	try {
+		if (dbgEh && dbgEh->DataSource && dbgEh->DataSource->DataSet &&
+			dbgEh->DataSource->DataSet->Active) {
+			TField* field = dbgEh->DataSource->DataSet->FindField(L"source_server_id");
+			if (field && !field->AsString.IsEmpty())
+				return AnsiString(field->AsString).c_str();
+		}
+	}
+	catch (...) {
+	}
+	return primaryServerId();
+}
+
 bool TfMain::useF12Control()
 {
 
@@ -541,29 +655,10 @@ bool TfMain::useF12Control()
 void TfMain::registryOnServer(const std::string& user_name)
 {
     try {
-        // Проверяем, что сокет подключен перед регистрацией
-        if (!client_.isConnected()) {
-            ShowMessage("Ошибка: сокет не подключен для регистрации");
-            return;
-        }
-
-        const COMMAND command = COMMAND::USER_REGISTRY;
-        std::string err;
-
-        if (!client_.socketWrite(user_name, command, &err)) {
-            ShowMessage("Ошибка отправки регистрации: " + String(err.c_str()));
-            return;
-        }
-
-        std::string reply;
-        if (!client_.socketRead(reply, /*progress*/nullptr, &err)) {
-            ShowMessage("Ошибка чтения ответа регистрации: " + String(err.c_str()));
-            return;
-        }
-
-        if (reply != "OK") {
-            ShowMessage("Ошибка регистрации на сервере! Ответ: " + String(reply.c_str()));
-        }
+		serverManager_.setUser(user_name);
+		std::string err;
+		if (!serverManager_.connectPrimary(&err))
+			ShowMessage("Ошибка регистрации на сервере: " + String(err.c_str()));
     }
     catch (const std::exception& e) {
         ShowMessage("Ошибка регистрации: " + String(e.what()));
@@ -576,7 +671,14 @@ void TfMain::registryOnServer(const std::string& user_name)
 void __fastcall TfMain::finishSearch()
 {
 	if (!searchSuccess) {
-        ShowMessage(String(searchError.c_str()));
+		std::unique_ptr<TStringList> message(new TStringList());
+		message->Add(String(searchError.c_str()));
+		for (const auto& failure : searchFailures_async) {
+			const String name = UTF8String(failure.displayName.c_str());
+			message->Add(L"• " + name + L": " + String(failure.error.c_str()));
+		}
+		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount);
+		ShowMessage(message->Text);
 		btnSearch->Enabled = true;
         return;
     }
@@ -604,8 +706,27 @@ void __fastcall TfMain::finishSearch()
 		dbgEh->SelectedRows->CurrentRowSelected = true;
 		dbgEh->OnCellClick((TColumnEh*)lastSender);
 	}
-	static_cast<TButton*>(lastSender)->Enabled = true;
+	if (TButton* button = dynamic_cast<TButton*>(lastSender))
+		button->Enabled = true;
 	dbgEh->Enabled = true;
+
+	if (!searchFailures_async.empty()) {
+		std::unique_ptr<TStringList> failures(new TStringList());
+		failures->Add(
+			L"Получены ответы от " + String(searchServerSuccessCount) + L" из " +
+			String(searchServerTotalCount) + L" серверов.");
+		for (const auto& failure : searchFailures_async) {
+			const String name = UTF8String(failure.displayName.c_str());
+			failures->Add(L"• " + name + L": " + String(failure.error.c_str()));
+		}
+		lbStatus->Caption = L"Поиск завершён частично: " +
+			String(searchServerSuccessCount) + L"/" + String(searchServerTotalCount);
+		ShowMessage(failures->Text);
+	}
+	else {
+		lbStatus->Caption = L"Поиск завершён: серверов " + String(searchServerSuccessCount) +
+			L", результатов " + String(static_cast<int>(telegi.size()));
+	}
 
 	if(cmbReq->CanFocus())
 	cmbReq->SetFocus();
@@ -627,8 +748,8 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 
 	last_loaded_num_ = "";
-    bool isChkSQL = chkSQL->Checked;
-	bool isChkExc = chkExc->Checked;
+	const bool isChkSQL = chkSQL->Checked;
+	const bool isChkExc = chkExc->Checked;
 
 	if (cmbReq->Text == "" && !isChkSQL) {
         return;
@@ -636,8 +757,12 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 	ComboHistory.add(AnsiString{cmbReq->Text}.c_str());
 	clear();
+	searchFailures_async.clear();
+	searchServerSuccessCount = 0;
+	searchServerTotalCount = 0;
 
-    static_cast<TButton*>(Sender)->Enabled = false;
+	if (TButton* button = dynamic_cast<TButton*>(Sender))
+		button->Enabled = false;
     dbgEh->RowDetailPanel->Visible = false;
 
     // --- Собираем копии нужных полей для лямбды ---
@@ -651,105 +776,126 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
         AnsiToOem(s.c_str(), s.c_str());
 
 	String cmbFieldText = cmbField->Text;
-    int rgTypeTIndex = rgTypeT->ItemIndex;
+    const int rgTypeTIndex = rgTypeT->ItemIndex;
 	int cmbMaxReqInt = 0;
     try { cmbMaxReqInt = StrToInt(cmbMaxReq->Text); } catch (...) {}
 
-
-    // --- Запуск фоновой задачи ---
-	System::Threading::TTask::Run([this, tok, s, isChkSQL, Sender, rgTypeTIndex, cmbMaxReqInt, cmbFieldText, isChkExc]() {
-		std::string d_local;
-		COMMAND command_local;
-		AnsiString s_local = s;
-
-		// Логика выбора команды и параметров (оставь свою!)
-		if (isChkSQL) {
-
-			if(cmbReq->Text.IsEmpty())
-			{
-				cmbField->Text = "SQL";
-				cmbReq->Text = "1=1";
-			}
-
-            SqlCondition::TYPE type;
-			if (rgTypeTIndex == 0) {
-                command_local = COMMAND::GET_VH_TELEGI_FROM_SQL;
-                type = SqlCondition::TYPE::VH;
-            } else {
-				command_local = COMMAND::GET_ISH_TELEGI_FROM_SQL;
-                type = SqlCondition::TYPE::ISH;
-            }
-			SqlCondition::max = cmbMaxReqInt;
-
-			if (cmbFieldText == "SQL") {
-				s_local += " order by `index` desc limit " + IntToStr(SqlCondition::max);
-				d_local = conv::to_string(String(s_local).c_str());
-            } else {
-				auto myFunc = SqlCondition::getFuncCondition(type, isChkExc);
-                d_local = conv::to_string(myFunc(cmbFieldText, s_local).c_str());
-            }
-        } else {
-            command_local = COMMAND::GETSQLJSONANSWEAR;
-			d_local = AnsiString(s_local).c_str();
-        }
-
-		std::string str;
-        // --- Работа с сетью и разбор ответа ---
-		try {
-			std::string err;
-
-			// 1) отправка
-			if (!client_.socketWrite(d_local, command_local, &err)) {
-				this->searchSuccess = false;
-				this->searchError   = "Ошибка отправки данных на сервер: " + my_utils::toAnsi(err);
-				this->lastSender    = Sender;
-				TThread::Queue(nullptr, [this, tok]() { finishSearch(); });
-				return;
-			}
-
-			// 2) чтение ответа
-			if (!client_.socketRead(str, /*progress*/nullptr, &err)) {  // или &rxProgress_
-				this->searchSuccess = false;
-				this->searchError   = "Ошибка получения данных от сервера: " + my_utils::toAnsi(err);
-				this->lastSender    = Sender;
-				TThread::Queue(nullptr, [this, tok]() { finishSearch(); });
-				return;
-			}
-
-			// дальше используйте str
-
-        } catch (const std::exception& e) {
-			this->searchSuccess = false;
-			this->searchError = e.what();
-			this->lastSender = Sender;
-			TThread::Queue(nullptr, [this, tok]() {
-			finishSearch();
-			});
-            return;
+	std::string requestBody;
+	COMMAND searchCommand = COMMAND::GETSQLJSONANSWEAR;
+	AnsiString requestText = s;
+	if (isChkSQL) {
+		if (cmbReq->Text.IsEmpty()) {
+			cmbField->Text = L"SQL";
+			cmbReq->Text = L"1=1";
+			cmbFieldText = L"SQL";
+			requestText = AnsiString(cmbReq->Text);
 		}
 
-		if (str == "update") {
-			this->searchSuccess = false;
-			this->searchError = "Идет обновление! Повторите запрос позже!";
-			this->lastSender = Sender;
-			TThread::Queue(nullptr, [this, tok]() { finishSearch(); });
-            return;
-        }
+		SqlCondition::TYPE type;
+		if (rgTypeTIndex == 0) {
+			searchCommand = COMMAND::GET_VH_TELEGI_FROM_SQL;
+			type = SqlCondition::TYPE::VH;
+		}
+		else {
+			searchCommand = COMMAND::GET_ISH_TELEGI_FROM_SQL;
+			type = SqlCondition::TYPE::ISH;
+		}
+		SqlCondition::max = cmbMaxReqInt;
 
-        try {
-			this->telegi_async = JSON::get<std::vector<Telega>>(str);
-			this->searchSuccess = true;
-			this->searchError.clear();
-            this->lastSender = Sender;
-		} catch (...) {
-			this->searchSuccess = false;
-			this->searchError = "Ошибка разбора данных!";
-            this->lastSender = Sender;
-            // Можно не дублировать вызов, сделать ниже (но для надёжности лучше всегда вызывать сразу)
-        }
-		// --- Завершение: возврат в UI-поток
-		TThread::Queue(nullptr, [this, tok]() {
+		if (cmbFieldText == L"SQL") {
+			requestText += " order by `index` desc limit " + IntToStr(SqlCondition::max);
+			requestBody = conv::to_string(String(requestText).c_str());
+		}
+		else {
+			auto buildCondition = SqlCondition::getFuncCondition(type, isChkExc);
+			requestBody = conv::to_string(buildCondition(cmbFieldText, requestText).c_str());
+		}
+	}
+	else {
+		requestBody = std::string(requestText.c_str());
+	}
+
+	const std::vector<std::string> serverIds = serverManager_.serverIds();
+	if (serverIds.empty()) {
+		searchSuccess = false;
+		searchError = "Для выбранного года нет настроенных серверов";
+		lastSender = Sender;
 		finishSearch();
+		return;
+	}
+
+    // --- Запуск фоновой задачи ---
+	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds, Sender]() {
+		struct Outcome {
+			std::string serverId;
+			std::string displayName;
+			std::vector<Telega> hits;
+			std::string error;
+			bool success{false};
+		};
+
+		std::vector<Outcome> outcomes(serverIds.size());
+		std::vector<std::thread> workers;
+		workers.reserve(serverIds.size());
+		for (std::size_t i = 0; i < serverIds.size(); ++i) {
+			workers.emplace_back([this, &outcomes, &serverIds, &requestBody, searchCommand, i]() {
+				Outcome& outcome = outcomes[i];
+				outcome.serverId = serverIds[i];
+				outcome.displayName = serverManager_.displayName(outcome.serverId);
+				try {
+					std::string response;
+					if (!serverManager_.requestText(
+							outcome.serverId, requestBody, searchCommand, response, nullptr,
+							&outcome.error))
+						return;
+					if (response == "update") {
+						outcome.error = "Идёт обновление базы";
+						return;
+					}
+					outcome.hits = JSON::get<std::vector<Telega>>(response);
+					for (auto& hit : outcome.hits)
+						hit.source_server_id = outcome.serverId;
+					outcome.success = true;
+				}
+				catch (const std::exception& e) {
+					outcome.error = e.what();
+				}
+				catch (...) {
+					outcome.error = "Ошибка разбора ответа";
+				}
+			});
+		}
+
+		for (auto& worker : workers)
+			if (worker.joinable()) worker.join();
+
+		std::vector<Telega> merged;
+		std::vector<ServerSearchFailure> failures;
+		int successes = 0;
+		for (auto& outcome : outcomes) {
+			if (outcome.success) {
+				++successes;
+				merged.insert(merged.end(),
+					std::make_move_iterator(outcome.hits.begin()),
+					std::make_move_iterator(outcome.hits.end()));
+			}
+			else {
+				failures.push_back({outcome.serverId, outcome.displayName, outcome.error});
+			}
+		}
+
+		this->telegi_async = std::move(merged);
+		this->searchFailures_async = std::move(failures);
+		this->searchServerSuccessCount = successes;
+		this->searchServerTotalCount = static_cast<int>(outcomes.size());
+		this->searchSuccess = successes > 0;
+		this->searchError = successes > 0
+			? std::string{}
+			: std::string("Ни один сервер не ответил успешно");
+		this->lastSender = Sender;
+
+		TThread::Queue(nullptr, [this, tok]() {
+			finishSearch();
 		});
 	});
 }
@@ -825,14 +971,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
    //	host = Edit2->Text;
 
 	try {
-		auto it = mapPorts.find(cmbGod->Text);
-		if (it == mapPorts.end()) {
-			ShowMessage("Ошибка: не найден порт для года " + cmbGod->Text);
-			lbStatus->Caption = "Статус: ошибка конфигурации";
-			return;
-		}
-		
-		lbStatus->Caption = "Статус: подключение к серверу " + Edit2->Text + ":" + it->second + " " + cmbGod->Text + " год ...";
+		lbStatus->Caption = "Статус: подключение к серверам, " + cmbGod->Text + " год ...";
 
 
 		qryTelegi->SQL->Text = ("delete from res");
@@ -959,7 +1098,7 @@ void TfMain::disConnect()
 
 void TfMain::disconnectTransportOnly()
 {
-	client_.disConnect();  // безопасно: не бросает, закрывает всё внутри
+	serverManager_.disconnectAll();
 }
 void TfMain::disconnectUiFull()
 {
@@ -969,33 +1108,15 @@ void TfMain::disconnectUiFull()
 	componentsEnable(false);
 }
 
-bool TfMain::reconnectTransport(bool reregister)
+bool TfMain::reconnectTransport(const std::string& requestedServerId)
 {
-	std::string host;
-	std::string port;
-	{
-		std::lock_guard<std::mutex> lk(connectionParamsMtx_);
-		host = lastHost_;
-		port = lastPort_;
-	}
-
-	if (host.empty() || port.empty()) {
-		pushLog("Авто-реконнект невозможен: не сохранены параметры подключения");
-		return false;
-	}
-
-	disconnectTransportOnly();
-
+	const std::string serverId = requestedServerId.empty() ? primaryServerId() : requestedServerId;
 	std::string err;
-	if (!client_.tryConnect(host, port, err)) {
+	if (!serverManager_.reconnect(serverId, &err)) {
 		pushLog("Авто-реконнект не выполнен: " + String(err.c_str()));
 		return false;
 	}
-
-	pushLog("Авто-реконнект выполнен: " + String(host.c_str()) + ":" + String(port.c_str()));
-	if (reregister && !user_.empty()) {
-		pushLog("Перерегистрация пользователя после реконнекта пропущена");
-	}
+	pushLog("Авто-реконнект выполнен: " + String(serverId.c_str()));
 	return true;
 }
 
@@ -1143,10 +1264,10 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     static const String SQL_INSERT_RES =
         "insert into res ("
         "num, date, podp_num, date_podp, tel_num, isp, from_to, rel, dir, type, kr, "
-        "pril_name, pril_count, last_mesto, gde_sht, blank, deleted"
+        "pril_name, pril_count, last_mesto, gde_sht, blank, deleted, source_server_id"
         ") values ("
         ":num, :date, :podp_num, :date_podp, :tel_num, :isp, :from_to, :rel, :dir, :type, :kr, "
-        ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted"
+        ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted, :source_server_id"
         ")";
 
     qryTelegi->Close();
@@ -1168,6 +1289,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     P->ParamByName("gde_sht")->DataType    = ftWideString;
     P->ParamByName("blank")->DataType      = ftWideString;
     P->ParamByName("deleted")->DataType    = ftInteger;
+	P->ParamByName("source_server_id")->DataType = ftWideString;
 
     P->ParamByName("rel")->DataType        = ftInteger;
     P->ParamByName("date")->DataType       = ftDate;
@@ -1238,6 +1360,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             P->ParamByName("gde_sht")->Value    = US(normalize_gde_sht(t.gde_sht));
             P->ParamByName("blank")->Value      = US(t.blank);
             P->ParamByName("deleted")->Value    = t.deleted ? 1 : 0;
+			P->ParamByName("source_server_id")->Value = US(t.source_server_id);
 
             qryTelegi->ExecSQL();
         }
@@ -1296,20 +1419,11 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 
 	delete sl;
 
-	qrySettings->Active = false;
-	qrySettings->SQL->Text = "select * from ports";
-	qrySettings->Active = true;
-
-	while(!qrySettings->Eof)
-	{
-		auto port = qrySettings->FieldByName("port")->AsString;
-		auto god = qrySettings->FieldByName("god")->AsString;
-		mapPorts.insert(std::make_pair(god,port));
-		cmbGod->Items->Add(god);
-		qrySettings->Next();
-	}
-
-	cmbGod->ItemIndex = 0;
+	ensureServerCatalogSeeded(Edit2->Text);
+	reloadAvailableYears();
+	String serverConfigError;
+	if (!configureServersForCurrentYear(&serverConfigError) && !serverConfigError.IsEmpty())
+		lbStatus->Caption = L"Статус: " + serverConfigError;
 
 
 
@@ -1326,7 +1440,7 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 
    //	return;
 
-	myFrAttachments = new TfrAttachments(nullptr, client_, dbgEh, dbgMenu);
+	myFrAttachments = new TfrAttachments(nullptr, serverManager_, dbgEh, dbgMenu);
 	myFrAttachments->Parent = dbgMenu->RowDetailPanelControl;
 	myFrAttachments->setHeigthMulti(0.7);
 	myFrAttachments->Align = alClient;
@@ -1334,14 +1448,14 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 
 
 
-	myFrWay = new TfrWay(nullptr, client_, dbgEh, dbgMenu);
+	myFrWay = new TfrWay(nullptr, serverManager_, dbgEh, dbgMenu);
 	myFrWay->Parent = dbgMenu->RowDetailPanelControl;
 	myFrWay->setHeigthMulti(1.6);
 	myFrWay->Align = alClient;
 	myFrWay->Visible = false;
 
 
-	myFrPdtv  = new TfrPdtv(nullptr, client_, dbgEh, dbgMenu);
+	myFrPdtv  = new TfrPdtv(nullptr, serverManager_, dbgEh, dbgMenu);
 	myFrPdtv->Parent = dbgMenu->RowDetailPanelControl;
 	myFrPdtv->setHeigthMulti(1.4);
 	myFrPdtv->Align = alClient;
@@ -1391,19 +1505,13 @@ void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Ha
 
     std::string err;
 
-    // 1) отправляем запрос FILETEXT
-    if (!client_.socketWrite(std::string(AnsiString(ss).c_str()), COMMAND::FILETEXT, &err)) {
-        ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-        Handled = true;
-        return;
-    }
-
-    // 2) читаем ответ
-    std::string str;
-    if (!client_.socketRead(str, /*progress*/nullptr, &err)) {
-        ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
-        Handled = true;
-        return;
+	std::string str;
+	if (!serverManager_.requestText(
+			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
+			COMMAND::FILETEXT, str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+		Handled = true;
+		return;
     }
 
     // 3) перекодировка и вывод в редактор
@@ -1452,8 +1560,12 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
             ShowMessage("Ошибка при загрузке таблиц: " + e.Message);
 		}
 
-        tbcSettingsChange(Sender);
-    }
+		tbcSettingsChange(Sender);
+	}
+	else {
+		// Newly added server/year rows become selectable without restarting the client.
+		reloadAvailableYears();
+	}
 }
 
 
@@ -1511,16 +1623,10 @@ bool TfMain::checkUser()
 	// 1) готовим данные
 	std::string d = std::string(AnsiString(number).c_str());
 
-	// 2) отправляем
-	if (!client_.socketWrite(d, command, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return false;
-	}
-
-	// 3) читаем
 	std::string str;
-	if (!client_.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+	if (!serverManager_.requestText(
+			currentSourceServerId(), d, command, str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return false;
 	}
 
@@ -1621,10 +1727,10 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 
 
 int TfMain::SaveFileVh2(const std::string& out_dir,
-					   const std::pair<std::string, std::string>& f,
+					   const RemoteFileRequest& f,
 					   bool flushStreamToOs)
 {
-    std::string file_name = f.first;
+	std::string file_name = f.outputName;
     std::string full_file_name = out_dir + "\\" + file_name;
 	std::string pref;
     int try_limit = 1;
@@ -1635,7 +1741,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 
         do {
             pref = "(" + std::to_string(try_limit++) + ") ";
-            file_name = pref + f.first;
+			file_name = pref + f.outputName;
             full_file_name = out_dir + "\\" + file_name;
         }
         while (FileExists(String{full_file_name.c_str()}) && try_limit <= 30);
@@ -1650,8 +1756,9 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 	std::string err;
 	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt) {
 		std::uint64_t receivedSize = 0;
-		if (client_.requestFileToPath(
-				f.second,
+		if (serverManager_.requestFileToPath(
+				f.serverId,
+				f.remotePath,
 				COMMAND::GETBINFILE,
 				full_file_name,
 				nullptr,
@@ -1659,55 +1766,46 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 				&err,
 				flushStreamToOs)) {
 			std::string result;
-			if (file_name == f.first)
-				result = "\"" + f.first + "\"";
+			if (file_name == f.outputName)
+				result = "\"" + f.outputName + "\"";
 			else
-				result = "\"" + f.first + "\" (\"" + file_name + "\")";
+				result = "\"" + f.outputName + "\" (\"" + file_name + "\")";
 			pushLog(("Файл " + result + ", " + std::to_string(receivedSize) +
 				" байт - успешно сохранен!").c_str());
 			return 1;
 		}
 		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES) {
 			pushLog(
-				"Сервер занят при запросе файла \"" + String(f.second.c_str()) +
+				"Сервер занят при запросе файла \"" + String(f.remotePath.c_str()) +
 				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
-			if (!reconnectTransport(false))
+			if (!reconnectTransport(f.serverId))
 				break;
 			std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
 			continue;
 		}
 		break;
 	}
-	pushLog("Ошибка сохранения файла \"" + String(f.first.c_str()) + "\": " +
+	pushLog("Ошибка сохранения файла \"" + String(f.outputName.c_str()) + "\": " +
 		String(err.c_str()));
 	// После неполной сетевой передачи поток протокола больше нельзя продолжать.
 	// requestFileToPath закрывает такой сокет; восстанавливаем транспорт для
 	// следующих файлов пакета и для последующих действий пользователя.
-	if (!client_.isConnected())
-		reconnectTransport(false);
+	if (!serverManager_.isConnected(f.serverId))
+		reconnectTransport(f.serverId);
 	return 0;
 }
 
 
 
 int TfMain::SaveFileVh(const std::string& out_dir,
-					   const std::pair<std::string, std::string>& f,
+					   const RemoteFileRequest& f,
 					   bool makeDocx,
 					   bool flushStreamToOs,
 					   DocxConversionSession* docxSession)
 {
 
 	std::vector<uint8_t> str;
-
-		if (!client_.isConnected()) {
-			pushLog("socket is NOT open");
-			return 0;
-		}
-
-
-
-
 	constexpr int MAX_TRIES = 5;
 	constexpr int RETRY_DELAY_MS = 500;
 
@@ -1721,7 +1819,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 
 
-		ok = client_.requestBinFile(f.second, str, nullptr, &err);
+		ok = serverManager_.requestBinFile(f.serverId, f.remotePath, str, nullptr, &err);
 
 		if (ok && !str.empty())
 			break;
@@ -1729,13 +1827,13 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 		// проверка по строке
 		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
 		{
-			if (!reconnectTransport(false))
+			if (!reconnectTransport(f.serverId))
 				break;
 			std::this_thread::sleep_for(
 				std::chrono::milliseconds(RETRY_DELAY_MS)
 			);
             pushLog(
-			"Запрос файла \"" + String(f.second.c_str()) +
+			"Запрос файла \"" + String(f.remotePath.c_str()) +
 			"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
 
@@ -1750,18 +1848,18 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	if (!ok || str.empty())
 	{
 		pushLog(
-			"Файл \"" + String(f.second.c_str()) +
+			"Файл \"" + String(f.remotePath.c_str()) +
 			"\" не получен: " + String(err.c_str())
 		);
-		if (!client_.isConnected())
-			reconnectTransport(false);
+		if (!serverManager_.isConnected(f.serverId))
+			reconnectTransport(f.serverId);
 		return 0;
 	}
 
 
 
 
-	std::string file_name = f.first;
+	std::string file_name = f.outputName;
 	std::string full_file_name = out_dir + "\\" + file_name;
 	std::string pref;
 	int try_limit = 1;
@@ -1778,7 +1876,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
         do {
             pref = "(" + std::to_string(try_limit++) + ") ";
-            file_name = pref + f.first;
+			file_name = pref + f.outputName;
             full_file_name = out_dir + "\\" + file_name;
 		}
         while (FileExists(String{full_file_name.c_str()}) && try_limit <= 30);
@@ -1795,7 +1893,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
         try {
             String shtPath = ExtractFilePath(Application->ExeName) + "sht.docm";
             const String requestedOutDocx = ChangeFileExt(
-                String(out_dir.c_str()) + "\\" + String(f.first.c_str()), ".docx");
+				String(out_dir.c_str()) + "\\" + String(f.outputName.c_str()), ".docx");
             String outDocx = requestedOutDocx;
 
             for (int suffix = 1; FileExists(outDocx) && suffix <= 999; ++suffix) {
@@ -1804,7 +1902,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
             }
             if (FileExists(outDocx)) {
                 pushLog("Не удалось подобрать свободное имя DOCX для файла \"" +
-                    String(f.first.c_str()) + "\"");
+					String(f.outputName.c_str()) + "\"");
                 return 0;
             }
 
@@ -1818,7 +1916,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
             String text = sl->Text;
 			delete sl;
 
-			pushLog("DOCX: запуск обработки файла \"" + String(f.first.c_str()) + "\"");
+			pushLog("DOCX: запуск обработки файла \"" + String(f.outputName.c_str()) + "\"");
 			DocxConversionResult conversion;
 			if (docxSession) {
 				conversion = docxSession->Convert(
@@ -1836,14 +1934,14 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 			}
 
 			if (conversion.status == DocxConversionStatus::TimedOut) {
-				pushLog("Файл \"" + String(f.first.c_str()) +
+				pushLog("Файл \"" + String(f.outputName.c_str()) +
 					"\" не удалось обработать: " + conversion.message +
 					". Файл пропущен, обработка продолжается.");
 				return 0;
 			}
 			if (conversion.status != DocxConversionStatus::Success) {
 				pushLog("Ошибка при создании DOCX для файла \"" +
-					String(f.first.c_str()) + "\": " + conversion.message);
+					String(f.outputName.c_str()) + "\": " + conversion.message);
 				return 0;
 			}
 
@@ -1874,10 +1972,10 @@ int TfMain::SaveFileVh(const std::string& out_dir,
         }
 
         std::string result;
-        if (file_name == f.first)
-            result = "\"" + f.first + "\"";
+		if (file_name == f.outputName)
+			result = "\"" + f.outputName + "\"";
 		else
-            result = "\"" + f.first + "\" (\"" + file_name + "\")";
+			result = "\"" + f.outputName + "\" (\"" + file_name + "\")";
 
 		pushLog(("Файл " + result + ", " + std::to_string(str.size()) + " байт - успешно сохранен!").c_str());
     }
@@ -1886,13 +1984,13 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 }
 
 
-int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std::vector<String>>& f,
+int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& f,
 	bool flushStreamToOs)
 {
 	constexpr int MAX_TRIES = 5;
 	constexpr int RETRY_DELAY_MS = 500;
 
-	AnsiString zip_dir = f.first;
+	AnsiString zip_dir = f.remotePath;
 	std::string err;
 	bool ok = false;
 
@@ -1902,12 +2000,13 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 	{
 		err.clear();
 		str.clear();
-		ok = client_.requestBinFile(std::string(zip_dir.c_str()), str, nullptr, &err);
+		ok = serverManager_.requestBinFile(
+			f.serverId, std::string(zip_dir.c_str()), str, nullptr, &err);
 		if (ok && !str.empty())
 			break;
 		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
 		{
-			if (!reconnectTransport(false))
+			if (!reconnectTransport(f.serverId))
 				break;
 			pushLog(
 				"Сервер занят при запросе файла \"" + zip_dir +
@@ -1926,8 +2025,8 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 			"\" не получен. Ошибка: " +
 			String(err.c_str())
 		);
-		if (!client_.isConnected())
-			reconnectTransport(false);
+		if (!serverManager_.isConnected(f.serverId))
+			reconnectTransport(f.serverId);
 		return 0;
 	}
 
@@ -1937,7 +2036,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 	++cc;
 
 	AnsiString temp_zip_dir = "ZipExtractTemp" + IntToStr(cc) + "\\";
-	AnsiString zip_name = ExtractFileName(f.first);
+	AnsiString zip_name = ExtractFileName(f.remotePath);
 	AnsiString tempDir = TPath::GetTempPath() + temp_zip_dir;
 	AnsiString fullDirZip = tempDir + zip_name;
 	TDirectory::CreateDirectory(tempDir);
@@ -1960,7 +2059,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const std::pair<String, std:
 	if(cc > 99999)
 		cc = 0;
 
-	copyFile(f.second, fullDirZip, String{out_dir.c_str()});
+	copyFile(f.files, fullDirZip, String{out_dir.c_str()});
 
 	TDirectory::Delete(tempDir, true);
 
@@ -2021,9 +2120,9 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	// ===== подготовка данных (в UI потоке) =====
 
-	std::map<std::string, std::string> pril_map_vh;
-    std::map<std::string, std::string> text_map;
-	std::map<String, std::vector<String>> pril_map_ish;
+	std::vector<RemoteFileRequest> pril_map_vh;
+	std::vector<RemoteFileRequest> text_files;
+	std::map<std::string, RemoteArchiveRequest> pril_map_ish;
 
 	std::string out_dir_async = out_dir;
 
@@ -2052,6 +2151,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 		String num  = dbgEh->DataSource->DataSet->FieldValues["num"];
         String type = dbgEh->DataSource->DataSet->FieldValues["type"];
+		const std::string sourceServerId = currentSourceServerId();
 
 		if (isDeletedRow(dbgEh->DataSource->DataSet)) {
 			preLog->Add("Шт. " + num + " - файл удалён (только след в индексе)");
@@ -2085,11 +2185,16 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
             for (const auto& pn : getPrilsName()) {
                 auto ss = dir + "\\" + pn;
                 std::string dir_file_name_pril = ss.c_str();
-                if (type == "Вх.")
-                    pril_map_vh.insert(std::make_pair(pn, dir_file_name_pril));
-                else {
-                    auto ish_zip_dir = ExtractFileDir(dd) + "\\" + num + ".zip";
-                    pril_map_ish[ish_zip_dir].push_back(String{pn.c_str()});
+				if (type == "Вх.")
+					pril_map_vh.push_back({sourceServerId, pn, dir_file_name_pril});
+				else {
+					auto ish_zip_dir = ExtractFileDir(dd) + "\\" + num + ".zip";
+					const std::string archiveKey = sourceServerId + "\n" +
+						std::string(AnsiString(ish_zip_dir).c_str());
+					auto& archive = pril_map_ish[archiveKey];
+					archive.serverId = sourceServerId;
+					archive.remotePath = ish_zip_dir;
+					archive.files.push_back(String{pn.c_str()});
 				}
             }
         }
@@ -2098,11 +2203,12 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			fs::path filePath = fs::path{dir_file_name.c_str()}.filename();
             if (filePath.extension().empty())
                 filePath.replace_extension(".tlg");
-            text_map.insert(std::make_pair(filePath.string(), dir_file_name));
+			text_files.push_back({sourceServerId, filePath.string(), dir_file_name});
         }
 	}
 
-    const int total_file_count = (int)(pril_map_vh.size() + pril_map_ish.size() + text_map.size());
+	const int total_file_count = static_cast<int>(
+		pril_map_vh.size() + pril_map_ish.size() + text_files.size());
     if (!total_file_count) {
         delete preLog;
         return;
@@ -2129,9 +2235,10 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
     auto ctx = std::make_shared<SaveTaskContext>();
 
-	ctx->text_map = std::move(text_map);
+	ctx->text_files = std::move(text_files);
 	ctx->pril_vh  = std::move(pril_map_vh);
-	ctx->pril_ish = std::move(pril_map_ish);
+	for (auto& archive : pril_map_ish)
+		ctx->pril_ish.push_back(std::move(archive.second));
 
 	ctx->out_dir  = out_dir_copy;
 	ctx->makeDocx = chkDocx->Checked;
@@ -2149,15 +2256,15 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	{
 		int count_suc_files = 0;
 		const int totalFiles = static_cast<int>(
-			ctx->text_map.size() + ctx->pril_vh.size() + ctx->pril_ish.size());
+			ctx->text_files.size() + ctx->pril_vh.size() + ctx->pril_ish.size());
 		int fileOrdinal = 0;
 		try
 		{
-			for (const auto& f : ctx->text_map) {
+			for (const auto& f : ctx->text_files) {
 				++fileOrdinal;
 				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
 					(ctx->makeDocx ? ": скачивание и DOCX-конвертация \"" : ": скачивание \"") +
-					String(f.first.c_str()) + "\"");
+					String(f.outputName.c_str()) + "\"");
 				const bool isLastInBatch = (fileOrdinal == totalFiles);
 				count_suc_files += SaveFileVh(
 					ctx->out_dir, f, ctx->makeDocx, isLastInBatch, ctx->docxSession.get());
@@ -2167,7 +2274,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			for (const auto& f : ctx->pril_vh) {
 				++fileOrdinal;
 				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
-					": скачивание приложения \"" + String(f.first.c_str()) + "\"");
+					": скачивание приложения \"" + String(f.outputName.c_str()) + "\"");
 				const bool isLastInBatch = (fileOrdinal == totalFiles);
 				count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
@@ -2176,7 +2283,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			for (const auto& f : ctx->pril_ish) {
 				++fileOrdinal;
 				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
-					": скачивание архива \"" + ExtractFileName(f.first) + "\"");
+					": скачивание архива \"" + ExtractFileName(f.remotePath) + "\"");
 				const bool isLastInBatch = (fileOrdinal == totalFiles);
 				count_suc_files += SaveFileIsh(ctx->out_dir, f, isLastInBatch);
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
@@ -2239,15 +2346,11 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 	std::string err;
 
 	// 1) отправка
-	if (!client_.socketWrite(std::string("START update!"), COMMAND::START_UPDATE_BASE, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return;
-	}
-
-	// 2) чтение ответа
 	std::string str;
-	if (!client_.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+	if (!serverManager_.requestText(
+			primaryServerId(), "START update!", COMMAND::START_UPDATE_BASE,
+			str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return;
 	}
 
@@ -2477,11 +2580,13 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 
 	std::lock_guard<std::mutex> lock(clickMutex);
 	String new_num = dbgEh->Fields[0]->AsString;
+	const std::string sourceServerId = currentSourceServerId();
+	const String rowKey = String(sourceServerId.c_str()) + L"|" + new_num;
 
-	if (last_loaded_num_ == new_num)
+	if (last_loaded_num_ == rowKey)
 		return;
 
-	last_loaded_num_ = new_num;
+	last_loaded_num_ = rowKey;
 	tmLoadText->Enabled = false;
 
 	String dir;
@@ -2498,7 +2603,7 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 	if (f12lock)
 		return;
 
-std::string dir_str = AnsiString(dir).c_str();
+	std::string dir_str = AnsiString(dir).c_str();
 
 
 
@@ -2509,15 +2614,11 @@ System::Threading::TTask::Run([=]() {
 	std::string err;
 
 	// 1) отправка
-	if (!client_.socketWrite(dir_str, COMMAND::FILETEXT, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return;
-	}
-
-	// 2) чтение
-
-	if (!client_.socketRead(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+	if (!serverManager_.requestText(
+			sourceServerId, dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
+		TThread::Queue(nullptr, [err]() {
+			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+		});
 		return;
 	}
 
@@ -2532,7 +2633,7 @@ System::Threading::TTask::Run([=]() {
 
     // Переносим всё в GUI-поток
     TThread::Queue(nullptr, [=]() {
-        if (last_loaded_num_ != new_num)
+		if (last_loaded_num_ != rowKey)
             return;
 
         // --- Freeze: отключить перерисовку ---
@@ -2908,9 +3009,11 @@ void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
     System::Threading::TTask::Run([=]() {
         // --- Фоновая часть ---
         try {
-			client_.socketWrite(std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE);
             std::vector<BYTE> str;
-			if (!client_.socketReadBin(str)) {
+			std::string err;
+			if (!serverManager_.requestBinary(
+					primaryServerId(), std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE,
+					str, nullptr, &err)) {
                 TThread::Queue(nullptr, [this]() {
                     ShowMessage("Ошибка получения базы!");
 					componentsEnable(true);
@@ -2960,15 +3063,9 @@ void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 
 			std::string err;
 
-			// 1) отправляем
-			if (!client_.socketWrite(file, COMMAND::LOAD_RAZN, &err)) {
-				memLogLoad->Lines->Add(filePath + " - ошибка отправки: " + AnsiString(err.c_str()));
-				continue;
-			}
-
-			// 2) читаем бинарный ответ
 			std::vector<uint8_t> str;
-			if (!client_.socketReadBin(str, /*progress*/nullptr, &err)) {
+			if (!serverManager_.requestBinary(
+					primaryServerId(), file, COMMAND::LOAD_RAZN, str, nullptr, &err)) {
 				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + AnsiString(err.c_str()));
 				continue;
 			}
@@ -3025,14 +3122,10 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	std::string err;
 
 	auto data_request = std::vector<uint8_t>(user_.begin(), user_.end());
-	if (!client_.socketWrite(data_request, COMMAND::GET_ATTACHMENTS, &err)) {
-		ShowMessage("Ошибка отправки: " + AnsiString(err.c_str()));
-		return;
-	}
-
 	std::vector<uint8_t> str;
-	if (!client_.socketReadBin(str, /*progress*/nullptr, &err)) {
-		ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+	if (!serverManager_.requestBinary(
+			primaryServerId(), data_request, COMMAND::GET_ATTACHMENTS, str, nullptr, &err)) {
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return;
 	}
 
@@ -3213,13 +3306,9 @@ void __fastcall TfMain::btnLoadOnServerFilesClick(TObject *Sender)
 			auto file = loadFileToVector2(AnsiString(filePath).c_str(), baseFileNameWStr);
 
 			// отправляем на сервер
-			if (!client_.socketWrite(file, COMMAND::LOAD_TLG_TO_SEND, &err)) {
-				ShowMessage("Ошибка отправки файла: " + AnsiString(err.c_str()));
-				return;
-			}
-
 			std::vector<uint8_t> str;
-			bool ok = client_.socketReadBin(str, /*progress*/nullptr, &err);
+			bool ok = serverManager_.requestBinary(
+				primaryServerId(), file, COMMAND::LOAD_TLG_TO_SEND, str, nullptr, &err);
 
 			if (!ok) {
 				ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
@@ -3346,32 +3435,33 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 bool TfMain::tryConnect()
 {
     try {
-        // Проверяем наличие порта в map
-        auto it = mapPorts.find(cmbGod->Text);
-        if (it == mapPorts.end()) {
-            ShowMessage("Ошибка: не найден порт для года " + cmbGod->Text);
-            lbStatus->Caption = "Статус: ошибка конфигурации";
-            componentsEnable(false);
-            return false;
-        }
-        
-        const AnsiString port = it->second;
-        const AnsiString host = Edit2->Text;
+		// Edit2 remains the compatibility editor for the primary host.
+		qrySettings->Close();
+		qrySettings->SQL->Text =
+			L"UPDATE servers SET host = :host WHERE server_id = 'default' "
+			L"AND (SELECT COUNT(*) FROM servers WHERE enabled <> 0) = 1";
+		qrySettings->ParamByName(L"host")->AsString = Edit2->Text;
+		qrySettings->ExecSQL();
 
-        AnsiString err;
-        if (!client_.tryConnect(host, port, err)) {
-            ShowMessage("Ошибка подключения: " + err);
-            lbStatus->Caption = "Статус: нет подключения";
-            componentsEnable(false);
-            return false;
-        }
+		String configError;
+		if (!configureServersForCurrentYear(&configError)) {
+			ShowMessage(configError);
+			lbStatus->Caption = "Статус: ошибка конфигурации";
+			componentsEnable(false);
+			return false;
+		}
 
-        lbStatus->Caption = "Статус: подключено к серверу " + host + ":" + port + " " + cmbGod->Text + " год";
-        {
-            std::lock_guard<std::mutex> lk(connectionParamsMtx_);
-            lastHost_ = std::string(host.c_str());
-            lastPort_ = std::string(port.c_str());
-        }
+		std::string err;
+		if (!serverManager_.connectPrimary(&err)) {
+			ShowMessage("Ошибка подключения: " + String(err.c_str()));
+			lbStatus->Caption = "Статус: нет подключения";
+			componentsEnable(false);
+			return false;
+		}
+
+		const int serverCount = static_cast<int>(serverManager_.serverIds().size());
+		lbStatus->Caption = "Статус: настроено серверов " + String(serverCount) +
+			", основной подключён, " + cmbGod->Text + " год";
         componentsEnable(true);
         return true;
     }

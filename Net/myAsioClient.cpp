@@ -132,6 +132,20 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 								  std::atomic_uint64_t* progress,
 								  std::string* errMsg)
 {
+	return requestBinary(
+		std::vector<uint8_t>(path.begin(), path.end()),
+		COMMAND::GETBINFILE,
+		out,
+		progress,
+		errMsg);
+}
+
+bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
+								 COMMAND command,
+								 std::vector<uint8_t>& out,
+								 std::atomic_uint64_t* progress,
+								 std::string* errMsg)
+{
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     out.clear();
@@ -144,12 +158,12 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 
 		// --- write request ---
         header req{};
-        req.size = static_cast<uint32_t>(path.size());
-		req.command = COMMAND::GETBINFILE;
+		req.size = static_cast<uint_fast64_t>(request.size());
+		req.command = command;
 
 		boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
-		if (!path.empty())
-            boost::asio::write(*socket_, boost::asio::buffer(path.data(), path.size()));
+		if (!request.empty())
+            boost::asio::write(*socket_, boost::asio::buffer(request.data(), request.size()));
 
         // --- read response header ---
 		header resp{};
@@ -204,6 +218,77 @@ bool MyAsioClient::requestBinFile(const std::string& path,
         if (errMsg) *errMsg = e.what();
         return false;
     }
+}
+
+bool MyAsioClient::requestText(const std::string& request,
+							   COMMAND command,
+							   std::string& out,
+							   std::atomic_uint64_t* progress,
+							   std::string* errMsg)
+{
+	std::lock_guard<std::mutex> lk(io_mutex_);
+	out.clear();
+
+	try {
+		if (!socket_ || !socket_->is_open()) {
+			if (errMsg) *errMsg = "Socket is not connected";
+			return false;
+		}
+
+		header req{};
+		req.size = static_cast<uint_fast64_t>(request.size());
+		req.command = command;
+		boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
+		if (!request.empty())
+			boost::asio::write(*socket_, boost::asio::buffer(request.data(), request.size()));
+
+		header resp{};
+		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg)) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+			return false;
+		}
+		if (resp.command == COMMAND::SOMEERROR) {
+			if (errMsg) *errMsg = "Server returned SOMEERROR";
+			return false;
+		}
+		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
+			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+			return false;
+		}
+
+		const std::size_t total = static_cast<std::size_t>(resp.size);
+		last_total_.store(total, std::memory_order_relaxed);
+		if (progress) progress->store(0, std::memory_order_relaxed);
+		out.reserve(total);
+
+		std::size_t left = total;
+		constexpr std::size_t block = 64 * 1024;
+		std::vector<char> buffer(block);
+		while (left > 0) {
+			const std::size_t chunk = (std::min)(left, buffer.size());
+			if (!read_exact_idle_timeout(*socket_, buffer.data(), chunk, errMsg)) {
+				boost::system::error_code ignored;
+				socket_->close(ignored);
+				return false;
+			}
+			out.append(buffer.data(), chunk);
+			left -= chunk;
+			if (progress) progress->fetch_add(chunk, std::memory_order_relaxed);
+		}
+
+		return true;
+	}
+	catch (const std::exception& e) {
+		if (socket_) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+		}
+		if (errMsg) *errMsg = e.what();
+		return false;
+	}
 }
 
 bool MyAsioClient::requestFileToPath(const std::string& request,

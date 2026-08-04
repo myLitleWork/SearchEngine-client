@@ -75,10 +75,25 @@ public:
 	void disConnect();
 	bool isConnected();
 
-    bool requestBinFile(const std::string& path,
+	bool requestBinFile(const std::string& path,
                     std::vector<uint8_t>& out,
                     std::atomic_uint64_t* progress = nullptr,
                     std::string* errMsg = nullptr);
+
+	// A request/response pair is one protocol transaction.  Keeping the
+	// io_mutex_ locked across both halves prevents another worker from placing
+	// its request between our write and read.
+	bool requestText(const std::string& request,
+					 COMMAND command,
+					 std::string& out,
+					 std::atomic_uint64_t* progress = nullptr,
+					 std::string* errMsg = nullptr);
+
+	bool requestBinary(const std::vector<uint8_t>& request,
+					   COMMAND command,
+					   std::vector<uint8_t>& out,
+					   std::atomic_uint64_t* progress = nullptr,
+					   std::string* errMsg = nullptr);
 
 	bool requestFileToPath(const std::string& request,
 						  COMMAND command,

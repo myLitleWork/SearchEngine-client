@@ -286,6 +286,13 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <DependentOn>Net\myAsioClient.h</DependentOn>
             <BuildOrder>29</BuildOrder>
         </CppCompile>
+        <None Include="Net\MultiServerManager.h">
+            <BuildOrder>29</BuildOrder>
+        </None>
+		<CppCompile Include="Net\MultiServerSelfTest.cpp">
+			<DependentOn>Net\MultiServerSelfTest.h</DependentOn>
+			<BuildOrder>30</BuildOrder>
+		</CppCompile>
         <CppCompile Include="Net\SocketFileSaver.cpp">
             <DependentOn>Net\SocketFileSaver.h</DependentOn>
             <BuildOrder>25</BuildOrder>

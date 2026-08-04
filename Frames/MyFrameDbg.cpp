@@ -21,10 +21,25 @@
 
 //TFrameDbg *FrameDbg;
 //---------------------------------------------------------------------------
-__fastcall TFrameDbg::TFrameDbg(TComponent* Owner, MyAsioClient& c, TDBGridEh* g, TDBGridEh *_dbgMenu)
-	: TFrame(Owner), client(c), dbgMain(g), dbgMenu(_dbgMenu)
+__fastcall TFrameDbg::TFrameDbg(TComponent* Owner, MultiServerManager& manager, TDBGridEh* g, TDBGridEh *_dbgMenu)
+	: TFrame(Owner), serverManager(manager), dbgMain(g), dbgMenu(_dbgMenu)
 {
     InitDbgDS();
+}
+
+std::string TFrameDbg::SourceServerId() const
+{
+	try {
+		if (dbgMain && dbgMain->DataSource && dbgMain->DataSource->DataSet &&
+			dbgMain->DataSource->DataSet->Active) {
+			TField* field = dbgMain->DataSource->DataSet->FindField(L"source_server_id");
+			if (field && !field->AsString.IsEmpty())
+				return AnsiString(field->AsString).c_str();
+		}
+	}
+	catch (...) {
+	}
+	return serverManager.primaryServerId();
 }
 //---------------------------------------------------------------------------
 void TFrameDbg::PlusDbgHeigth()

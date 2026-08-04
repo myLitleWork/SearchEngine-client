@@ -52,7 +52,7 @@ public:		// User declarations
 	void FillDbg() override;
 
 
-	__fastcall TfrWay(TComponent* Owner, MyAsioClient& client, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
+	__fastcall TfrWay(TComponent* Owner, MultiServerManager& manager, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
 };
 //---------------------------------------------------------------------------
 //extern PACKAGE TfrWay *frWay;

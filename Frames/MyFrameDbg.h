@@ -19,7 +19,7 @@
 #include "GridsEh.hpp"
 #include "ToolCtrlsEh.hpp"
 
-#include "myAsioClient.h"
+#include "MultiServerManager.h"
 
 //---------------------------------------------------------------------------
 class TFrameDbg : public TFrame
@@ -31,8 +31,9 @@ protected:	// User declarations
 	TDBGridEh *dbgMain = nullptr;
 	TDBGridEh *dbgMenu = nullptr;
 	TDataSource *ds = nullptr;
-	MyAsioClient& client;
+	MultiServerManager& serverManager;
 	double kof = 1.5;
+	std::string SourceServerId() const;
 
 	virtual void InitDbgDS() = 0;
 
@@ -51,7 +52,7 @@ public:
 
 	TMemTableEh *mt = nullptr;
 
-	__fastcall TFrameDbg(TComponent* Owner, MyAsioClient& c, TDBGridEh* g, TDBGridEh *dbgMenu);
+	__fastcall TFrameDbg(TComponent* Owner, MultiServerManager& manager, TDBGridEh* g, TDBGridEh *dbgMenu);
 };
 //---------------------------------------------------------------------------
 //extern PACKAGE TFrameDbg *FrameDbg;

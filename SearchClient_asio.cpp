@@ -4,6 +4,7 @@
 #pragma hdrstop
 #include <tchar.h>
 #include "WordBatchProcessor.h"
+#include "MultiServerSelfTest.h"
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
 USEFORM("formRes.cpp", fRes);
@@ -15,6 +16,8 @@ USEFORM("formRes.cpp", fRes);
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {
 #ifdef _DEBUG
+	if (IsMultiServerSelfTestInvocation())
+		return RunMultiServerSelfTestFromCommandLine();
 	if (IsDocxTimeoutSelfTestInvocation())
 		return RunDocxTimeoutSelfTestFromCommandLine();
 #endif

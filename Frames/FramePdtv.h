@@ -34,7 +34,7 @@ public:		// User declarations
 
 	void FillDbg() override;
 
-	__fastcall TfrPdtv(TComponent* Owner, MyAsioClient& client, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
+	__fastcall TfrPdtv(TComponent* Owner, MultiServerManager& manager, TDBGridEh *dbgMain, TDBGridEh *dbgMenu); // <-- ÎÁßÇÀÒÅËÅÍ
 };
 //---------------------------------------------------------------------------
 //extern PACKAGE TfrPdtv *frPdtv;
