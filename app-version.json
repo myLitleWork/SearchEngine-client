@@ -1,0 +1,8 @@
+﻿{
+  "formatVersion": 1,
+  "major": 4,
+  "minor": 3,
+  "patch": 0,
+  "titleTemplate": "SearchClient_asio v{version}",
+  "productName": "SearchClient"
+}
