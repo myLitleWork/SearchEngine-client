@@ -7,7 +7,7 @@ object fMain: TfMain
   AutoSize = True
   BiDiMode = bdLeftToRight
   BorderWidth = 1
-  Caption = 'SearchClient_asio v4.3'
+  Caption = 'SearchClient_asio'
   ClientHeight = 1372
   ClientWidth = 1944
   Color = clMoneyGreen
@@ -709,22 +709,21 @@ object fMain: TfMain
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
               Width = 90
-			end
-			item
-			  Alignment = taCenter
-			  CellButtons = <>
-			  DynProps = <>
-			  EditButtons = <>
-			  FieldName = 'source_server_id'
-			  Footers = <>
-			  TextEditing = False
-			  Title.Caption = #1057#1077#1088#1074#1077#1088
-			  Title.Font.Charset = DEFAULT_CHARSET
-			  Title.Font.Color = clWindowText
-			  Title.Font.Height = -22
-			  Title.Font.Name = 'Segoe UI'
-			  Title.Font.Style = [fsBold]
-			  Width = 140
+            end
+            item
+              Alignment = taCenter
+              CellButtons = <>
+              DynProps = <>
+              EditButtons = <>
+              FieldName = 'source_server_id'
+              Footers = <>
+              TextEditing = False
+              Title.Font.Charset = DEFAULT_CHARSET
+              Title.Font.Color = clWindowText
+              Title.Font.Height = -22
+              Title.Font.Name = 'Segoe UI'
+              Title.Font.Style = [fsBold]
+              Width = 140
             end>
           object RowDetailData: TRowDetailPanelControlEh
             Margins.Left = 24
@@ -1867,12 +1866,12 @@ object fMain: TfMain
       FieldName = 'deleted'
       ReadOnly = True
     end
-	object qryTelegisource_server_id: TWideStringField
-	  DisplayLabel = #1057#1077#1088#1074#1077#1088
-	  FieldName = 'source_server_id'
-	  ReadOnly = True
-	  Size = 255
-	end
+    object qryTelegisource_server_id: TWideStringField
+      DisplayLabel = #1057#1077#1088#1074#1077#1088
+      FieldName = 'source_server_id'
+      ReadOnly = True
+      Size = 255
+    end
   end
   object memTbl: TMemTableEh
     AggregatesActive = True
@@ -1958,11 +1957,11 @@ object fMain: TfMain
       item
         Name = 'deleted'
         DataType = ftInteger
-	  end
-	  item
-		Name = 'source_server_id'
-		DataType = ftWideString
-		Size = 255
+      end
+      item
+        Name = 'source_server_id'
+        DataType = ftWideString
+        Size = 255
       end>
     Filtered = True
     FetchAllOnOpen = True
@@ -2038,11 +2037,11 @@ object fMain: TfMain
       FieldName = 'deleted'
       Visible = False
     end
-	object memTblsource_server_id: TWideStringField
-	  DisplayLabel = #1057#1077#1088#1074#1077#1088
-	  FieldName = 'source_server_id'
-	  Size = 255
-	end
+    object memTblsource_server_id: TWideStringField
+      DisplayLabel = #1057#1077#1088#1074#1077#1088
+      FieldName = 'source_server_id'
+      Size = 255
+    end
   end
   object ConnectionRes: TFDConnection
     Params.Strings = (

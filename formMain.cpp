@@ -14,6 +14,7 @@
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
+#include "Version.h"
 #include "formRes.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
@@ -516,7 +517,6 @@ std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table
 
 	return std::move(m);
 }
-
 void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 {
 	std::unique_ptr<TFDQuery> q(new TFDQuery(nullptr));
@@ -525,7 +525,6 @@ void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 	q->Open();
 	if (q->FieldByName(L"cnt")->AsInteger > 0)
 		return;
-
 	TFDCustomConnection* connection = q->Connection;
 	connection->StartTransaction();
 	try {
@@ -535,7 +534,6 @@ void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 			L"VALUES ('default', 'Основной сервер', :host, 1, 0)";
 		q->ParamByName(L"host")->AsString = fallbackHost;
 		q->ExecSQL();
-
 		q->SQL->Text =
 			L"INSERT OR IGNORE INTO server_ports (server_id, god, port, enabled) "
 			L"SELECT 'default', god, port, 1 FROM ports";
@@ -547,7 +545,6 @@ void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 		throw;
 	}
 }
-
 void TfMain::reloadAvailableYears()
 {
 	cmbGod->Items->BeginUpdate();
@@ -555,7 +552,6 @@ void TfMain::reloadAvailableYears()
 		const String selected = cmbGod->Text;
 		cmbGod->Items->Clear();
 		mapPorts.clear();
-
 		qrySettings->Close();
 		qrySettings->SQL->Text =
 			L"SELECT DISTINCT god FROM server_ports WHERE enabled <> 0 ORDER BY god DESC";
@@ -565,7 +561,6 @@ void TfMain::reloadAvailableYears()
 			cmbGod->Items->Add(year);
 			qrySettings->Next();
 		}
-
 		const int oldIndex = cmbGod->Items->IndexOf(selected);
 		cmbGod->ItemIndex = oldIndex >= 0 ? oldIndex : (cmbGod->Items->Count > 0 ? 0 : -1);
 	}
@@ -573,14 +568,12 @@ void TfMain::reloadAvailableYears()
 		cmbGod->Items->EndUpdate();
 	}
 }
-
 bool TfMain::configureServersForCurrentYear(String* errorMessage)
 {
 	if (cmbGod->Text.IsEmpty()) {
 		if (errorMessage) *errorMessage = L"Не выбран год поиска";
 		return false;
 	}
-
 	std::vector<ServerEndpoint> endpoints;
 	qrySettings->Close();
 	qrySettings->SQL->Text =
@@ -590,7 +583,6 @@ bool TfMain::configureServersForCurrentYear(String* errorMessage)
 		L"ORDER BY s.sort_order, s.display_name, s.server_id";
 	qrySettings->ParamByName(L"god")->AsString = cmbGod->Text;
 	qrySettings->Open();
-
 	while (!qrySettings->Eof) {
 		ServerEndpoint endpoint;
 		endpoint.id = AnsiString(qrySettings->FieldByName(L"server_id")->AsString).c_str();
@@ -601,24 +593,20 @@ bool TfMain::configureServersForCurrentYear(String* errorMessage)
 		endpoints.push_back(endpoint);
 		qrySettings->Next();
 	}
-
 	if (endpoints.empty()) {
 		if (errorMessage)
 			*errorMessage = L"Для " + cmbGod->Text + L" года не настроено ни одного сервера";
 		return false;
 	}
-
 	serverManager_.configure(endpoints, endpoints.front().id);
 	serverManager_.setUser(user_);
 	Edit2->Text = String(endpoints.front().host.c_str());
 	return true;
 }
-
 std::string TfMain::primaryServerId() const
 {
 	return serverManager_.primaryServerId();
 }
-
 std::string TfMain::currentSourceServerId() const
 {
 	try {
@@ -709,7 +697,6 @@ void __fastcall TfMain::finishSearch()
 	if (TButton* button = dynamic_cast<TButton*>(lastSender))
 		button->Enabled = true;
 	dbgEh->Enabled = true;
-
 	if (!searchFailures_async.empty()) {
 		std::unique_ptr<TStringList> failures(new TStringList());
 		failures->Add(
@@ -779,7 +766,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
     const int rgTypeTIndex = rgTypeT->ItemIndex;
 	int cmbMaxReqInt = 0;
     try { cmbMaxReqInt = StrToInt(cmbMaxReq->Text); } catch (...) {}
-
 	std::string requestBody;
 	COMMAND searchCommand = COMMAND::GETSQLJSONANSWEAR;
 	AnsiString requestText = s;
@@ -790,7 +776,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			cmbFieldText = L"SQL";
 			requestText = AnsiString(cmbReq->Text);
 		}
-
 		SqlCondition::TYPE type;
 		if (rgTypeTIndex == 0) {
 			searchCommand = COMMAND::GET_VH_TELEGI_FROM_SQL;
@@ -801,7 +786,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			type = SqlCondition::TYPE::ISH;
 		}
 		SqlCondition::max = cmbMaxReqInt;
-
 		if (cmbFieldText == L"SQL") {
 			requestText += " order by `index` desc limit " + IntToStr(SqlCondition::max);
 			requestBody = conv::to_string(String(requestText).c_str());
@@ -814,7 +798,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 	else {
 		requestBody = std::string(requestText.c_str());
 	}
-
 	const std::vector<std::string> serverIds = serverManager_.serverIds();
 	if (serverIds.empty()) {
 		searchSuccess = false;
@@ -823,7 +806,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 		finishSearch();
 		return;
 	}
-
     // --- Запуск фоновой задачи ---
 	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds, Sender]() {
 		struct Outcome {
@@ -833,7 +815,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			std::string error;
 			bool success{false};
 		};
-
 		std::vector<Outcome> outcomes(serverIds.size());
 		std::vector<std::thread> workers;
 		workers.reserve(serverIds.size());
@@ -865,10 +846,8 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 				}
 			});
 		}
-
 		for (auto& worker : workers)
 			if (worker.joinable()) worker.join();
-
 		std::vector<Telega> merged;
 		std::vector<ServerSearchFailure> failures;
 		int successes = 0;
@@ -883,7 +862,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 				failures.push_back({outcome.serverId, outcome.displayName, outcome.error});
 			}
 		}
-
 		this->telegi_async = std::move(merged);
 		this->searchFailures_async = std::move(failures);
 		this->searchServerSuccessCount = successes;
@@ -893,7 +871,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			? std::string{}
 			: std::string("Ни один сервер не ответил успешно");
 		this->lastSender = Sender;
-
 		TThread::Queue(nullptr, [this, tok]() {
 			finishSearch();
 		});
@@ -1393,6 +1370,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
 
 void __fastcall TfMain::FormCreate(TObject *Sender)
 {
+	Caption = AppVersion::AppTitle();
 	InitDbgMenuDS();
 
 	ComboHistory = RecentComboHistory(cmbReq,9);
@@ -2582,10 +2560,8 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 	String new_num = dbgEh->Fields[0]->AsString;
 	const std::string sourceServerId = currentSourceServerId();
 	const String rowKey = String(sourceServerId.c_str()) + L"|" + new_num;
-
 	if (last_loaded_num_ == rowKey)
 		return;
-
 	last_loaded_num_ = rowKey;
 	tmLoadText->Enabled = false;
 
@@ -3442,7 +3418,6 @@ bool TfMain::tryConnect()
 			L"AND (SELECT COUNT(*) FROM servers WHERE enabled <> 0) = 1";
 		qrySettings->ParamByName(L"host")->AsString = Edit2->Text;
 		qrySettings->ExecSQL();
-
 		String configError;
 		if (!configureServersForCurrentYear(&configError)) {
 			ShowMessage(configError);
@@ -3450,7 +3425,6 @@ bool TfMain::tryConnect()
 			componentsEnable(false);
 			return false;
 		}
-
 		std::string err;
 		if (!serverManager_.connectPrimary(&err)) {
 			ShowMessage("Ошибка подключения: " + String(err.c_str()));
@@ -3458,7 +3432,6 @@ bool TfMain::tryConnect()
 			componentsEnable(false);
 			return false;
 		}
-
 		const int serverCount = static_cast<int>(serverManager_.serverIds().size());
 		lbStatus->Caption = "Статус: настроено серверов " + String(serverCount) +
 			", основной подключён, " + cmbGod->Text + " год";

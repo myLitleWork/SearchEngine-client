@@ -408,7 +408,6 @@ private:	// User declarations
 	int searchServerSuccessCount = 0;
 	int searchServerTotalCount = 0;
 	TObject* lastSender = nullptr;
-
 	void ensureServerCatalogSeeded(const String& fallbackHost);
 	void reloadAvailableYears();
 	bool configureServersForCurrentYear(String* errorMessage = nullptr);
@@ -465,14 +464,12 @@ public:		// User declarations
 		std::string outputName;
 		std::string remotePath;
 	};
-
 	struct RemoteArchiveRequest
 	{
 		std::string serverId;
 		String remotePath;
 		std::vector<String> files;
 	};
-
 	struct SaveTaskContext
 	{
 		std::vector<RemoteFileRequest> pril_vh;

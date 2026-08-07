@@ -21,8 +21,12 @@ msbuild SearchClient_asio.cbproj /t:Build /p:Config=Debug /p:Platform=Win32 /v:n
 ```
 
 - Для выпуска заменить `Debug` на `Release`.
-- Post-build event копирует EXE в `D:\MyDeploy`; автоматическую сборку считать
-  записью вне репозитория.
+- Release PostBuild вызывает `scripts\PostBuild-SearchClientPortable.bat` →
+  `out\package\SearchClient-Release` и при заданном User-env
+  `WORKSPACE_RELEASE_CLOUD_ROOT` публикует ZIP через
+  `TOOLS\scripts\release\Publish-ReleasePackageIfConfigured.ps1`.
+- Ручная упаковка без полной пересборки:
+  `.\scripts\New-SearchClientPackage.ps1 -AllowDirty`.
 - Smoke-check сетевых изменений выполнять с контролируемым сервером и
   disposable-копиями локальных баз.
 
