@@ -42,7 +42,6 @@ myString& myString::operator=(std::wstring&& wstr) {
     return *this;
 }
 
-myString::operator std::string() const { return *this; }
 myString::operator std::wstring() const { return to_wstring(); }
 
 std::ostream& operator<<(std::ostream& os, const myString& myStr) {

@@ -5,9 +5,9 @@
 #include <tchar.h>
 #include "WordBatchProcessor.h"
 #include "MultiServerSelfTest.h"
+#include "AuthPaths.h"
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
-USEFORM("formRes.cpp", fRes);
 //USEFORM("Frames\MyFrameDbg.cpp", FrameDbg); /* TFrame: File Type */
 //USEFORM("Frames\FramePdtv.cpp", frPdtv); /* TFrame: File Type */
 //USEFORM("Frames\FrameWay.cpp", frWay); /* TFrame: File Type */
@@ -20,6 +20,9 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		return RunMultiServerSelfTestFromCommandLine();
 	if (IsDocxTimeoutSelfTestInvocation())
 		return RunDocxTimeoutSelfTestFromCommandLine();
+	if (ParamCount() >= 1 && SameText(ParamStr(1), L"--auth-path-self-test"))
+		return auth_paths::isRegularFile(
+			auth_paths::fileBesideExecutable(L"admin984.bin")) ? 0 : 51;
 #endif
 
 	if (IsDocxWorkerInvocation())
@@ -30,7 +33,6 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		Application->Initialize();
 		Application->MainFormOnTaskBar = true;
 		Application->CreateForm(__classid(TfMain), &fMain);
-		Application->CreateForm(__classid(TfRes), &fRes);
         ReportMemoryLeaksOnShutdown = true;
 		Application->Run();
 	}

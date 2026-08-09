@@ -3,7 +3,6 @@
 //
 
 #include "ConverterJSON.h"
-#include "Resolution.h"
 #include "Telega.h"
 #include "Request.h"
 #include "Condition.h"
@@ -112,50 +111,6 @@ std::vector<std::string> ConverterJSON::getRequestsFromString(const std::string 
     jsonRequests.at("Requests").get_to(requests);
 
     return requests;
-}
-
-Resolution ConverterJSON::getResolution(const std::string &str) {
-    /**
-    Функция получения настроек сервера из json файла. */
-
-    Resolution r{};
-    nh::json jsonResolution;
-   // std::string n_sht,date,time,id_r,text,chk;
-
-    try
-    {
-        jsonResolution = nh::json::parse(str);
-
-        jsonResolution.at("n_sht").get_to(r.n_sht);
-        jsonResolution.at("text").get_to(r.text);
-	 //	jsonResolution.at("isp").get_to(r.isp);
-	  //	jsonResolution.at("so_isp").get_to(r.so_isp);
-	  //	jsonResolution.at("dead_line").get_to(r.dead_line);
-	}
-	catch (nh::json::parse_error& ex)
-    {
-        std::cerr << "JSON parse error at byte " << ex.byte << std::endl;
-        throw myExp(str);
-    }
-    catch (...)
-    {
-        throw myExp(str);
-    }
-
-    return r;
-}
-
-std::string ConverterJSON::getJsonResolution(const Resolution &val) {
-
-    nh::json jsonResolution;
-    // std::string n_sht,date,time,id_r,text,chk;
-
-    jsonResolution["n_sht"] = val.n_sht;
-    jsonResolution["id_r"] =  val.id_r;
-    jsonResolution["text"] =  val.text;
-    jsonResolution["chk"] =   val.chk;
-
-    return to_string(jsonResolution);
 }
 
 std::string ConverterJSON::getJsonTelega(const Telega &val) {

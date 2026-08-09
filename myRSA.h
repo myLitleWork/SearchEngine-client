@@ -71,7 +71,11 @@ class RSA
 
 	void init()
 	{
-
+		// Key generation in the client is intentionally disabled. The current
+		// temporary authorization mode uses a marker file beside the EXE. Keep
+		// the former code for a possible return to signed tokens, but never
+		// create a private key automatically on a user workstation.
+		/*
 		bool pri_key_file_ex = fs::exists(pri_key_file);
 		bool pub_key_file_ex = fs::exists(pub_key_file);
 
@@ -79,7 +83,7 @@ class RSA
 			return;
 
 		dll::GenerateRSAKey();
-
+		*/
 	}
 
 

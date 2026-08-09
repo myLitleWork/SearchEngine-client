@@ -14,8 +14,7 @@
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
-#include "Version.h"
-#include "formRes.h"
+#include "AuthPaths.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
 #include <iostream>
@@ -31,6 +30,40 @@
 #include "FileData.h"
 #include "mySomeFunc.h"
 #include <System.Threading.hpp>
+#pragma comment(lib, "version.lib")
+namespace {
+String GetSearchClientProductVersion()
+{
+    wchar_t modulePath[MAX_PATH] = {};
+    if (GetModuleFileNameW(nullptr, modulePath, MAX_PATH) == 0) {
+        return String();
+    }
+    DWORD handle = 0;
+    const DWORD size = GetFileVersionInfoSizeW(modulePath, &handle);
+    if (size == 0) {
+        return String();
+    }
+    std::vector<unsigned char> data(size);
+    if (!GetFileVersionInfoW(modulePath, 0, size, data.data())) {
+        return String();
+    }
+    VS_FIXEDFILEINFO *fixedInfo = nullptr;
+    UINT fixedInfoSize = 0;
+    if (!VerQueryValueW(data.data(), L"\\", reinterpret_cast<void **>(&fixedInfo), &fixedInfoSize) ||
+        fixedInfo == nullptr || fixedInfoSize < sizeof(VS_FIXEDFILEINFO) ||
+        fixedInfo->dwSignature != VS_FFI_SIGNATURE) {
+        return String();
+    }
+    wchar_t *productVersion = nullptr;
+    UINT productVersionSize = 0;
+    if (!VerQueryValueW(data.data(), L"\\StringFileInfo\\040904E4\\ProductVersion",
+            reinterpret_cast<void **>(&productVersion), &productVersionSize) ||
+        productVersion == nullptr || productVersionSize == 0) {
+        return String();
+    }
+    return String(productVersion);
+}
+}
 
 
 #pragma link "DataDriverEh"
@@ -453,9 +486,6 @@ void TfMain::loadTextToEditFromServer()
 {
 
 	rchEdt->Lines->Clear();
-	if(!checkUser() && useF12Control())
-		return;
-
 	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
 		ShowMessage(deletedFileMessage());
 		return;
@@ -979,92 +1009,6 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 	}
 
 	Application->ProcessMessages();
-
-
-    return;
-
-	std::wstring gr2 = L"2 отделение";
-	std::wstring gr4 = L"4 группа";
-	std::wstring gr10 = L"10 группа";
-	std::wstring adm = L"admin";
-
-	name_gr["Sherstobitov"] = conv::to_string(gr2);
-	name_gr["Petrakov"] = conv::to_string(gr2);
-	name_gr["Penzin"] = conv::to_string(gr2);
-	name_gr["Serikov"] = conv::to_string(gr2);
-	name_gr["Gorbachev"] = conv::to_string(gr2);
-
-	name_gr["Tarasov"] = conv::to_string(adm);
-	name_gr["Nemcov"] = conv::to_string(gr2);
-
-	name_gr["Kulkin"] = conv::to_string(gr4);
-	name_gr["Lebedev"] = conv::to_string(gr4);
-	name_gr["Smetanin"] = conv::to_string(gr4);
-	name_gr["Krechetnikov"] = conv::to_string(gr4);
-	name_gr["Zverev"] = conv::to_string(gr4);
-
-	name_gr["Gavrilov"] = conv::to_string(gr10);
-
-	/*
-	std::wstring kulk = L"т. Кулькину Н.А.";
-	name_solo["Kulkin"] = conv::to_string(kulk);
-
-	std::wstring penzin = L"т. Пензину А.Д.";
-	name_solo["Penzin"] = conv::to_string(penzin);
-	*/
-
-	{
-		std::ifstream jsonFile("groups.json");
-		grp = nh::json::parse(jsonFile).get<std::map<std::string, std::set<std::string>>>();
-		jsonFile.close();
-	}
-
-	{
-		std::ifstream jsonFile("user_group.json");
-		name_gr = nh::json::parse(jsonFile).get<std::map<std::string, std::string>>();
-		jsonFile.close();
-	}
-
-
-	{
-		std::ifstream jsonFile("user_group.json");
-		name_solo = nh::json::parse(jsonFile).get<std::map<std::string, std::string>>();
-		jsonFile.close();
-	}
-
-
-
-	/*
-	while(!qry2->Eof)
-	{
-
-		std::wstring gr = qry2->FieldByName("Group")->AsString.c_str();
-		std::wstring fio = qry2->FieldByName("full_value")->AsString.c_str();
-		std::string gr_s = conv::to_string(gr);
-		std::string fio_s = conv::to_string(fio);
-
-		grp[gr_s].insert(fio_s);
-
-
-
-		qry2->Next();
-	}
-
-	{
-	std::ofstream jsonFile("groups.json");
-	nh::json j = grp;
-	jsonFile << std::setw(2) << j;
-	jsonFile.close();
-	}
-
-    {
-	std::ofstream jsonFile("user_group.json");
-	nh::json j = name_gr;
-	jsonFile << std::setw(2) << j;
-	jsonFile.close();
-	}
-    */
-
 }
 //---------------------------------------------------------------------------
 
@@ -1189,42 +1133,6 @@ void __fastcall TfMain::componentsEnable(bool b)
 
 }
 
-
-//---------------------------------------------------------------------------
-void __fastcall TfMain::Button6Click(TObject *Sender)
-{
-   /*	lstDocs->Items->Clear();
-	socketWrite("PRIVET", COMMAND::UPDATE);
-
-	std::string str;
-
-	if(!socketRead(str))
-			return;
-
-	std::vector<std::string> vDoc{};
-	std::map<std::string, std::string> mExcsBuff;
-
-	nh::json jsonResolutions;
-	jsonResolutions = nh::json::parse(str);
-
-	jsonResolutions.at("docs").get_to(vDoc);
-	jsonResolutions.at("execs").get_to(mExcsBuff);
-
-	for(const auto& s:vDoc)
-		lstDocs->Items->Add(s.c_str());
-
-	fRes->myExcs.clear();
-	for(const auto& s:mExcsBuff)
-	{
-		String w1 = conv::to_wstring(s.first).c_str();
-		String w2 = conv::to_wstring(s.second).c_str();
-
-		fRes->myExcs.insert(std::make_pair(w1,w2));
-	}
-		 */
-
-}
-//---------------------------------------------------------------------------
 
 // JSON received from the server stores text as UTF-8.  Converting these bytes
 // through AnsiString makes FireDAC persist mojibake (for example, "Р..." in
@@ -1370,7 +1278,8 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
 
 void __fastcall TfMain::FormCreate(TObject *Sender)
 {
-	Caption = AppVersion::AppTitle();
+	const String productVersion = GetSearchClientProductVersion();
+	Caption = productVersion.IsEmpty() ? L"SearchClient_asio" : L"SearchClient_asio v" + productVersion;
 	InitDbgMenuDS();
 
 	ComboHistory = RecentComboHistory(cmbReq,9);
@@ -1380,21 +1289,27 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	SqlCondition::mapVh =  getMapFromQry(qrySettings, "map_vh");
 	SqlCondition::mapIsh = getMapFromQry(qrySettings, "map_ish");
 
+	Edit2->Text = L"localhost";
 	auto sl = new TStringList();
-
 	try
 	{
-		sl->LoadFromFile("SERVER_IP.INI");
-		Edit2->Text = sl->Strings[0];
+		const String legacyIpPath =
+			ExtractFilePath(Application->ExeName) + L"SERVER_IP.INI";
+		if (FileExists(legacyIpPath)) {
+			sl->LoadFromFile(legacyIpPath);
+			if (sl->Count > 0) {
+				const String legacyHost = Trim(sl->Strings[0]);
+				if (!legacyHost.IsEmpty())
+					Edit2->Text = legacyHost;
+			}
+		}
 	}
 	catch(...)
 	{
-		ShowMessage("Файл \"SERVER_IP.INI\" - не найден\nили имеет не верную структуру!\n\
-		Пример верного содержания - \"192.168.0.1\"");
-		Edit2->Text = "localhost";
-		ShowMessage("Адрес сервера выбран по умолчанию как localhost.");
+		// SERVER_IP.INI is an optional legacy fallback. The server catalog in
+		// Settings.db3 is the primary configuration source.
+		Edit2->Text = L"localhost";
 	}
-
 	delete sl;
 
 	ensureServerCatalogSeeded(Edit2->Text);
@@ -1549,91 +1464,6 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
 
 
 
-bool TfMain::checkUser()
-{
-   //  ShowMessage(user.c_str());
- //	ShowMessage(name_gr.at(user).c_str());
-
-     return true;
-	if(user_.empty() || name_gr.find(user_) == name_gr.end())
-		return false;
-
-	if(name_gr.at(user_) == "admin")
-		return true;
-
-	String podp_num = dbgEh->Fields[3]->AsString;
-
-	if( podp_num.Pos("/П") == podp_num.Length()-1 )
-		return true;
-
-
-	auto names = grp.at(name_gr.at(user_));
-
-
-
-	COMMAND command;
-	auto number = dbgEh->Fields[0]->AsString;
-
-	auto type = dbgEh->Fields[7]->AsString;
-	int type_int = 0;
-
-	if(type == "Вх.")
-	{
-		type_int = 1;
-		command = COMMAND::GET_VH_TELEGA_WAY;
-	}
-	else if(type == "Исх.")
-	{
-		type_int = 2;
-		command = COMMAND::GET_ISH_TELEGA_WAY;
-	}
-	else
-	{
-	   //	ShowMessage("Неизвестный тип шт!");
-		return false;
-	}
-
-	std::list<std::map<std::string,std::string>> result_way{};
-
-
-		std::string err;
-
-	// 1) готовим данные
-	std::string d = std::string(AnsiString(number).c_str());
-
-	std::string str;
-	if (!serverManager_.requestText(
-			currentSourceServerId(), d, command, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
-		return false;
-	}
-
-	// если дошли сюда — всё ок
-
-
-	result_way = JSON::get<std::list<std::map<std::string,std::string>>>(str);
-  //	ShowMessage(user.c_str());
-  //	ShowMessage(name_gr.at(user).c_str());
-
-	std::string solo_name;
-	if(name_solo.find(user_) != name_solo.end())
-		solo_name = name_solo.at(user_);
-
-	for(const auto& m : result_way)
-	{
-		for(const auto name : names)
-		{
-			auto kuda = m.at("kuda");
-
-			if(kuda == name || kuda == solo_name)
-				return true;
-		}
-	}
-
-
-	return false;
-}
-//---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 void __fastcall TfMain::N1Click(TObject *Sender)
 {
@@ -2141,11 +1971,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
             continue;
         }
 
-        if (!checkUser() && useF12Control()) {
-            preLog->Add(num + " - нет доступа к данной шт!");
-            continue;
-        }
-
         AnsiString dd = dbgEh->DataSource->DataSet->FieldValues["dir"];
         std::string dir_file_name = dd.c_str();
 
@@ -2575,10 +2400,6 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 
 	// Подготовка переменных
-	const bool f12lock = (!checkUser() && useF12Control());
-	if (f12lock)
-		return;
-
 	std::string dir_str = AnsiString(dir).c_str();
 
 
@@ -2738,12 +2559,6 @@ void __fastcall TfMain::actShowRowPanelExecute(TObject *Sender)
 //---------------------------------------------------------------------------
 
 
-std::string getExecutablePath() {
-	return std::string(AnsiString{ExtractFilePath(Application->ExeName)}.c_str());
-}
-
-
-
 #include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
@@ -2831,23 +2646,27 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 
     // Переносим владение гардом в shared_ptr, чтобы RAII дожил до конца задачи
     auto guard_holder = std::make_shared<BusyGuardAtomic>(std::move(guard));
-
     System::Threading::TTask::Run([this, guard_holder]() {
-        auto rootOf = [](const std::string& p)->std::string { return p.substr(0,2); };
-        static std::string admin_file = getExecutablePath() + "\\admin984.bin";
-
-        // 1) быстрый admin-токен
-        if (!auth_ && user_ != "admin" && SafeExistsWin(toW(admin_file))) {
-            TThread::Queue(nullptr, [this]() {
-                onSuccessfulAuthorization("admin", "");
-                if (tryConnect()) {
-                    registryOnServer("admin");
-                }
-                gCurrentPath = getExecutablePath() + "\\admin984.bin";
-            });
-            return; // guard_holder разрушится здесь -> флаг освободится
-        }
-
+		const std::wstring adminFile =
+			auth_paths::fileBesideExecutable(L"admin984.bin");
+		// Temporary simplified authorization: the marker must be a regular file
+		// located beside the running EXE. The path stays Unicode throughout.
+		if (!auth_ && user_ != "admin" && auth_paths::isRegularFile(adminFile)) {
+			const std::string adminFileUtf8 = auth_paths::toUtf8(adminFile);
+			TThread::Queue(nullptr, [this, adminFileUtf8]() {
+				onSuccessfulAuthorization("admin", adminFileUtf8);
+				if (tryConnect()) {
+					registryOnServer("admin");
+				}
+				gCurrentPath = adminFileUtf8;
+			});
+			return; // guard_holder разрушится здесь -> флаг освободится
+		}
+		// Signed removable/local tokens are temporarily disabled while the
+		// authorization design is being revisited. Keep this implementation for
+		// a possible return; do not delete it and do not generate RSA keys.
+#if 0
+		auto rootOf = [](const std::string& p)->std::string { return p.substr(0,2); };
         auto w2u8 = [](const std::wstring& ws){
             int n = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, nullptr, 0, nullptr, nullptr);
             std::string s(n ? n - 1 : 0, '\0');
@@ -2872,11 +2691,10 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
             if (isValid(p)) now.insert(p);
         }
 
-        std::string exeDir = std::filesystem::path(getExecutablePath()).parent_path().string();
-        std::wstring wLocal = toW(exeDir + "\\token-HS.bin");
-        if (SafeExistsWin(wLocal)) {
-            std::string local = exeDir + "\\token-HS.bin";
-            if (isValid(local)) now.insert(local);
+		std::wstring wLocal = auth_paths::fileBesideExecutable(L"token-HS.bin");
+		if (SafeExistsWin(wLocal)) {
+			std::string local = auth_paths::toUtf8(wLocal);
+			if (isValid(local)) now.insert(local);
         }
 
         for (auto it = gTokens.begin(); it != gTokens.end(); )
@@ -2900,10 +2718,11 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
                 if (tryConnect()) registryOnServer(fp.fio);
                 else gTokens.erase(desired);
             });
-        } catch (...) {
-            gTokens.erase(desired);
-        }
-        // guard_holder выходит из области видимости -> освобождает busy-флаг
+		} catch (...) {
+			gTokens.erase(desired);
+		}
+#endif
+		// guard_holder выходит из области видимости -> освобождает busy-флаг
     });
 }
 
@@ -2969,11 +2788,6 @@ void __fastcall TfMain::tbLoadShow(TObject *Sender)
 
 void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 {
-    if (!checkUser()) {
-        ShowMessage("Данная операция доступна только для авторизованных пользователей!");
-        return;
-    }
-
     // Копии нужных переменных для лямбды
     std::string dir = AnsiString(ExtractFileDir(String{token_dir_.c_str()})).c_str();
     std::string god = AnsiString{cmbGod->Text}.c_str();
@@ -3089,12 +2903,6 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 
 
 	ggSaveProgress->Progress = 0;
-
-	if (!checkUser()) {
-		ShowMessage("Данная операция доступна только для авторизованных пользователей!");
-		return;
-	}
-
 	std::string err;
 
 	auto data_request = std::vector<uint8_t>(user_.begin(), user_.end());
@@ -3378,7 +3186,6 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 	BusyGuardAtomic guard(gLogoutBusy);
 	if (!guard) return;
 
-	static std::string admin_file = getExecutablePath() + "\\admin984.bin";
 	if (user_ == "admin")
 		return;
 
@@ -3495,7 +3302,7 @@ void __fastcall TfMain::excel1Click(TObject *Sender)
     if (!frxReport->PrepareReport())
         return;
 
-    auto xls = frxXLSExport1;
+    TfrxXLSExport *xls = frxXLSExport1;
 
     TSaveDialog *dlg = new TSaveDialog(this);
     try
@@ -3505,6 +3312,10 @@ void __fastcall TfMain::excel1Click(TObject *Sender)
 
         if (dlg->Execute())
         {
+			const String previousFileName = xls->FileName;
+			const bool previousShowDialog = xls->ShowDialog;
+			const bool previousOpenAfterExport = xls->OpenAfterExport;
+			const bool previousOverwritePrompt = xls->OverwritePrompt;
             try
             {
                 xls->FileName = dlg->FileName;
@@ -3516,7 +3327,10 @@ void __fastcall TfMain::excel1Click(TObject *Sender)
             }
             __finally
             {
-                delete xls;
+				xls->FileName = previousFileName;
+				xls->ShowDialog = previousShowDialog;
+				xls->OpenAfterExport = previousOpenAfterExport;
+				xls->OverwritePrompt = previousOverwritePrompt;
             }
         }
     }

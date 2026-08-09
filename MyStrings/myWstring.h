@@ -34,7 +34,6 @@ struct myWstring : public std::wstring, private myConverter {
     myWstring& operator=(std::wstring&& wstr);
 
     explicit operator std::string() const;
-    explicit operator std::wstring() const;
 
     friend std::ostream& operator<<(std::ostream& os, const myWstring& myStr);
     friend std::istream& operator>>(std::istream& is, myWstring& myStr);

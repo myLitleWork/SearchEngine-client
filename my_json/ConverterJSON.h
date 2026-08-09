@@ -16,7 +16,6 @@ namespace search_server
     class Settings;
 }
 
-struct Resolution;
 class Telega;
 class Request;
 struct Condition;
@@ -45,10 +44,8 @@ public:
 
     ConverterJSON() = default;
     static void setSettings(const search_server::Settings& val);
-    static std::string getJsonResolution(const Resolution& val);
     static std::string getJsonTelega(const Telega& val);
     static search_server::Settings getSettings(const std::string& jsonPath = "Settings.json");
-    static Resolution getResolution(const std::string& str);
     static std::vector<std::string> getRequests(const std::string& jsonPath = "Requests.json");
     static std::vector<std::string> getRequestsFromString(const std::string& jsonString);
     static std::string putAnswers(const listAnswers& answers, const std::string& jsonPath = "Answers.json");

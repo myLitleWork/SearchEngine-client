@@ -5,7 +5,6 @@
 
 #include "FramePdtv.h"
 #include "utils.h"
-#include "utils.h"
 #include "myAsioClient.h"
 #include "myJson.h"
 #include <System.Threading.hpp>
@@ -55,7 +54,7 @@ void TfrPdtv::InitDbgDS()
 void TfrPdtv::FillDbg()
 {
 
-        // ������ ��� ����������� ������ ������ �� ����� �������
+		// Безопасный показ сообщения из фонового потока.
 		auto safeShow = [](const String& msg)
 		{
 			TThread::Queue(nullptr, [m = String(msg)]() { ShowMessage(m); });
@@ -70,10 +69,10 @@ void TfrPdtv::FillDbg()
 
 		String numberS, to;
 
-		numberS = dbgMain->Fields[0]->AsString; // �����
-		to      = dbgMain->Fields[8]->AsString; // ����������
+		numberS = dbgMain->Fields[0]->AsString; // номер документа
+		to      = dbgMain->Fields[8]->AsString; // получатели
 
-		// ������ ������ ������ � GUI-������
+		// Подготавливаем запрос в GUI-потоке.
 		TCursor prev = Screen->Cursor;
 		Screen->Cursor = crHourGlass;
 
@@ -103,41 +102,41 @@ void TfrPdtv::FillDbg()
 						result = JSON::get<std::list<std::map<std::string, std::string>>>(jsonStr);
 					} catch (const std::exception& e) {
 						ok = false;
-						safeShow(L"������ �������� JSON (std): " + String(e.what()));
+						safeShow(L"Ошибка разбора ответа ПДТВ (std): " + String(e.what()));
 					} catch (const Exception& e) {
 						ok = false;
-						safeShow(L"������ �������� JSON: " + e.Message);
+						safeShow(L"Ошибка разбора ответа ПДТВ: " + e.Message);
                     } catch (...) {
                         ok = false;
-                        safeShow(L"����������� ������ �������� JSON");
+                        safeShow(L"Неизвестная ошибка разбора ответа ПДТВ");
                     }
                 }
             }
             catch (const std::exception& e)
             {
                 ok = false;
-                safeShow(L"����������� ������ ������� ������: " + String(e.what()));
+                safeShow(L"Ошибка запроса данных ПДТВ (std): " + String(e.what()));
             }
             catch (const Exception& e)
             {
                 ok = false;
-                safeShow(L"����������� ������ ������� ������: " + e.Message);
+                safeShow(L"Ошибка запроса данных ПДТВ: " + e.Message);
             }
             catch (...)
 			{
                 ok = false;
-                safeShow(L"����������� ����������� ������ ������� ������");
+                safeShow(L"Неизвестная ошибка запроса данных ПДТВ");
             }
 
             TThread::Queue(nullptr, [this, to, ok, result, prev, safeShow]()
             {
-                // ������ ���������� ������ � GUI-������
+                // Обновляем таблицу в GUI-потоке.
                 Screen->Cursor = prev;
 
                 try
 				{
 
-                    // split-������ ������ GUI-�����
+                    // Разбор строк выполняется только в GUI-потоке.
 					static auto mySplit = [this](const String& str, wchar_t d)
                     {
                         auto sl = std::unique_ptr<TStringList>(new TStringList());
@@ -156,7 +155,7 @@ void TfrPdtv::FillDbg()
 
                     if (result.empty())
                     {
-                        safeShow(L"PDTV: ������ ��������� �� �������");
+                        safeShow(L"ПДТВ: сервер не вернул данные");
                         return;
                     }
 
@@ -168,13 +167,13 @@ void TfrPdtv::FillDbg()
                             auto it = m.find(k);
                             return (it != m.end()) ? String(conv::to_wstring(it->second).c_str()) : String();
                         } catch (const std::exception& e) {
-                            safeShow(L"������ ������ ����� '" + String(k) + L"': " + String(e.what()));
+                            safeShow(L"Ошибка чтения поля ПДТВ '" + String(k) + L"': " + String(e.what()));
                             return String();
                         } catch (const Exception& e) {
-							safeShow(L"������ ������ ����� '" + String(k) + L"': " + e.Message);
+							safeShow(L"Ошибка чтения поля ПДТВ '" + String(k) + L"': " + e.Message);
                             return String();
                         } catch (...) {
-                            safeShow(L"����������� ������ ������ ����� '" + String(k) + L"'");
+                            safeShow(L"Неизвестная ошибка чтения поля ПДТВ '" + String(k) + L"'");
                             return String();
                         }
                     };
@@ -190,20 +189,20 @@ void TfrPdtv::FillDbg()
                         v_to   = mySplit(to, L';');
                         v_pdtv = mySplit(allpdtv1, L'/');
 					} catch (const Exception& e) {
-                        safeShow(L"������ split: " + e.Message);
+                        safeShow(L"Ошибка разбора данных ПДТВ: " + e.Message);
                     } catch (...) {
-                        safeShow(L"����������� ������ split");
+                        safeShow(L"Неизвестная ошибка разбора данных ПДТВ");
                     }
 
                     if (v_pdtv.empty())
                     {
-                        // ����������� �� ���������� ��������� (����� ����������� ������, ���� ����)
+                        // Дополняем отсутствующие элементы пустыми значениями.
                         int need = (int)v_to.size() - 1;
                         if (need < 0) need = 0;
                         try {
                             v_pdtv.assign(need, String());
                         } catch (...) {
-                            safeShow(L"������ ���������� ������ PDTV �������");
+                            safeShow(L"Не удалось подготовить пустые элементы ПДТВ");
                         }
                     }
 
@@ -215,10 +214,10 @@ void TfrPdtv::FillDbg()
 							mt->EnableControls();
 						} catch (const Exception& e) {
 							mt->EnableControls();
-							safeShow(L"������ ���������� ������ � mtPdtv: " + e.Message);
+							safeShow(L"Ошибка добавления строки ПДТВ: " + e.Message);
 						} catch (...) {
 							mt->EnableControls();
-							safeShow(L"����������� ������ ���������� ������ � mtPdtv");
+							safeShow(L"Неизвестная ошибка добавления строки ПДТВ");
 						}
 					};
 
@@ -227,14 +226,14 @@ void TfrPdtv::FillDbg()
 					if(v_to.size() > 0)
 						dbgPdtv->RowDetailPanel->Active = true;
 
-					if (v_to.size() == 2) // ���� �������
+					if (v_to.size() == 2) // один получатель
                     {
                         String date_time, file, kuda, dir;
 						std::vector<String> v_pdtv_1;
                         try {
                             v_pdtv_1 = mySplit(pdtv, L'|');
                         } catch (...) {
-                            safeShow(L"������ split PDTV ��� ���������� ��������");
+                            safeShow(L"Ошибка разбора ПДТВ для одного получателя");
                         }
 
                         kuda = v_to[0];
@@ -257,7 +256,7 @@ void TfrPdtv::FillDbg()
                         int count = (int)v_to.size() - 1;
                         if (count < 0) count = 0;
 
-                        // ��������� �� ���������������� ��������
+                        // Ограничиваем число строк доступными получателями и записями ПДТВ.
                         if ((int)v_pdtv.size() < count)
                             count = (int)v_pdtv.size();
 
@@ -268,7 +267,7 @@ void TfrPdtv::FillDbg()
                             try {
 								v_pdtv_1 = mySplit(v_pdtv[i], L'|');
                             } catch (...) {
-                                safeShow(L"������ split �������� v_pdtv[" + String(i) + L"]");
+                                safeShow(L"Ошибка разбора элемента ПДТВ №" + String(i + 1));
                             }
 
                             try { kuda = v_to[i]; }
@@ -292,22 +291,22 @@ void TfrPdtv::FillDbg()
                     try {
                         dbgPdtv->AutoFitColWidths = true;
                     } catch (const Exception& e) {
-                        safeShow(L"������ ����������� ������ �������: " + e.Message);
+                        safeShow(L"Ошибка настройки ширины колонок ПДТВ: " + e.Message);
                     } catch (...) {
-                        safeShow(L"����������� ������ ����������� ������ �������");
+                        safeShow(L"Неизвестная ошибка настройки ширины колонок ПДТВ");
                     }
                 }
                 catch (const Exception& e)
                 {
-                    safeShow(L"GUI-������ ��������� PDTV: " + e.Message);
+                    safeShow(L"Ошибка отображения ПДТВ: " + e.Message);
                 }
                 catch (const std::exception& e)
 				{
-                    safeShow(L"GUI-������ ��������� PDTV (std): " + String(e.what()));
+                    safeShow(L"Ошибка отображения ПДТВ (std): " + String(e.what()));
                 }
                 catch (...)
                 {
-                    safeShow(L"����������� GUI-������ ��������� PDTV");
+                    safeShow(L"Неизвестная ошибка отображения ПДТВ");
                 }
 			});
 		});
@@ -351,7 +350,7 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 
 	std::string err;
 
-	// 1) ��������
+	// Запрашиваем текст подтверждения.
 	std::string str;
 	if (!serverManager.requestText(
 			SourceServerId(), dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
@@ -359,7 +358,7 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 		return;
 	}
 
-// ������ �������� �� str
+// Ответ сервера находится в str.
 
 
 	TStringList* reg = new TStringList();

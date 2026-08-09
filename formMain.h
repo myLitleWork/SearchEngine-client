@@ -117,10 +117,8 @@
 #include <cstring>
 #include <iostream>
 #include <map>
-#include <set>
 #include <list>
 #include <mutex>
-#include <my_json/Resolution.h>
 #include <my_json/Telega.h>
 #include <myRequest.h>
 #include "SocketFileSaver.h"
@@ -301,7 +299,6 @@ __published:	// IDE-managed Components
 	void __fastcall cmbReqChange(TObject *Sender);
 	void __fastcall cmbReqKeyUp(TObject *Sender, WORD &Key, TShiftState Shift);
 	void __fastcall tmFilterEnableAlarmTimer(TObject *Sender);
-	void __fastcall Button6Click(TObject *Sender);
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Handled);
 	void __fastcall PageControl1Change(TObject *Sender);
@@ -491,7 +488,6 @@ public:		// User declarations
 
 	void __fastcall componentsEnable(bool b);
 
-	Resolution r;
 	std::map<String,double> myMap;
 
 	std::string requests;
@@ -525,10 +521,6 @@ public:		// User declarations
 	std::mutex clickMutex;
 	std::mutex soketMutex;
 
-	std::map<std::string, std::set<std::string>> grp;
-	std::map<std::string, std::string> name_gr;
-	std::map<std::string, std::string> name_solo;
-
 	RecentComboHistory ComboHistory{nullptr,0};
 
 
@@ -538,8 +530,6 @@ public:		// User declarations
 	void makeErrorWay(bool error);
 	void registryOnServer(const std::string& user_name);
 
-
-	bool checkUser();
 
 	 Message message_;
 	 std::string user_;

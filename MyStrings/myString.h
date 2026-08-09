@@ -34,7 +34,6 @@ struct myString : public std::string, private myConverter {
     myString& operator=(const std::string& str);
     myString& operator=(const myWstring& wstr);
 
-    explicit operator std::string() const;
     explicit operator std::wstring() const;
 
     // Для Boost Serialization

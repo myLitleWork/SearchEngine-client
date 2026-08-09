@@ -69,20 +69,6 @@ function Resolve-GitExe {
     )
 }
 
-function Test-BuildArtifact([IO.FileInfo]$File) {
-    $ext = $File.Extension.ToLowerInvariant()
-    $buildExt = @(
-        '.obj', '.dcu', '.tds', '.pch', '.ilc', '.ild', '.ilf', '.ils',
-        '.map', '.res', '.rsm', '.lib', '.bpi', '.dcp'
-    )
-    if ($buildExt -contains $ext) { return $true }
-    if ($File.Name -like '*.obj-*') { return $true }
-    if ($File.Name -like '*-journal') { return $true }
-    if ($File.Name -like '*.PCH1.*') { return $true }
-    if ($File.Name -like '*PCH1.pch') { return $true }
-    return $false
-}
-
 $exe = Join-Path $BuildDirectory 'SearchClient_asio.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Release executable is missing: $exe" }
 $stream = [IO.File]::OpenRead($exe)
@@ -94,19 +80,23 @@ try {
     if ($reader.ReadUInt16() -ne 0x014c) { throw 'SearchClient_asio.exe is not Win32 x86.' }
 } finally { $stream.Dispose() }
 
+$expectedFileVersion = $versionInfo.FileVersion
+$expectedProductVersion = $versionInfo.Version
+$peVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
+if ($peVersion.FileVersion -ne $expectedFileVersion) {
+    throw "Release executable FileVersion mismatch: expected $expectedFileVersion, got $($peVersion.FileVersion)."
+}
+if ($peVersion.ProductVersion -ne $expectedProductVersion) {
+    throw "Release executable ProductVersion mismatch: expected $expectedProductVersion, got $($peVersion.ProductVersion)."
+}
+
 $gitExe = Resolve-GitExe
 $gitStatus = @(& $gitExe -C $projectRoot status --porcelain --untracked-files=normal)
 $dirty = $gitStatus.Count -gt 0
 if ($dirty -and -not $AllowDirty) { throw 'Worktree is dirty. Use -AllowDirty for a local candidate package.' }
 
-$payloadFiles = @(
-    Get-ChildItem -LiteralPath $BuildDirectory -File |
-        Where-Object { -not (Test-BuildArtifact $_) } |
-        Sort-Object Name
-)
-if ($payloadFiles.Count -lt 1) { throw "No package payload files found in: $BuildDirectory" }
-
 $templateRoot = Join-Path $projectRoot 'deployment\SearchClientPortable'
+$templateAppRoot = Join-Path $templateRoot 'app'
 $tutorialRoot = Join-Path $projectRoot 'tutorials'
 foreach ($required in @('Verify-Package.cmd', 'Verify-Package.ps1')) {
     $path = Join-Path $templateRoot $required
@@ -115,12 +105,59 @@ foreach ($required in @('Verify-Package.cmd', 'Verify-Package.ps1')) {
     }
 }
 
+# Release contents are intentionally explicit. Volatile runtime databases, local
+# server addresses, credentials and compiler output must never enter a package just
+# because they happen to exist beside the executable. The sanitized Settings.db3
+# seed and the non-secret admin marker are copied from the package template, not
+# from a developer's runtime folder.
+$requiredBuildPayloadNames = @(
+    'SearchClient_asio.exe',
+    'myCrypto.dll',
+    'libcrypto-3.dll'
+)
+$payloadFiles = @(
+    foreach ($name in $requiredBuildPayloadNames) {
+        $path = Join-Path $BuildDirectory $name
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Required release payload is missing: $path"
+        }
+        Get-Item -LiteralPath $path
+    }
+)
+
+$requiredTemplatePayloadNames = @(
+    'sht.docm',
+    'Settings.db3',
+    'admin984.bin'
+)
+$requiredTemplatePayloadHashes = @{
+    'Settings.db3' = '40A4D999B39B0FE4C18649DB71B7EC60222E8DDF28E2F059E24897B3032F0B13'
+}
+$templatePayloadFiles = @(
+    foreach ($name in $requiredTemplatePayloadNames) {
+        $path = Join-Path $templateAppRoot $name
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Required package template payload is missing: $path"
+        }
+        if ($requiredTemplatePayloadHashes.ContainsKey($name)) {
+            $actualHash = Get-Sha256 $path
+            if ($actualHash -ne $requiredTemplatePayloadHashes[$name]) {
+                throw "Package template payload has an unexpected SHA-256: $path"
+            }
+        }
+        Get-Item -LiteralPath $path
+    }
+)
+
 New-Item -ItemType Directory -Force -Path $outputParent | Out-Null
 $staging = Join-Path $outputParent ('.SearchClient-Release.staging-' + [Guid]::NewGuid().ToString('N'))
 $previous = $null
 New-Item -ItemType Directory -Path (Join-Path $staging 'app') -Force | Out-Null
 try {
     foreach ($file in $payloadFiles) {
+        Copy-Item -LiteralPath $file.FullName -Destination (Join-Path (Join-Path $staging 'app') $file.Name) -Force
+    }
+    foreach ($file in $templatePayloadFiles) {
         Copy-Item -LiteralPath $file.FullName -Destination (Join-Path (Join-Path $staging 'app') $file.Name) -Force
     }
     if (Test-Path -LiteralPath $tutorialRoot -PathType Container) {
@@ -135,7 +172,12 @@ try {
         commit = (& $gitExe -C $projectRoot rev-parse HEAD).Trim(); dirty = $dirty;
         createdUtc = (Get-Date).ToUniversalTime().ToString('o');
         entryPoint = 'app/SearchClient_asio.exe';
-        excluded = @('compiler intermediates (.obj/.tds/.pch/.il*)', '*-journal');
+        excluded = @(
+            'all files not present in the explicit payload allowlist',
+            'compiler intermediates and journals',
+            'SearchRes.db3, Templates.json and SERVER_IP.ini',
+            'signed tokens, public/private keys and other local credentials'
+        );
         files = @($files | ForEach-Object {
             [ordered]@{ path = $_.FullName.Substring($staging.Length + 1).Replace('\','/'); size = $_.Length; sha256 = Get-Sha256 $_.FullName }
         })
@@ -172,6 +214,14 @@ $cloudHelper = @(
     Select-Object -First 1
 
 $cloudPackage = $null
+$configuredCloudRoot = $CloudRoot
+if ([string]::IsNullOrWhiteSpace($configuredCloudRoot)) {
+    $configuredCloudRoot = $env:WORKSPACE_RELEASE_CLOUD_ROOT
+}
+if ([string]::IsNullOrWhiteSpace($configuredCloudRoot)) {
+    $configuredCloudRoot = [Environment]::GetEnvironmentVariable('WORKSPACE_RELEASE_CLOUD_ROOT', 'User')
+}
+$cloudPublishRequired = -not $SkipCloudPublish -and -not [string]::IsNullOrWhiteSpace($configuredCloudRoot)
 if ($null -ne $cloudHelper) {
     $cloudArgs = @{
         PackageDirectory = $OutputDirectory
@@ -180,7 +230,7 @@ if ($null -ne $cloudHelper) {
         ZipName = $ZipName
         StartPath = $projectRoot
         SkipCloudPublish = $SkipCloudPublish
-        # Stage policy: include local Settings/DB/INI snapshot in Drive ZIP.
+        # admin984.bin intentionally enables the temporary admin mode.
         AllowSensitive = $true
     }
     if (-not [string]::IsNullOrWhiteSpace($CloudRoot)) {
@@ -192,10 +242,45 @@ else {
     Write-Host 'Cloud publish helper not found; local package only.'
 }
 
+if ($cloudPublishRequired) {
+    if ($null -eq $cloudPackage) {
+        throw 'Cloud publish returned no result for the configured cloud root.'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$cloudPackage.ZipPath) -or
+        -not (Test-Path -LiteralPath $cloudPackage.ZipPath -PathType Leaf)) {
+        throw "Cloud ZIP is missing: $($cloudPackage.ZipPath)"
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$cloudPackage.Sha256Path) -or
+        -not (Test-Path -LiteralPath $cloudPackage.Sha256Path -PathType Leaf)) {
+        throw "Cloud SHA-256 sidecar is missing: $($cloudPackage.Sha256Path)"
+    }
+}
+
+$packagedExe = Join-Path $OutputDirectory 'app\SearchClient_asio.exe'
+if (-not (Test-Path -LiteralPath $packagedExe -PathType Leaf)) {
+    throw "Packaged executable is missing: $packagedExe"
+}
+$packagedVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($packagedExe)
+if ($packagedVersion.FileVersion -ne $versionInfo.FileVersion -or
+    $packagedVersion.ProductVersion -ne $versionInfo.Version) {
+    throw (
+        "Packaged executable version mismatch: expected FileVersion=$($versionInfo.FileVersion), " +
+        "ProductVersion=$($versionInfo.Version); actual FileVersion=$($packagedVersion.FileVersion), " +
+        "ProductVersion=$($packagedVersion.ProductVersion)."
+    )
+}
+
 [pscustomobject]@{
-    Product = 'SearchClient'
+    Product = $productName
+    Version = $versionInfo.Version
+    FileVersion = $versionInfo.FileVersion
+    PackageDirectory = $OutputDirectory
     OutputDirectory = $OutputDirectory
+    PackagedExe = $packagedExe
     Dirty = $dirty
-    PayloadFileCount = $payloadFiles.Count
-    CloudZipPath = $(if ($null -ne $cloudPackage) { $cloudPackage.ZipPath } else { $null })
+    PayloadFileCount = $payloadFiles.Count + $templatePayloadFiles.Count
+    CloudPublished = $null -ne $cloudPackage
+    ZipPath = $(if ($null -ne $cloudPackage) { $cloudPackage.ZipPath } else { $null })
+    Sha256Path = $(if ($null -ne $cloudPackage) { $cloudPackage.Sha256Path } else { $null })
+    Sha256 = $(if ($null -ne $cloudPackage) { $cloudPackage.Sha256 } else { $null })
 }

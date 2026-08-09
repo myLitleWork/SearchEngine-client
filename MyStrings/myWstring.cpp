@@ -47,7 +47,6 @@ myWstring& myWstring::operator=(const myString& str) {
 
 
 myWstring::operator std::string() const { return to_string(); }
-myWstring::operator std::wstring() const { return *this; }
 
 std::ostream& operator<<(std::ostream& os, const myWstring& myStr) {
     os << myStr.to_string();
@@ -70,5 +69,4 @@ void from_json(const nlohmann::json& j, myWstring& myStr) {
 }
 
 myWstring::myWstring(const std::string &str) : std::wstring(utf8ToWstring(str)) {}
-
 

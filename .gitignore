@@ -31,5 +31,8 @@ Dcp/
 .DS_Store
 Thumbs.db
 
+# Local portable runtime data (settings DB, auth blobs, local docs)
+deployment/SearchClientPortable/app/
+
 
 

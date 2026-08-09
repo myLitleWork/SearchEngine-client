@@ -20,6 +20,20 @@ if (-not (Test-Path -LiteralPath $checksums -PathType Leaf)) {
     throw "Checksum file is missing: $checksums"
 }
 
+foreach ($required in @(
+    'app\SearchClient_asio.exe',
+    'app\myCrypto.dll',
+    'app\libcrypto-3.dll',
+    'app\sht.docm',
+    'app\Settings.db3',
+    'app\admin984.bin'
+)) {
+    $requiredPath = Join-Path $root $required
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Required package file is missing: $required"
+    }
+}
+
 foreach ($line in Get-Content -LiteralPath $checksums -Encoding UTF8) {
     if ($line -notmatch '^([0-9a-f]{64})  (.+)$') {
         throw "Invalid checksum line: $line"

@@ -82,9 +82,9 @@
         <VerInfo_Locale>1049</VerInfo_Locale>
         <VerInfo_MajorVer>4</VerInfo_MajorVer>
         <VerInfo_MinorVer>3</VerInfo_MinorVer>
-        <VerInfo_Release>0</VerInfo_Release>
+        <VerInfo_Release>1</VerInfo_Release>
         <VerInfo_Build>0</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=4.3.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=4.3.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=4.3.1.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=4.3.1;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <PackageImports>appanalytics;bcbie;bcbsmp;bindcomp;bindcompdbx;bindcompfmx;bindcompvcl;bindcompvclsmp;bindcompvclwinx;bindengine;CloudService;CustomIPTransport;DataSnapClient;DataSnapCommon;DataSnapConnectors;DatasnapConnectorsFreePascal;DataSnapFireDAC;DataSnapIndy10ServerTransport;DataSnapNativeClient;DataSnapProviderClient;DataSnapServer;DataSnapServerMidas;dbexpress;dbrtl;dbxcds;DbxClientDriver;DbxCommonDriver;DBXDb2Driver;DBXFirebirdDriver;DBXInformixDriver;DBXInterBaseDriver;DBXMSSQLDriver;DBXMySQLDriver;DBXOdbcDriver;DBXOracleDriver;DBXSqliteDriver;DBXSybaseASADriver;DBXSybaseASEDriver;dsnap;dsnapcon;dsnapxml;EhLib280;EhLibDBXDataDrivers280;emsclient;emsclientfiredac;emsedge;emshosting;emsserverresource;FireDAC;FireDACADSDriver;FireDACASADriver;FireDACCommon;FireDACCommonDriver;FireDACCommonODBC;FireDACDb2Driver;FireDACDBXDriver;FireDACDSDriver;FireDACIBDriver;FireDACInfxDriver;FireDACMongoDBDriver;FireDACMSAccDriver;FireDACMSSQLDriver;FireDACMySQLDriver;FireDACODBCDriver;FireDACOracleDriver;FireDACPgDriver;FireDACSqliteDriver;FireDACTDataDriver;fmx;fmxase;fmxdae;fmxFireDAC;fmxobj;FMXTee;FmxTeeUI;frx28;frxADO28;frxcs28;frxDB28;frxDBX28;frxe28;frxFD28;frxHTML28;frxIntIO28;frxIntIOIndy28;frxPDF28;frxTee28;fs28;fsADO28;fsDB28;fsFD28;fsTee28;IndyCore;IndyIPClient;IndyIPCommon;IndyIPServer;IndyProtocols;IndySystem;inet;inetdb;inetdbxpress;RESTBackendComponents;RESTComponents;rtl;soapmidas;soaprtl;soapserver;Tee;TeeDB;TeeUI;tethering;vcl;vclactnband;vcldb;vcldsnap;vcledge;vclFireDAC;vclie;vclimg;VCLRESTComponents;VclSmp;vcltouch;vclwinx;vclx;xmlrtl;$(PackageImports)</PackageImports>
@@ -151,13 +151,11 @@
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <Defines>NDEBUG;$(Defines)</Defines>
         <TASM_Debugging>None</TASM_Debugging>
-        <PostBuildEvent><![CDATA[call "$(PROJECTDIR)\scripts\PostBuild-SearchClientPortable.bat" "$(OUTPUTDIR)."
-$(PostBuildEvent)]]></PostBuildEvent>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
-        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <BCC_IncludePath>$(PROJECTDIR);Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BCC_IncludePath)</BCC_IncludePath>
         <LinkPackageStatics>rtl.lib;vcl.lib;VclSmp.lib;vclx.lib;vclimg.lib;vcldb.lib;dbrtl.lib;vclwinx.lib;bindengine.lib;EhLib280.lib;xmlrtl.lib;frx28.lib;fs28.lib;fqb280.lib;fsDB28.lib;frxDB28.lib;dsnap.lib;frxe28.lib;FireDAC.lib;FireDACCommon.lib;FireDACCommonDriver.lib;FireDACSqliteDriver.lib;vclFireDAC.lib</LinkPackageStatics>
@@ -166,6 +164,10 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DynamicRTL>false</DynamicRTL>
         <UsePackages>false</UsePackages>
         <Icon_MainIcon>SearchClient_asio_Icon.ico</Icon_MainIcon>
+        <PreBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PreBuild-SearchClientVersion.bat&quot;</PreBuildEvent>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PostBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PostBuild-SearchClientPortable.bat&quot;</PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
@@ -176,6 +178,9 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <IncludePath>C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release;D:\Libs\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(IncludePath)</IncludePath>
     </PropertyGroup>
     <ItemGroup>
+        <None Include="AuthPaths.h">
+            <BuildOrder>25</BuildOrder>
+        </None>
         <CppCompile Include="BinaryFileLoad\FileData.cpp">
             <BuildOrder>13</BuildOrder>
         </CppCompile>
@@ -208,12 +213,6 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <FormType>dfm</FormType>
             <DependentOn>formMain.h</DependentOn>
             <BuildOrder>2</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="formRes.cpp">
-            <Form>fRes</Form>
-            <FormType>dfm</FormType>
-            <DependentOn>formRes.h</DependentOn>
-            <BuildOrder>3</BuildOrder>
         </CppCompile>
         <CppCompile Include="Frames\FrameAttachments.cpp">
             <Form>frAttachments</Form>
@@ -305,6 +304,9 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <DependentOn>RecentComboHistory.h</DependentOn>
             <BuildOrder>26</BuildOrder>
         </CppCompile>
+        <ResourceCompile Include="SearchClientVersion.rc">
+            <BuildOrder>1</BuildOrder>
+        </ResourceCompile>
         <CppCompile Include="SearchClient_asio.cpp">
             <BuildOrder>0</BuildOrder>
         </CppCompile>
@@ -328,9 +330,8 @@ $(PostBuildEvent)]]></PostBuildEvent>
             <DependentOn>WordServer\WordServer.h</DependentOn>
             <BuildOrder>27</BuildOrder>
         </CppCompile>
-        <FormResources Include="formMain.dfm"/>
         <FormResources Include="Frames\MyFrameDbg.dfm"/>
-        <FormResources Include="formRes.dfm"/>
+        <FormResources Include="formMain.dfm"/>
         <FormResources Include="Frames\FrameAttachments.dfm"/>
         <FormResources Include="Frames\FramePdtv.dfm"/>
         <FormResources Include="Frames\FrameWay.dfm"/>
@@ -1305,22 +1306,4 @@ $(PostBuildEvent)]]></PostBuildEvent>
     <Import Project="$(BDS)\Bin\CodeGear.Cpp.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Cpp.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
-    <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
-        <PreBuildEvent/>
-        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
-        <PreLinkEvent/>
-        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>call &quot;$(PROJECTDIR)\scripts\PostBuild-SearchClientPortable.bat&quot; &quot;$(OUTPUTDIR).&quot;
-</PostBuildEvent>
-        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win64'">
-        <PreBuildEvent/>
-        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
-        <PreLinkEvent/>
-        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>call &quot;$(PROJECTDIR)\scripts\PostBuild-SearchClientPortable.bat&quot; &quot;$(OUTPUTDIR).&quot;
-</PostBuildEvent>
-        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
-    </PropertyGroup>
 </Project>
