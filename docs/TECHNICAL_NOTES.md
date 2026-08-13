@@ -8,7 +8,9 @@
 - Создаётся главная форма `TfMain` (`fMain`)
 - Специальные режимы командной строки:
   - `--docx-worker` (всегда, для конвертации)
-  - в Debug: `--multi-server-self-test`, `--auth-path-self-test`, docx-timeout self-test
+  - в Debug: `--multi-server-self-test`, `--auth-path-self-test`,
+    `--docx-timeout-self-test`, `--docx-cancel-self-test`,
+    `--docx-restart-self-test`
 
 ## Версия и имя продукта
 
@@ -73,6 +75,46 @@
 - `admin984.bin` — текущая временная заглушка рядом с EXE
 - `sht.docm`
 - `app-version.json` (версия продукта)
+
+## Изоляция и диагностика DOCX
+
+- Word Automation выполняется не в GUI-процессе, а в отдельном экземпляре
+  `SearchClient_asio.exe --docx-worker`.
+- Worker заранее помещается в Job Object. Родитель контролирует отдельный
+  15-секундный дедлайн каждого документа и может завершить зависший worker.
+- PID точного экземпляра Word определяется через `Word.Application.Hwnd` и
+  `GetWindowThreadProcessId`. Перед принудительным завершением полный путь
+  проверяется через `QueryFullProcessImageNameW` с правом
+  `PROCESS_QUERY_LIMITED_INFORMATION`; это работает для Win32-клиента и
+  64-битного Word.
+- Готовый файл публикуется только после успешной обработки временного
+  `<имя>.part-<pid>-<tick>.docx`. Таймаут и отмена удаляют временный результат.
+- Ошибка Word сбрасывает сессию: следующий документ получает новый worker и
+  новый экземпляр Word.
+- Постоянный технический журнал:
+  `%LOCALAPPDATA%\SearchClient_asio\Logs\docx-worker.log`.
+- Пользовательская кнопка **Отмена** выставляет атомарный флаг. Во время DOCX
+  ожидание прерывается не позднее следующего 40-миллисекундного цикла; во время
+  сетевой передачи отмена применяется после возврата сетевой операции.
+
+Стадии `WORD_START`, `WORD_READY` и `RUN_MACRO` не выполняют рабочий макрос:
+тестовая задержка ставится до него, а процесс уничтожается до продолжения.
+Стадия `SAVE_DOCX` достигается уже после выполнения макроса и предназначена
+только для отдельной ручной проверки на disposable-файлах.
+
+```powershell
+Win32\Debug\SearchClient_asio.exe --docx-timeout-self-test <input.txt> <sht.docm> <out.docx> 4000 10000 WORD_READY
+Win32\Debug\SearchClient_asio.exe --docx-timeout-self-test <input.txt> <sht.docm> <out.docx> 5000 12000 RUN_MACRO
+Win32\Debug\SearchClient_asio.exe --docx-cancel-self-test <input.txt> <sht.docm> <out.docx> 15000 12000 4000 WORD_READY
+Win32\Debug\SearchClient_asio.exe --docx-restart-self-test <input.txt> <sht.docm> <out.docx> 4000 10000 WORD_READY
+```
+
+Допустимые стадии: `WORD_START`, `WORD_READY`, `RUN_MACRO`, `SAVE_DOCX`.
+Код возврата `0` означает правильный статус, отсутствие итоговых/`.part`
+файлов и новой TEMP-сессии. При чистом исходном состоянии также проверяется
+отсутствие оставшегося Word. Все процессы Word, существовавшие до теста,
+должны остаться запущенными. Настоящий зависший VBA-макрос проверяется
+отдельно вручную на disposable-файлах.
 
 Реестр Windows и `TIniFile` для пользовательских настроек не используются.
 

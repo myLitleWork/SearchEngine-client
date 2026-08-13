@@ -229,6 +229,7 @@ __published:	// IDE-managed Components
 	TGroupBox *GroupBox3;
 	TEdit *edtSaveDir;
 	TButton *btnSave;
+	TButton *btnCancelSave;
 	TPanel *Panel8;
 	TPanel *Panel9;
 	TRadioGroup *rgTypeT;
@@ -309,6 +310,7 @@ __published:	// IDE-managed Components
 		TColumnEh *Column, Gridseh::TGridDrawState State);
 	void __fastcall cmbGodChange(TObject *Sender);
 	void __fastcall btnSaveClick(TObject *Sender);
+	void __fastcall btnCancelSaveClick(TObject *Sender);
 	void __fastcall chkSQLClick(TObject *Sender);
 	void __fastcall btnUpdateClick(TObject *Sender);
 	void __fastcall Button3Click(TObject *Sender);
@@ -451,6 +453,7 @@ public:		// User declarations
 
 	// ????????
 	std::atomic_bool     saveRunning{false};
+	std::atomic_bool     saveCancelRequested{false};
 	std::atomic_uint32_t saveFilesDone{0};
 	std::atomic_uint32_t saveFilesTotal{0};
 

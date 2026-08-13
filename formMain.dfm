@@ -905,7 +905,6 @@ object fMain: TfMain
               Margins.Top = 6
               Margins.Right = 6
               Margins.Bottom = 6
-              Align = alTop
               AutoSize = False
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
@@ -923,14 +922,13 @@ object fMain: TfMain
               AlignWithMargins = True
               Left = 8
               Top = 44
-              Width = 318
+              Width = 200
               Height = 42
               Hint = 'Crtl+S'
               Margins.Left = 6
               Margins.Top = 6
               Margins.Right = 6
               Margins.Bottom = 6
-              Align = alTop
               Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100
               DropDownMenu = popSaveButton
               ParentShowHint = False
@@ -938,6 +936,16 @@ object fMain: TfMain
               Style = bsSplitButton
               TabOrder = 1
               OnClick = btnSaveClick
+            end
+            object btnCancelSave: TButton
+              Left = 216
+              Top = 44
+              Width = 110
+              Height = 42
+              Caption = #1054#1090#1084#1077#1085#1072
+              Enabled = False
+              TabOrder = 2
+              OnClick = btnCancelSaveClick
             end
           end
           object Button2: TButton

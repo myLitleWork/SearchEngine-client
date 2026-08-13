@@ -913,7 +913,7 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 {
 	if (saveRunning.load(std::memory_order_acquire)) {
 		Action = caNone;
-		ShowMessage("Дождитесь завершения сохранения файлов.");
+		ShowMessage("Дождитесь завершения сохранения файлов или нажмите \"Отмена\".");
 		return;
 	}
 	auto safeRelease = [this](auto* &fr) {
@@ -1115,6 +1115,7 @@ void __fastcall TfMain::componentsEnable(bool b)
 		Button3->Enabled = b;
 		Button1->Enabled = b;
 		btnSave->Enabled = b;
+		btnCancelSave->Enabled = !b && saveRunning.load(std::memory_order_acquire);
 		btnUpdate->Enabled = b;
 		btnAddFilesLoad->Enabled = b;
 		btnLoadOnServerFiles->Enabled = b;
@@ -1622,6 +1623,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt)
 	{
+		if (saveCancelRequested.load(std::memory_order_acquire))
+			return 0;
 		str.clear();
 		err.clear();
 
@@ -1699,6 +1702,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	if (makeDocx)
     {
         try {
+			if (saveCancelRequested.load(std::memory_order_acquire))
+				return 0;
             String shtPath = ExtractFilePath(Application->ExeName) + "sht.docm";
             const String requestedOutDocx = ChangeFileExt(
 				String(out_dir.c_str()) + "\\" + String(f.outputName.c_str()), ".docx");
@@ -1730,7 +1735,8 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 				conversion = docxSession->Convert(
 					text,
 					outDocx,
-					DOCX_CONVERSION_TIMEOUT_MS);
+					DOCX_CONVERSION_TIMEOUT_MS,
+					&saveCancelRequested);
 			}
 			else {
 				conversion = ConvertPlainTextToDocxWithTimeout(
@@ -1738,9 +1744,15 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 					L"Обработка_ШТ_2022",
 					outDocx,
 					shtPath,
-					DOCX_CONVERSION_TIMEOUT_MS);
+					DOCX_CONVERSION_TIMEOUT_MS,
+					&saveCancelRequested);
 			}
 
+			if (conversion.status == DocxConversionStatus::Cancelled) {
+				pushLog("Сохранение DOCX отменено во время обработки файла \"" +
+					String(f.outputName.c_str()) + "\".");
+				return 0;
+			}
 			if (conversion.status == DocxConversionStatus::TimedOut) {
 				pushLog("Файл \"" + String(f.outputName.c_str()) +
 					"\" не удалось обработать: " + conversion.message +
@@ -1884,6 +1896,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	ComponentsGuard compGuard(gSaveProcessing, this);
     if (!compGuard) return;
+	saveCancelRequested.store(false, std::memory_order_release);
 
 
 
@@ -2019,6 +2032,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
     // ===== старт прогресса (UI поток) =====
 	saveRunning.store(true, std::memory_order_release);
+	btnCancelSave->Enabled = true;
     saveFilesDone.store(0, std::memory_order_relaxed);
     saveFilesTotal.store((uint32_t)total_file_count, std::memory_order_relaxed);
 
@@ -2049,6 +2063,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 		ctx->docxSession = std::make_shared<DocxConversionSession>(
 			L"Обработка_ШТ_2022",
 			ExtractFilePath(Application->ExeName) + "sht.docm");
+		pushLog("DOCX: технический журнал " + GetDocxDiagnosticLogPath());
 	}
 
 	// ===== фон =====
@@ -2058,12 +2073,17 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	System::Threading::TTask::Run([this, ctx]()
 	{
 		int count_suc_files = 0;
+		bool cancelled = false;
 		const int totalFiles = static_cast<int>(
 			ctx->text_files.size() + ctx->pril_vh.size() + ctx->pril_ish.size());
 		int fileOrdinal = 0;
 		try
 		{
 			for (const auto& f : ctx->text_files) {
+				if (saveCancelRequested.load(std::memory_order_acquire)) {
+					cancelled = true;
+					break;
+				}
 				++fileOrdinal;
 				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
 					(ctx->makeDocx ? ": скачивание и DOCX-конвертация \"" : ": скачивание \"") +
@@ -2072,51 +2092,99 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 				count_suc_files += SaveFileVh(
 					ctx->out_dir, f, ctx->makeDocx, isLastInBatch, ctx->docxSession.get());
 				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
+				if (saveCancelRequested.load(std::memory_order_acquire)) {
+					cancelled = true;
+					break;
+				}
 			}
 
-			for (const auto& f : ctx->pril_vh) {
-				++fileOrdinal;
-				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
-					": скачивание приложения \"" + String(f.outputName.c_str()) + "\"");
-				const bool isLastInBatch = (fileOrdinal == totalFiles);
-				count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch);
-				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
+			if (!cancelled) {
+				for (const auto& f : ctx->pril_vh) {
+					if (saveCancelRequested.load(std::memory_order_acquire)) {
+						cancelled = true;
+						break;
+					}
+					++fileOrdinal;
+					pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
+						": скачивание приложения \"" + String(f.outputName.c_str()) + "\"");
+					const bool isLastInBatch = (fileOrdinal == totalFiles);
+					count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch);
+					saveFilesDone.fetch_add(1, std::memory_order_relaxed);
+					if (saveCancelRequested.load(std::memory_order_acquire)) {
+						cancelled = true;
+						break;
+					}
+				}
 			}
 
-			for (const auto& f : ctx->pril_ish) {
-				++fileOrdinal;
-				pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
-					": скачивание архива \"" + ExtractFileName(f.remotePath) + "\"");
-				const bool isLastInBatch = (fileOrdinal == totalFiles);
-				count_suc_files += SaveFileIsh(ctx->out_dir, f, isLastInBatch);
-				saveFilesDone.fetch_add(1, std::memory_order_relaxed);
+			if (!cancelled) {
+				for (const auto& f : ctx->pril_ish) {
+					if (saveCancelRequested.load(std::memory_order_acquire)) {
+						cancelled = true;
+						break;
+					}
+					++fileOrdinal;
+					pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
+						": скачивание архива \"" + ExtractFileName(f.remotePath) + "\"");
+					const bool isLastInBatch = (fileOrdinal == totalFiles);
+					count_suc_files += SaveFileIsh(ctx->out_dir, f, isLastInBatch);
+					saveFilesDone.fetch_add(1, std::memory_order_relaxed);
+					if (saveCancelRequested.load(std::memory_order_acquire)) {
+						cancelled = true;
+						break;
+					}
+				}
 			}
 		}
 		catch (...)
 		{
-			pushLog("Ошибка в процессе сохранения");
+			if (!saveCancelRequested.load(std::memory_order_acquire))
+				pushLog("Ошибка в процессе сохранения");
 		}
+		cancelled = cancelled || saveCancelRequested.load(std::memory_order_acquire);
 
 		if (ctx->docxSession) {
 			ctx->docxSession->Close();
 			ctx->docxSession.reset();
 		}
 
-		pushLog(
-			String(count_suc_files) + " из " +
-			String((int)saveFilesTotal.load()) +
-			" файлов успешно сохранены!"
-		);
-		TThread::Queue(nullptr, [this]() {
+		if (cancelled) {
+			pushLog("Сохранение отменено. Успешно сохранено файлов: " +
+				String(count_suc_files) + ", обработано: " + String(fileOrdinal) +
+				" из " + String(totalFiles) + ".");
+		}
+		else {
+			pushLog(
+				String(count_suc_files) + " из " +
+				String((int)saveFilesTotal.load()) +
+				" файлов успешно сохранены!"
+			);
+		}
+		TThread::Queue(nullptr, [this, cancelled]() {
 			saveRunning.store(false, std::memory_order_release);
+			btnCancelSave->Enabled = false;
 			tmSaveProgressTimer(nullptr);
-			ggSaveProgress->Progress = ggSaveProgress->MaxValue;
+			if (!cancelled)
+				ggSaveProgress->Progress = ggSaveProgress->MaxValue;
 			componentsEnable(true);
+			saveCancelRequested.store(false, std::memory_order_release);
 			gSaveProcessing.store(false, std::memory_order_release);
 		});
 	});
 
 
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TfMain::btnCancelSaveClick(TObject *Sender)
+{
+	if (!saveRunning.load(std::memory_order_acquire))
+		return;
+	if (saveCancelRequested.exchange(true, std::memory_order_acq_rel))
+		return;
+
+	btnCancelSave->Enabled = false;
+	pushLog("Запрошена отмена сохранения. Текущая операция завершается безопасно...");
 }
 //---------------------------------------------------------------------------
 

@@ -20,6 +20,10 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		return RunMultiServerSelfTestFromCommandLine();
 	if (IsDocxTimeoutSelfTestInvocation())
 		return RunDocxTimeoutSelfTestFromCommandLine();
+	if (IsDocxCancelSelfTestInvocation())
+		return RunDocxCancelSelfTestFromCommandLine();
+	if (IsDocxRestartSelfTestInvocation())
+		return RunDocxRestartSelfTestFromCommandLine();
 	if (ParamCount() >= 1 && SameText(ParamStr(1), L"--auth-path-self-test"))
 		return auth_paths::isRegularFile(
 			auth_paths::fileBesideExecutable(L"admin984.bin")) ? 0 : 51;

@@ -4,6 +4,7 @@
 #include <System.Classes.hpp>      // TStringList
 #include <System.SysUtils.hpp>     // Exception
 #include <vcl.h>                   // WideString, ShowMessage
+#include <atomic>
 //-----------------------------------------------------------------
 //  Внешняя функция перекодировки OEM‑866 → ANSI
 extern void __fastcall F_SL_OemToAnsi(TStringList *sl);
@@ -15,7 +16,8 @@ enum class DocxConversionStatus
 {
     Success,
     Failed,
-    TimedOut
+    TimedOut,
+    Cancelled
 };
 
 struct DocxConversionResult
@@ -26,7 +28,7 @@ struct DocxConversionResult
     unsigned elapsedMs = 0;
 };
 
-constexpr unsigned DOCX_CONVERSION_TIMEOUT_MS = 60000;
+constexpr unsigned DOCX_CONVERSION_TIMEOUT_MS = 15000;
 
 void ProcessPlainText_WS(WordServer& ws,
                          const String& plainText,
@@ -53,19 +55,21 @@ public:
 
     DocxConversionResult Convert(const String& plainText,
                                  const String& outDocx,
-                                 unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS);
+                                 unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS,
+                                 const std::atomic_bool* cancelRequested = nullptr);
 
     void Close();
 
 private:
     void EnsureStarted();
-    void KillWorker();
+    void KillWorker(const String& reason);
     bool IsWorkerAlive() const;
     DocxConversionResult WaitForJobResponse(unsigned seq,
                                             const String& partialOutputPath,
                                             const String& outDocx,
                                             unsigned timeoutMs,
-                                            ULONGLONG startedAt);
+                                            ULONGLONG startedAt,
+                                            const std::atomic_bool* cancelRequested);
 
     String macroName_;
     String macroDoc_;
@@ -81,7 +85,10 @@ DocxConversionResult ConvertPlainTextToDocxWithTimeout(
                          const String& macroName,
                          const String& outDocx,
                          const String& macroDoc,
-                         unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS);
+                         unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS,
+                         const std::atomic_bool* cancelRequested = nullptr);
+
+String GetDocxDiagnosticLogPath();
 
 bool IsDocxWorkerInvocation();
 int RunDocxWorkerFromCommandLine();
@@ -89,6 +96,10 @@ int RunDocxWorkerFromCommandLine();
 #ifdef _DEBUG
 bool IsDocxTimeoutSelfTestInvocation();
 int RunDocxTimeoutSelfTestFromCommandLine();
+bool IsDocxCancelSelfTestInvocation();
+int RunDocxCancelSelfTestFromCommandLine();
+bool IsDocxRestartSelfTestInvocation();
+int RunDocxRestartSelfTestFromCommandLine();
 #endif
 
 //-----------------------------------------------------------------
