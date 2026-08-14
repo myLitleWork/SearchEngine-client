@@ -319,11 +319,8 @@ __published:	// IDE-managed Components
 	void __fastcall lstTemplatesClick(TObject *Sender);
 	void __fastcall N2Click(TObject *Sender);
 	void __fastcall N3Click(TObject *Sender);
-	void __fastcall FormMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
-          int X, int Y);
-	void __fastcall FormMouseMove(TObject *Sender, TShiftState Shift, int X, int Y);
-	void __fastcall FormMouseUp(TObject *Sender, TMouseButton Button, TShiftState Shift,
-          int X, int Y);
+	void __fastcall FormResize(TObject *Sender);
+	void __fastcall FormAfterMonitorDpiChanged(TObject* Sender, int OldDPI, int NewDPI);
 	void __fastcall lstTemplatesDblClick(TObject *Sender);
 	void __fastcall edtSaveDirDblClick(TObject *Sender);
 	void __fastcall N5Click(TObject *Sender);
@@ -389,10 +386,19 @@ private:	// User declarations
 
 	std::map<String, int> mapFieldInd;
 
-	int offsetX, offsetY;
 	bool useF12Control();
 	void __fastcall finishSearch();
+	void __fastcall WndProc(TMessage &Message);
+	void ScheduleResponsiveLayout();
+	void UpdateResponsiveLayout();
+	void RestoreMainWindowPlacement();
+	void SaveMainWindowPlacement() noexcept;
 
+	static constexpr unsigned int WM_REFRESH_RESPONSIVE_LAYOUT = WM_APP + 75;
+	bool responsiveLayoutPosted_ = false;
+	bool updatingResponsiveLayout_ = false;
+	bool windowPlacementRestored_ = false;
+	bool windowPlacementSaved_ = false;
 
 	bool searchSuccess = false;
 	std::string searchError;

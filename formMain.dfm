@@ -4,7 +4,7 @@ object fMain: TfMain
   Top = 166
   Align = alCustom
   AlphaBlend = True
-  AutoSize = True
+  AutoSize = False
   BiDiMode = bdLeftToRight
   BorderWidth = 1
   Caption = 'SearchClient_asio'
@@ -13,7 +13,7 @@ object fMain: TfMain
   Color = clMoneyGreen
   DefaultMonitor = dmDesktop
   DoubleBuffered = True
-  DragMode = dmAutomatic
+  DragMode = dmManual
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -26
@@ -25,10 +25,9 @@ object fMain: TfMain
   StyleName = 'Windows'
   OnClose = FormClose
   OnCreate = FormCreate
-  OnMouseDown = FormMouseDown
-  OnMouseMove = FormMouseMove
-  OnMouseUp = FormMouseUp
   OnShow = FormShow
+  OnResize = FormResize
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   PixelsPerInch = 192
   TextHeight = 36
   object ggSaveProgress: TGauge

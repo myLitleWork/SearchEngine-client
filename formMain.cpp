@@ -11,6 +11,7 @@
 #include <atomic>
 #include <thread>
 #include <cstdio>
+#include <algorithm>
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
@@ -232,6 +233,139 @@ void EqualizeSettingsColumnWidths(TDBGridEh* grid)
 	}
 	grid->AutoFitColWidths = true;
 	grid->Columns->FixupAutoFitColWidths(grid->ClientWidth);
+}
+
+const wchar_t* const MAIN_WINDOW_REGISTRY_KEY =
+	L"Software\\GoodbyeYVO\\SearchClient\\MainWindow";
+const DWORD MAIN_WINDOW_PLACEMENT_VERSION = 1;
+
+bool ReadRegistryDword(HKEY key, const wchar_t* name, DWORD& value) noexcept
+{
+	DWORD type = 0;
+	DWORD size = sizeof(value);
+	return RegQueryValueExW(key, name, nullptr, &type,
+		reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS
+		&& type == REG_DWORD && size == sizeof(value);
+}
+
+bool ReadMainWindowPlacement(RECT& normalRect, bool& maximized) noexcept
+{
+	HKEY key = nullptr;
+	if (RegOpenKeyExW(HKEY_CURRENT_USER, MAIN_WINDOW_REGISTRY_KEY, 0,
+		KEY_QUERY_VALUE, &key) != ERROR_SUCCESS)
+	{
+		return false;
+	}
+
+	DWORD version = 0;
+	DWORD left = 0;
+	DWORD top = 0;
+	DWORD right = 0;
+	DWORD bottom = 0;
+	DWORD maximizedValue = 0;
+	const bool loaded =
+		ReadRegistryDword(key, L"Version", version)
+		&& version == MAIN_WINDOW_PLACEMENT_VERSION
+		&& ReadRegistryDword(key, L"Left", left)
+		&& ReadRegistryDword(key, L"Top", top)
+		&& ReadRegistryDword(key, L"Right", right)
+		&& ReadRegistryDword(key, L"Bottom", bottom)
+		&& ReadRegistryDword(key, L"Maximized", maximizedValue);
+	RegCloseKey(key);
+	if (!loaded)
+		return false;
+
+	normalRect.left = static_cast<LONG>(left);
+	normalRect.top = static_cast<LONG>(top);
+	normalRect.right = static_cast<LONG>(right);
+	normalRect.bottom = static_cast<LONG>(bottom);
+	const LONGLONG width = static_cast<LONGLONG>(normalRect.right)
+		- normalRect.left;
+	const LONGLONG height = static_cast<LONGLONG>(normalRect.bottom)
+		- normalRect.top;
+	if (width < 320 || height < 240 || width > 100000 || height > 100000)
+		return false;
+
+	maximized = maximizedValue != 0;
+	return true;
+}
+
+bool WriteRegistryDword(HKEY key, const wchar_t* name, DWORD value) noexcept
+{
+	return RegSetValueExW(key, name, 0, REG_DWORD,
+		reinterpret_cast<const BYTE*>(&value), sizeof(value)) == ERROR_SUCCESS;
+}
+
+bool WriteMainWindowPlacement(const RECT& normalRect, bool maximized) noexcept
+{
+	HKEY key = nullptr;
+	if (RegCreateKeyExW(HKEY_CURRENT_USER, MAIN_WINDOW_REGISTRY_KEY, 0,
+		nullptr, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &key,
+		nullptr) != ERROR_SUCCESS)
+	{
+		return false;
+	}
+
+	// Version is the commit marker: an interrupted multi-value write is ignored
+	// on the next launch instead of mixing old and new coordinates.
+	bool written = WriteRegistryDword(key, L"Version", 0);
+	written = WriteRegistryDword(
+		key, L"Left", static_cast<DWORD>(normalRect.left)) && written;
+	written = WriteRegistryDword(
+		key, L"Top", static_cast<DWORD>(normalRect.top)) && written;
+	written = WriteRegistryDword(
+		key, L"Right", static_cast<DWORD>(normalRect.right)) && written;
+	written = WriteRegistryDword(
+		key, L"Bottom", static_cast<DWORD>(normalRect.bottom)) && written;
+	written = WriteRegistryDword(
+		key, L"Maximized", maximized ? 1U : 0U) && written;
+	if (written)
+		written = WriteRegistryDword(key, L"Version", MAIN_WINDOW_PLACEMENT_VERSION);
+	RegCloseKey(key);
+	return written;
+}
+
+void KeepWindowPlacementReachable(RECT& rect) noexcept
+{
+	HMONITOR monitor = MonitorFromRect(&rect, MONITOR_DEFAULTTONEAREST);
+	MONITORINFO info = {};
+	info.cbSize = sizeof(info);
+	if (!monitor || !GetMonitorInfoW(monitor, &info))
+		return;
+
+	const LONG workWidth = info.rcWork.right - info.rcWork.left;
+	const LONG workHeight = info.rcWork.bottom - info.rcWork.top;
+	LONG width = std::min(rect.right - rect.left, workWidth);
+	LONG height = std::min(rect.bottom - rect.top, workHeight);
+	width = std::max<LONG>(1, width);
+	height = std::max<LONG>(1, height);
+
+	const LONG visibleTitleWidth = std::min<LONG>(64, width);
+	const LONG visibleTitleHeight = std::min<LONG>(32, height);
+	const LONG minLeft = info.rcWork.left - width + visibleTitleWidth;
+	const LONG maxLeft = info.rcWork.right - visibleTitleWidth;
+	const LONG minTop = info.rcWork.top;
+	const LONG maxTop = info.rcWork.bottom - visibleTitleHeight;
+	const LONG left = std::max(minLeft, std::min(rect.left, maxLeft));
+	const LONG top = std::max(minTop, std::min(rect.top, maxTop));
+	rect.left = left;
+	rect.top = top;
+	rect.right = left + width;
+	rect.bottom = top + height;
+}
+
+void RealignControlTree(TWinControl* control)
+{
+	if (!control)
+		return;
+
+	control->Realign();
+	const int children = control->ControlCount;
+	for (int i = 0; i < children; ++i) {
+		TWinControl* child = dynamic_cast<TWinControl*>(control->Controls[i]);
+		if (child)
+			RealignControlTree(child);
+	}
 }
 }
 
@@ -930,6 +1064,7 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 	safeRelease(myFrAttachments);
 	safeRelease(myFrPdtv);
 	safeRelease(myFrWay);
+	SaveMainWindowPlacement();
 
 	WordServer::Cleanup();
 }
@@ -2381,31 +2516,112 @@ void __fastcall TfMain::N3Click(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TfMain::FormMouseDown(TObject *Sender, TMouseButton Button, TShiftState Shift,
-          int X, int Y)
+void __fastcall TfMain::WndProc(TMessage &Message)
 {
-    offsetX = X;
-	offsetY = Y;
+	if (Message.Msg == WM_REFRESH_RESPONSIVE_LAYOUT) {
+		responsiveLayoutPosted_ = false;
+		UpdateResponsiveLayout();
+		Message.Result = 0;
+		return;
+	}
+	TForm::WndProc(Message);
 }
-//---------------------------------------------------------------------------
 
-void __fastcall TfMain::FormMouseMove(TObject *Sender, TShiftState Shift, int X, int Y)
-
+void TfMain::ScheduleResponsiveLayout()
 {
-    if (Shift.Contains(ssLeft))
-    {
-        Left += X - offsetX;
-        Top += Y - offsetY;
-    }
+	if (responsiveLayoutPosted_ || !HandleAllocated())
+		return;
+	responsiveLayoutPosted_ = PostMessage(Handle, WM_REFRESH_RESPONSIVE_LAYOUT, 0, 0) != FALSE;
 }
-//---------------------------------------------------------------------------
 
-void __fastcall TfMain::FormMouseUp(TObject *Sender, TMouseButton Button, TShiftState Shift,
-		  int X, int Y)
+void TfMain::UpdateResponsiveLayout()
 {
-    offsetX = 0;
-    offsetY = 0;
+	if (updatingResponsiveLayout_ || !HandleAllocated() ||
+		ComponentState.Contains(csLoading))
+	{
+		return;
+	}
+
+	updatingResponsiveLayout_ = true;
+	DisableAlign();
+	try
+	{
+		for (int pass = 0; pass < 2; ++pass)
+		{
+			Realign();
+			RealignControlTree(this);
+		}
+		Invalidate();
+	}
+	__finally
+	{
+		EnableAlign();
+		updatingResponsiveLayout_ = false;
+	}
 }
+
+void TfMain::RestoreMainWindowPlacement()
+{
+	if (windowPlacementRestored_ || !HandleAllocated())
+		return;
+	windowPlacementRestored_ = true;
+
+	RECT normalRect = {};
+	bool maximized = true;
+	if (!ReadMainWindowPlacement(normalRect, maximized))
+		return;
+
+	KeepWindowPlacementReachable(normalRect);
+	WINDOWPLACEMENT placement = {};
+	placement.length = sizeof(placement);
+	if (!GetWindowPlacement(Handle, &placement))
+		return;
+
+	placement.flags = 0;
+	placement.showCmd = maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+	placement.rcNormalPosition = normalRect;
+	if (!SetWindowPlacement(Handle, &placement))
+		WindowState = wsMaximized;
+}
+
+void TfMain::SaveMainWindowPlacement() noexcept
+{
+	if (!windowPlacementRestored_ || windowPlacementSaved_ || !HandleAllocated())
+		return;
+
+	WINDOWPLACEMENT placement = {};
+	placement.length = sizeof(placement);
+	if (!GetWindowPlacement(Handle, &placement))
+		return;
+
+	const RECT& normalRect = placement.rcNormalPosition;
+	const LONGLONG width = static_cast<LONGLONG>(normalRect.right)
+		- normalRect.left;
+	const LONGLONG height = static_cast<LONGLONG>(normalRect.bottom)
+		- normalRect.top;
+	if (width < 320 || height < 240 || width > 100000 || height > 100000)
+		return;
+
+	const bool maximized = placement.showCmd == SW_SHOWMAXIMIZED
+		|| (placement.showCmd == SW_SHOWMINIMIZED
+			&& (placement.flags & WPF_RESTORETOMAXIMIZED) != 0);
+	windowPlacementSaved_ = WriteMainWindowPlacement(normalRect, maximized);
+}
+
+void __fastcall TfMain::FormResize(TObject *Sender)
+{
+	(void)Sender;
+	ScheduleResponsiveLayout();
+}
+
+void __fastcall TfMain::FormAfterMonitorDpiChanged(TObject* Sender, int OldDPI, int NewDPI)
+{
+	(void)Sender;
+	(void)OldDPI;
+	(void)NewDPI;
+	ScheduleResponsiveLayout();
+}
+
 //---------------------------------------------------------------------------
 
 void __fastcall TfMain::lstTemplatesDblClick(TObject *Sender)
@@ -2665,6 +2881,7 @@ void __fastcall TfMain::actShowRowPanelExecute(TObject *Sender)
   //	dbgEh->OnRowDetailPanelShow(dbgEh, b);
 	dbgMenu->RowDetailPanel->Visible = !dbgMenu->RowDetailPanel->Visible;
   //	dbgMenu->OnRowDetailPanelShow(dbgMenu, b);
+	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
@@ -3084,8 +3301,10 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	auto progressForm = std::make_unique<TForm>(this);
 	progressForm->BorderStyle = bsDialog;
 	progressForm->Caption = L"Сохранение";
-	progressForm->Width = 600;
-	progressForm->Height = 200;
+	const int desiredWidth = MulDiv(600, progressForm->CurrentPPI, 192);
+	const int desiredHeight = MulDiv(200, progressForm->CurrentPPI, 192);
+	progressForm->Width = std::max(1, desiredWidth);
+	progressForm->Height = std::max(1, desiredHeight);
 	progressForm->Position = poScreenCenter;
 
 	auto label = std::make_unique<TLabel>(progressForm.get());
@@ -3097,6 +3316,21 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	label->Font->Style = TFontStyles() << fsBold;
 
 	progressForm->Show();
+	if (progressForm->Monitor != nullptr) {
+		const auto workArea = progressForm->Monitor->WorkAreaRect;
+		const int margin = std::max(1, MulDiv(16, progressForm->CurrentPPI, 192));
+		const int maxWidth = std::max(1, workArea.Width() - margin);
+		const int maxHeight = std::max(1, workArea.Height() - margin);
+		progressForm->Width = std::min(progressForm->Width, maxWidth);
+		progressForm->Height = std::min(progressForm->Height, maxHeight);
+		progressForm->Left = workArea.Left
+			+ std::max(1, (workArea.Width() - progressForm->Width) / 2);
+		progressForm->Top = workArea.Top
+			+ std::max(1, (workArea.Height() - progressForm->Height) / 2);
+	} else {
+		progressForm->Left = std::max(0, (Screen->Width - progressForm->Width) / 2);
+		progressForm->Top = std::max(0, (Screen->Height - progressForm->Height) / 2);
+	}
 	Application->ProcessMessages();
 
 	auto save_byte = str[25];
@@ -3179,7 +3413,8 @@ void __fastcall TfMain::chkTextClick(TObject *Sender)
 
 void __fastcall TfMain::FormShow(TObject *Sender)
 {
-   //	Button2Click(Sender);
+   RestoreMainWindowPlacement();
+   ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
@@ -3316,7 +3551,8 @@ void __fastcall TfMain::dbgEhRowDetailPanelShow(TCustomDBGridEh *Sender, bool &C
 
 	dbgEh->RowDetailPanel->Height   = newHeight;
 	dbgMenu->RowDetailPanel->Height = newHeight;
-    dbgMenu->DataSource->DataSet->First();
+	dbgMenu->DataSource->DataSet->First();
+	ScheduleResponsiveLayout();
 }
 
 
@@ -3430,6 +3666,7 @@ void __fastcall TfMain::dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool 
 		else if (p_menu == "Выход") {
 			Close();
 		}
+		ScheduleResponsiveLayout();
 
 }
 //---------------------------------------------------------------------------
@@ -3437,6 +3674,7 @@ void __fastcall TfMain::dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool 
 void __fastcall TfMain::dbgMenuRowDetailPanelHide(TCustomDBGridEh *Sender, bool &CanHide)
 {
     dbgEh->RowDetailPanel->Height -= dbgMenu->RowDetailPanel->Height;
+	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
