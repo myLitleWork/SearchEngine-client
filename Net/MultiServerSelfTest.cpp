@@ -165,7 +165,7 @@ int RunMultiServerSelfTestFromCommandLine()
 	FakeSearchServer second("second-response");
 	search_protocol::ErrorResponseV1 errorPayload{};
 	errorPayload.errorCode = static_cast<std::uint32_t>(
-		search_protocol::ErrorCode::FileNotFound);
+		search_protocol::ErrorCode::OperatorNotRegistered);
 	FakeSearchServer typedError(
 		std::string(reinterpret_cast<const char*>(&errorPayload), sizeof(errorPayload)),
 		COMMAND::ERROR_RESPONSE);
@@ -187,8 +187,9 @@ int RunMultiServerSelfTestFromCommandLine()
 	std::string secondResponse;
 	std::string firstError;
 	std::string secondError;
-	std::string typedErrorResponse;
+	std::vector<uint8_t> typedErrorResponse;
 	std::string typedErrorMessage;
+	search_protocol::ServerErrorInfo typedErrorInfo;
 	std::string legacyResponse;
 	std::string legacyError;
 	bool firstOk = false;
@@ -206,9 +207,14 @@ int RunMultiServerSelfTestFromCommandLine()
 	});
 	firstRequest.join();
 	secondRequest.join();
-	const bool typedErrorOk = manager.requestText(
-		"typed-error", "needle", COMMAND::GETSQLJSONANSWEAR,
-		typedErrorResponse, nullptr, &typedErrorMessage);
+	const bool typedErrorOk = manager.requestBinary(
+		"typed-error",
+		std::vector<uint8_t>{'n', 'e', 'e', 'd', 'l', 'e'},
+		COMMAND::GETSQLJSONANSWEAR,
+		typedErrorResponse,
+		nullptr,
+		&typedErrorMessage,
+		&typedErrorInfo);
 	const bool legacyOk = manager.requestText(
 		"legacy", "needle", COMMAND::GETSQLJSONANSWEAR,
 		legacyResponse, nullptr, &legacyError);
@@ -226,8 +232,11 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 45;
 	if (typedErrorOk || !typedErrorResponse.empty())
 		return 46;
-	if (typedErrorMessage != "Ошибка сервера: FileNotFound (код 9)")
+	if (typedErrorMessage != "Ошибка сервера: OperatorNotRegistered (код 25)")
 		return 47;
+	if (!typedErrorInfo.hasCode || !typedErrorInfo.isTyped ||
+		!typedErrorInfo.is(search_protocol::ErrorCode::OperatorNotRegistered))
+		return 53;
 	if (!typedError.registered() || !typedError.searched() || typedError.failed())
 		return 48;
 	if (!first.negotiated() || !second.negotiated() || !typedError.negotiated())

@@ -111,6 +111,38 @@ namespace search_protocol
 		std::uint32_t errorCode{0};
 	};
 
+	// Client-side request result metadata. This structure is not serialized.
+	struct ServerErrorInfo
+	{
+		bool hasCode{false};
+		bool isTyped{false};
+		std::uint32_t rawCode{0};
+
+		void reset() noexcept
+		{
+			hasCode = false;
+			isTyped = false;
+			rawCode = 0;
+		}
+
+		void setRaw(std::uint32_t code, bool typed) noexcept
+		{
+			hasCode = true;
+			isTyped = typed;
+			rawCode = code;
+		}
+
+		void set(ErrorCode code, bool typed) noexcept
+		{
+			setRaw(static_cast<std::uint32_t>(code), typed);
+		}
+
+		[[nodiscard]] bool is(ErrorCode code) const noexcept
+		{
+			return hasCode && rawCode == static_cast<std::uint32_t>(code);
+		}
+	};
+
 	struct ProtocolCapabilitiesV1
 	{
 		std::uint32_t version{PROTOCOL_CAPABILITIES_VERSION};
@@ -179,7 +211,8 @@ public:
 					   COMMAND command,
 					   std::vector<uint8_t>& out,
 					   std::atomic_uint64_t* progress = nullptr,
-					   std::string* errMsg = nullptr);
+					   std::string* errMsg = nullptr,
+					   search_protocol::ServerErrorInfo* serverError = nullptr);
 
 	bool requestFileToPath(const std::string& request,
 						  COMMAND command,

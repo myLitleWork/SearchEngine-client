@@ -77,12 +77,16 @@ public:
 					   COMMAND command,
 					   std::vector<uint8_t>& out,
 					   std::atomic_uint64_t* progress = nullptr,
-					   std::string* errMsg = nullptr)
+					   std::string* errMsg = nullptr,
+					   search_protocol::ServerErrorInfo* serverError = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
+		if (serverError)
+			serverError->reset();
 		if (!ensureConnectedLocked(user, errMsg))
 			return false;
-		const bool ok = client_.requestBinary(request, command, out, progress, errMsg);
+		const bool ok = client_.requestBinary(
+			request, command, out, progress, errMsg, serverError);
 		if (!ok && !client_.isConnected())
 			registeredUser_.clear();
 		return ok;
@@ -304,11 +308,15 @@ public:
 					   COMMAND command,
 					   std::vector<uint8_t>& out,
 					   std::atomic_uint64_t* progress = nullptr,
-					   std::string* errMsg = nullptr)
+					   std::string* errMsg = nullptr,
+					   search_protocol::ServerErrorInfo* serverError = nullptr)
 	{
+		if (serverError)
+			serverError->reset();
 		auto session = findSession(serverId);
 		if (!session) return missingServer(serverId, errMsg);
-		return session->requestBinary(currentUser(), request, command, out, progress, errMsg);
+		return session->requestBinary(
+			currentUser(), request, command, out, progress, errMsg, serverError);
 	}
 
 	bool requestBinFile(const std::string& serverId,

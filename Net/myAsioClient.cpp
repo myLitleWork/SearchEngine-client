@@ -140,7 +140,8 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 								const header& response,
 								std::string* errMsg,
-								const char* legacySomeErrorMessage = "Server returned SOMEERROR")
+								const char* legacySomeErrorMessage = "Server returned SOMEERROR",
+								search_protocol::ServerErrorInfo* serverError = nullptr)
 {
 	auto closeTransport = [&socket]() {
 		boost::system::error_code ignored;
@@ -155,6 +156,11 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 	}
 
 	if (response.command == COMMAND::SERVER_BUSY_ERROR) {
+		if (serverError) {
+			serverError->set(
+				search_protocol::ErrorCode::ServerBusy,
+				false);
+		}
 		if (errMsg)
 			*errMsg = "SERVER_BUSY_ERROR";
 		closeTransport();
@@ -189,6 +195,8 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 		closeTransport();
 		return true;
 	}
+	if (serverError)
+		serverError->setRaw(payload.errorCode, true);
 
 	if (payload.errorCode ==
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::ServerBusy)) {
@@ -355,11 +363,14 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 								 COMMAND command,
 								 std::vector<uint8_t>& out,
 								 std::atomic_uint64_t* progress,
-								 std::string* errMsg)
+								 std::string* errMsg,
+								 search_protocol::ServerErrorInfo* serverError)
 {
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     out.clear();
+	if (serverError)
+		serverError->reset();
     try
 	{
 		if (!socket_ || !socket_->is_open()) {
@@ -384,7 +395,12 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 			return false;
 		}
 
-		if (consumeServerErrorResponse(*socket_, resp, errMsg)) {
+		if (consumeServerErrorResponse(
+				*socket_,
+				resp,
+				errMsg,
+				"Server returned SOMEERROR",
+				serverError)) {
 			return false;
 		}
 

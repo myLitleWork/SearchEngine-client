@@ -2956,6 +2956,35 @@ void writeBytesToFile(const std::vector<uint8_t>& bytes, const std::filesystem::
 	outFile.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 	outFile.close();
 }
+
+static String getAttachmentsRequestErrorMessage(
+	const search_protocol::ServerErrorInfo& serverError,
+	const std::string& fallback)
+{
+	using search_protocol::ErrorCode;
+	if (serverError.hasCode) {
+		switch (static_cast<ErrorCode>(serverError.rawCode)) {
+		case ErrorCode::InvalidRequest:
+			return L"Сервер отклонил запрос вложений: некорректное имя оператора.";
+		case ErrorCode::OperatorNotRegistered:
+			return L"Оператор не зарегистрирован на сервере для получения вложений.";
+		case ErrorCode::AttachmentNotFound:
+			return L"На сервере нет подготовленных вложений для этого оператора.";
+		case ErrorCode::ConfigurationError:
+			return L"На сервере неверно настроен каталог вложений. Обратитесь к администратору.";
+		case ErrorCode::FileMetadataFailed:
+		case ErrorCode::FileOpenFailed:
+		case ErrorCode::FileReadFailed:
+			return L"Сервер не смог прочитать подготовленные вложения. Повторите попытку позже.";
+		case ErrorCode::SerializationFailed:
+			return L"Сервер не смог сформировать пакет вложений.";
+		default:
+			break;
+		}
+	}
+
+	return String(L"Ошибка запроса: ") + String(AnsiString(fallback.c_str()));
+}
 //---------------------------------------------------------------------------------------------
 void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 {
@@ -2972,12 +3001,14 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 
 	ggSaveProgress->Progress = 0;
 	std::string err;
+	search_protocol::ServerErrorInfo serverError;
 
 	auto data_request = std::vector<uint8_t>(user_.begin(), user_.end());
 	std::vector<uint8_t> str;
 	if (!serverManager_.requestBinary(
-			primaryServerId(), data_request, COMMAND::GET_ATTACHMENTS, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+			primaryServerId(), data_request, COMMAND::GET_ATTACHMENTS, str,
+			nullptr, &err, &serverError)) {
+		ShowMessage(getAttachmentsRequestErrorMessage(serverError, err));
 		return;
 	}
 
