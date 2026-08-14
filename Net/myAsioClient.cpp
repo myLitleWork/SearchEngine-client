@@ -51,7 +51,7 @@ const ErrorMessages& loadedErrorMessages() noexcept
 		try {
 			std::ifstream input(errorMessagesPath(), std::ios::binary);
 			if (!input) return result;
-			nh::json document = nh::json::parse(input);
+			nlohmann::json document = nlohmann::json::parse(input);
 			if (document.at("formatVersion").get<int>() != 1) return ErrorMessages{};
 			const auto& errors = document.at("errors");
 			if (!errors.is_array()) return ErrorMessages{};
@@ -69,6 +69,8 @@ const ErrorMessages& loadedErrorMessages() noexcept
 	return messages;
 }
 
+} // namespace
+
 std::string serverErrorUserMessage(std::uint32_t rawCode)
 {
 	const auto& messages = loadedErrorMessages();
@@ -82,6 +84,8 @@ std::string legacyServerErrorUserMessage()
 { return "Сервер сообщил о внутренней ошибке. Повторите попытку или обратитесь к администратору."; }
 std::string busyServerErrorUserMessage()
 { return "Сервер занят. Повторите попытку позже."; }
+
+namespace {
 
 bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
                              void* dest,
