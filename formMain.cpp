@@ -1780,10 +1780,29 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 		if (file)
         {
-            fwrite(&str[0], sizeof(BYTE), str.size(), file);
-			if (flushStreamToOs)
-				fflush(file);
-            fclose(file);
+			const std::size_t written = fwrite(str.data(), sizeof(BYTE), str.size(), file);
+			if (written != str.size())
+			{
+				fclose(file);
+				std::remove(full_file_name.c_str());
+				pushLog(("Ошибка записи файла: " + String(full_file_name.c_str()) +
+					". Записано " + UIntToStr(written) + " из " +
+					UIntToStr(str.size()) + " байт.").c_str());
+				return 0;
+			}
+			if (flushStreamToOs && fflush(file) != 0)
+			{
+				fclose(file);
+				std::remove(full_file_name.c_str());
+				pushLog(("Ошибка сброса буфера файла: " + String(full_file_name.c_str())).c_str());
+				return 0;
+			}
+			if (fclose(file) != 0)
+			{
+				std::remove(full_file_name.c_str());
+				pushLog(("Ошибка закрытия файла: " + String(full_file_name.c_str())).c_str());
+				return 0;
+			}
 		}
 		else
 		{
@@ -1865,10 +1884,27 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& 
 
 	if (file)
 	{
-		fwrite(&str[0], sizeof(BYTE), str.size(), file);
-		if (flushStreamToOs)
-			fflush(file);
-		fclose(file);
+		const std::size_t written = fwrite(str.data(), sizeof(BYTE), str.size(), file);
+		if (written != str.size())
+		{
+			fclose(file);
+			TFile::Delete(fullDirZip);
+			pushLog(("Ошибка записи временного ZIP: " + String(fullDirZip)).c_str());
+			return 0;
+		}
+		if (flushStreamToOs && fflush(file) != 0)
+		{
+			fclose(file);
+			TFile::Delete(fullDirZip);
+			pushLog(("Ошибка сброса буфера временного ZIP: " + String(fullDirZip)).c_str());
+			return 0;
+		}
+		if (fclose(file) != 0)
+		{
+			TFile::Delete(fullDirZip);
+			pushLog(("Ошибка закрытия временного ZIP: " + String(fullDirZip)).c_str());
+			return 0;
+		}
 	}
 	else
 	{
@@ -1979,9 +2015,10 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			continue;
 		}
 
-        if (pril_count == 0 && !(chkText->Checked || chkDocx->Checked)) {
+        if (chkPril->Checked && pril_count == 0) {
             preLog->Add("Шт. " + num + " - не содержит приложений!");
-            continue;
+            if (!(chkText->Checked || chkDocx->Checked))
+                continue;
         }
 
         AnsiString dd = dbgEh->DataSource->DataSet->FieldValues["dir"];
@@ -2026,6 +2063,11 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	const int total_file_count = static_cast<int>(
 		pril_map_vh.size() + pril_map_ish.size() + text_files.size());
     if (!total_file_count) {
+		// Фоновая задача не запускается, поэтому обычный перенос preLog
+		// через pendingLog/tmSaveProgress здесь невозможен. Показываем
+		// подготовленные сообщения сразу в области журнала.
+		for (int i = 0; i < preLog->Count; ++i)
+			rchEdt->Lines->Add(preLog->Strings[i]);
         delete preLog;
         return;
     }
