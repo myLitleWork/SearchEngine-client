@@ -48,6 +48,8 @@
 		// Terminal response-only command. Its payload is
 		// search_protocol::ErrorResponseV1.
 		ERROR_RESPONSE = 29,
+		// Zero-payload request; response payload is ProtocolCapabilitiesV1.
+		NEGOTIATE_PROTOCOL_V1 = 30,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -62,6 +64,8 @@
 namespace search_protocol
 {
 	inline constexpr std::uint32_t ERROR_RESPONSE_VERSION = 1;
+	inline constexpr std::uint32_t PROTOCOL_CAPABILITIES_VERSION = 1;
+	inline constexpr std::uint32_t CAPABILITY_TYPED_ERRORS_V1 = 1u << 0;
 
 	// Wire values mirror command_execution::ErrorCode on the server. Keep all
 	// numeric values explicit: client and server are independent repositories.
@@ -106,6 +110,12 @@ namespace search_protocol
 		std::uint32_t version{ERROR_RESPONSE_VERSION};
 		std::uint32_t errorCode{0};
 	};
+
+	struct ProtocolCapabilitiesV1
+	{
+		std::uint32_t version{PROTOCOL_CAPABILITIES_VERSION};
+		std::uint32_t capabilities{0};
+	};
 }
 
 static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
@@ -114,8 +124,11 @@ static_assert(static_cast<std::uint64_t>(COMMAND::PING) == 18);
 static_assert(static_cast<std::uint64_t>(COMMAND::SERVER_BUSY_ERROR) == 27);
 static_assert(static_cast<std::uint64_t>(COMMAND::END_COMMAND) == 28);
 static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
+static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
 static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
+static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,
+	"Protocol capabilities v1 payload must remain 8 bytes");
 
 using boost::asio::ip::tcp;
 
@@ -124,6 +137,13 @@ class MyAsioClient
 {
 public:
 	using FileProgressCallback = std::function<void(std::uint64_t, std::uint64_t)>;
+	enum class ProtocolNegotiationResult
+	{
+		TypedErrorsV1,
+		LegacyOnCurrentConnection,
+		LegacyReconnectRequired,
+		Failed
+	};
 
 private:
     boost::asio::io_context io_context_;
@@ -142,6 +162,9 @@ public:
                     std::vector<uint8_t>& out,
                     std::atomic_uint64_t* progress = nullptr,
                     std::string* errMsg = nullptr);
+
+	ProtocolNegotiationResult negotiateProtocol(
+		std::string* errMsg = nullptr);
 
 	// A request/response pair is one protocol transaction.  Keeping the
 	// io_mutex_ locked across both halves prevents another worker from placing

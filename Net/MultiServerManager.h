@@ -123,6 +123,13 @@ public:
 	}
 
 private:
+	enum class ProtocolSupport
+	{
+		Unknown,
+		Legacy,
+		TypedErrorsV1
+	};
+
 	bool ensureConnectedLocked(const std::string& user, std::string* errMsg)
 	{
 		if (!client_.isConnected()) {
@@ -132,6 +139,45 @@ private:
 				return false;
 			}
 			registeredUser_.clear();
+
+			if (protocolSupport_ != ProtocolSupport::Legacy) {
+				std::string negotiationError;
+				const auto negotiation =
+					client_.negotiateProtocol(&negotiationError);
+
+				if (negotiation ==
+					MyAsioClient::ProtocolNegotiationResult::TypedErrorsV1) {
+					protocolSupport_ = ProtocolSupport::TypedErrorsV1;
+				}
+				else if (negotiation ==
+					MyAsioClient::ProtocolNegotiationResult::LegacyOnCurrentConnection) {
+					protocolSupport_ = ProtocolSupport::Legacy;
+				}
+				else if (negotiation ==
+					MyAsioClient::ProtocolNegotiationResult::LegacyReconnectRequired) {
+					client_.disConnect();
+					std::string legacyConnectError;
+					if (!client_.tryConnect(
+							endpoint_.host, endpoint_.port, legacyConnectError)) {
+						if (errMsg) {
+							*errMsg = "Negotiation failed (" + negotiationError +
+								"); legacy reconnect failed: " + legacyConnectError;
+						}
+						return false;
+					}
+					protocolSupport_ = ProtocolSupport::Legacy;
+					registeredUser_.clear();
+				}
+				else {
+					client_.disConnect();
+					if (errMsg) {
+						*errMsg = negotiationError.empty()
+							? "Protocol negotiation failed"
+							: negotiationError;
+					}
+					return false;
+				}
+			}
 		}
 
 		if (!user.empty() && registeredUser_ != user) {
@@ -154,6 +200,7 @@ private:
 	MyAsioClient client_;
 	std::mutex requestMutex_;
 	std::string registeredUser_;
+	ProtocolSupport protocolSupport_{ProtocolSupport::Unknown};
 };
 
 class MultiServerManager

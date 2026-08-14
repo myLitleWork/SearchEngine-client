@@ -250,6 +250,107 @@ bool MyAsioClient::requestBinFile(const std::string& path,
 		errMsg);
 }
 
+MyAsioClient::ProtocolNegotiationResult MyAsioClient::negotiateProtocol(
+	std::string* errMsg)
+{
+	std::lock_guard<std::mutex> lk(io_mutex_);
+	if (errMsg)
+		errMsg->clear();
+
+	auto closeTransport = [this]() {
+		if (socket_) {
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+		}
+	};
+
+	try {
+		if (!socket_ || !socket_->is_open()) {
+			if (errMsg)
+				*errMsg = "Socket is not connected";
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		header request{};
+		request.command = COMMAND::NEGOTIATE_PROTOCOL_V1;
+		request.size = 0;
+		boost::asio::write(*socket_, boost::asio::buffer(&request, sizeof(request)));
+
+		header response{};
+		if (!read_exact_idle_timeout(*socket_, &response, sizeof(response), errMsg)) {
+			// Some legacy servers close immediately after rejecting an unknown
+			// command. A single reconnect in legacy mode will verify that case.
+			closeTransport();
+			return ProtocolNegotiationResult::LegacyReconnectRequired;
+		}
+
+		if (response.command == COMMAND::SOMEERROR) {
+			consumeServerErrorResponse(*socket_, response, errMsg);
+			return ProtocolNegotiationResult::LegacyReconnectRequired;
+		}
+
+		if (response.command == COMMAND::SERVER_BUSY_ERROR ||
+			response.command == COMMAND::ERROR_RESPONSE) {
+			consumeServerErrorResponse(*socket_, response, errMsg);
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		if (response.command != COMMAND::NEGOTIATE_PROTOCOL_V1) {
+			if (errMsg) {
+				*errMsg = "Некорректный ответ negotiation: command=" +
+					std::to_string(static_cast<std::uint64_t>(response.command));
+			}
+			closeTransport();
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		if (response.size != sizeof(search_protocol::ProtocolCapabilitiesV1)) {
+			if (errMsg) {
+				*errMsg = "Некорректный размер ProtocolCapabilitiesV1: " +
+					std::to_string(static_cast<std::uint64_t>(response.size));
+			}
+			closeTransport();
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		search_protocol::ProtocolCapabilitiesV1 capabilities{};
+		if (!read_exact_idle_timeout(
+				*socket_, &capabilities, sizeof(capabilities), errMsg)) {
+			closeTransport();
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		if (capabilities.version !=
+			search_protocol::PROTOCOL_CAPABILITIES_VERSION) {
+			if (errMsg) {
+				*errMsg = "Неподдерживаемая версия ProtocolCapabilitiesV1: " +
+					std::to_string(capabilities.version);
+			}
+			closeTransport();
+			return ProtocolNegotiationResult::Failed;
+		}
+
+		if ((capabilities.capabilities &
+			 search_protocol::CAPABILITY_TYPED_ERRORS_V1) != 0) {
+			return ProtocolNegotiationResult::TypedErrorsV1;
+		}
+
+		return ProtocolNegotiationResult::LegacyOnCurrentConnection;
+	}
+	catch (const std::exception& e) {
+		closeTransport();
+		if (errMsg)
+			*errMsg = e.what();
+		return ProtocolNegotiationResult::Failed;
+	}
+	catch (...) {
+		closeTransport();
+		if (errMsg)
+			*errMsg = "Неизвестная ошибка negotiation протокола";
+		return ProtocolNegotiationResult::Failed;
+	}
+}
+
 bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 								 COMMAND command,
 								 std::vector<uint8_t>& out,
