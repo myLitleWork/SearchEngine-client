@@ -43,8 +43,11 @@
 		GET_ISH_PDTV,
 		GET_TELEGA_ATACHMENTS,
 		GET_TELEGA_SINGLE_ATACHMENT,
-		SERVER_BUSY_ERROR,
-		END_COMMAND,
+		SERVER_BUSY_ERROR = 27,
+		END_COMMAND = 28,
+		// Terminal response-only command. Its payload is
+		// search_protocol::ErrorResponseV1.
+		ERROR_RESPONSE = 29,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -55,6 +58,64 @@
 		uint_fast64_t size{0};
 		COMMAND command{0};
 	};
+
+namespace search_protocol
+{
+	inline constexpr std::uint32_t ERROR_RESPONSE_VERSION = 1;
+
+	// Wire values mirror command_execution::ErrorCode on the server. Keep all
+	// numeric values explicit: client and server are independent repositories.
+	enum class ErrorCode : std::uint32_t
+	{
+		PayloadTooLarge = 1,
+		InvalidCommand = 2,
+		CommandNotRegistered = 3,
+		ServerBusy = 4,
+		ServerStopping = 5,
+		InvalidRequest = 6,
+		InvalidJson = 7,
+		InvalidBinaryPayload = 8,
+		FileNotFound = 9,
+		FileMetadataFailed = 10,
+		FileOpenFailed = 11,
+		FileReadFailed = 12,
+		FileWriteFailed = 13,
+		DirectoryCreateFailed = 14,
+		ConfigurationError = 15,
+		DatabaseOpenFailed = 16,
+		DatabaseBusy = 17,
+		DatabaseQueryFailed = 18,
+		DatabaseSchemaFailed = 19,
+		SerializationFailed = 20,
+		IndexUnavailable = 21,
+		IndexDataInconsistent = 22,
+		IndexUpdateInProgress = 23,
+		IndexUpdateFailed = 24,
+		OperatorNotRegistered = 25,
+		AttachmentNotFound = 26,
+		MessageNotFound = 27,
+		MessageSaveFailed = 28,
+		MessageReadFailed = 29,
+		ResponseQueueFull = 30,
+		CommandExecutionFailed = 31,
+		InternalError = 32
+	};
+
+	struct ErrorResponseV1
+	{
+		std::uint32_t version{ERROR_RESPONSE_VERSION};
+		std::uint32_t errorCode{0};
+	};
+}
+
+static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
+static_assert(static_cast<std::uint64_t>(COMMAND::SOMEERROR) == 0);
+static_assert(static_cast<std::uint64_t>(COMMAND::PING) == 18);
+static_assert(static_cast<std::uint64_t>(COMMAND::SERVER_BUSY_ERROR) == 27);
+static_assert(static_cast<std::uint64_t>(COMMAND::END_COMMAND) == 28);
+static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
+static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
+	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 
 using boost::asio::ip::tcp;
 

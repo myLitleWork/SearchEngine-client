@@ -20,9 +20,12 @@ namespace
 	class FakeSearchServer
 	{
 	public:
-		explicit FakeSearchServer(std::string response)
+		explicit FakeSearchServer(
+			std::string response,
+			COMMAND responseCommand = COMMAND::GETSQLJSONANSWEAR)
 			: acceptor_(io_, tcp::endpoint(tcp::v4(), 0))
 			, response_(std::move(response))
+			, responseCommand_(responseCommand)
 			, worker_([this]() { run(); })
 		{
 		}
@@ -73,7 +76,7 @@ namespace
 						searched_.store(
 							request.command == COMMAND::GETSQLJSONANSWEAR && body == "needle",
 							std::memory_order_release);
-						send(*socket_, request.command, response_);
+						send(*socket_, responseCommand_, response_);
 					}
 				}
 			}
@@ -86,6 +89,7 @@ namespace
 		tcp::acceptor acceptor_;
 		std::unique_ptr<tcp::socket> socket_;
 		std::string response_;
+		COMMAND responseCommand_;
 		std::thread worker_;
 		std::atomic_bool registered_{false};
 		std::atomic_bool searched_{false};
@@ -102,11 +106,18 @@ int RunMultiServerSelfTestFromCommandLine()
 {
 	FakeSearchServer first("first-response");
 	FakeSearchServer second("second-response");
+	search_protocol::ErrorResponseV1 errorPayload{};
+	errorPayload.errorCode = static_cast<std::uint32_t>(
+		search_protocol::ErrorCode::FileNotFound);
+	FakeSearchServer typedError(
+		std::string(reinterpret_cast<const char*>(&errorPayload), sizeof(errorPayload)),
+		COMMAND::ERROR_RESPONSE);
 
 	MultiServerManager manager;
 	manager.configure({
 		{"first", "First", "127.0.0.1", std::to_string(first.port()), true},
-		{"second", "Second", "127.0.0.1", std::to_string(second.port()), true}
+		{"second", "Second", "127.0.0.1", std::to_string(second.port()), true},
+		{"typed-error", "Typed error", "127.0.0.1", std::to_string(typedError.port()), true}
 	}, "first");
 	manager.setUser("self-test-user");
 
@@ -114,6 +125,8 @@ int RunMultiServerSelfTestFromCommandLine()
 	std::string secondResponse;
 	std::string firstError;
 	std::string secondError;
+	std::string typedErrorResponse;
+	std::string typedErrorMessage;
 	bool firstOk = false;
 	bool secondOk = false;
 
@@ -129,6 +142,9 @@ int RunMultiServerSelfTestFromCommandLine()
 	});
 	firstRequest.join();
 	secondRequest.join();
+	const bool typedErrorOk = manager.requestText(
+		"typed-error", "needle", COMMAND::GETSQLJSONANSWEAR,
+		typedErrorResponse, nullptr, &typedErrorMessage);
 	manager.disconnectAll();
 
 	if (!firstOk || !secondOk)
@@ -141,6 +157,12 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 44;
 	if (first.failed() || second.failed())
 		return 45;
+	if (typedErrorOk || !typedErrorResponse.empty())
+		return 46;
+	if (typedErrorMessage != "Ошибка сервера: FileNotFound (код 9)")
+		return 47;
+	if (!typedError.registered() || !typedError.searched() || typedError.failed())
+		return 48;
 	return 0;
 }
 

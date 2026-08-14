@@ -21,6 +21,46 @@ namespace {
 // Единый idle-таймаут для чтения с сокета (как SocketFileSaver): без новых байт N секунд — ошибка.
 constexpr auto kSocketReadIdleTimeout = std::chrono::seconds(10);
 
+const char* serverErrorCodeName(std::uint32_t rawCode) noexcept
+{
+	using search_protocol::ErrorCode;
+	switch (static_cast<ErrorCode>(rawCode)) {
+	case ErrorCode::PayloadTooLarge: return "PayloadTooLarge";
+	case ErrorCode::InvalidCommand: return "InvalidCommand";
+	case ErrorCode::CommandNotRegistered: return "CommandNotRegistered";
+	case ErrorCode::ServerBusy: return "ServerBusy";
+	case ErrorCode::ServerStopping: return "ServerStopping";
+	case ErrorCode::InvalidRequest: return "InvalidRequest";
+	case ErrorCode::InvalidJson: return "InvalidJson";
+	case ErrorCode::InvalidBinaryPayload: return "InvalidBinaryPayload";
+	case ErrorCode::FileNotFound: return "FileNotFound";
+	case ErrorCode::FileMetadataFailed: return "FileMetadataFailed";
+	case ErrorCode::FileOpenFailed: return "FileOpenFailed";
+	case ErrorCode::FileReadFailed: return "FileReadFailed";
+	case ErrorCode::FileWriteFailed: return "FileWriteFailed";
+	case ErrorCode::DirectoryCreateFailed: return "DirectoryCreateFailed";
+	case ErrorCode::ConfigurationError: return "ConfigurationError";
+	case ErrorCode::DatabaseOpenFailed: return "DatabaseOpenFailed";
+	case ErrorCode::DatabaseBusy: return "DatabaseBusy";
+	case ErrorCode::DatabaseQueryFailed: return "DatabaseQueryFailed";
+	case ErrorCode::DatabaseSchemaFailed: return "DatabaseSchemaFailed";
+	case ErrorCode::SerializationFailed: return "SerializationFailed";
+	case ErrorCode::IndexUnavailable: return "IndexUnavailable";
+	case ErrorCode::IndexDataInconsistent: return "IndexDataInconsistent";
+	case ErrorCode::IndexUpdateInProgress: return "IndexUpdateInProgress";
+	case ErrorCode::IndexUpdateFailed: return "IndexUpdateFailed";
+	case ErrorCode::OperatorNotRegistered: return "OperatorNotRegistered";
+	case ErrorCode::AttachmentNotFound: return "AttachmentNotFound";
+	case ErrorCode::MessageNotFound: return "MessageNotFound";
+	case ErrorCode::MessageSaveFailed: return "MessageSaveFailed";
+	case ErrorCode::MessageReadFailed: return "MessageReadFailed";
+	case ErrorCode::ResponseQueueFull: return "ResponseQueueFull";
+	case ErrorCode::CommandExecutionFailed: return "CommandExecutionFailed";
+	case ErrorCode::InternalError: return "InternalError";
+	}
+	return "UnknownErrorCode";
+}
+
 bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
                              void* dest,
                              std::size_t len,
@@ -94,6 +134,76 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 		std::memcpy(p + totalRead, buffer.data(), state->bytesRead);
 		totalRead += state->bytesRead;
 	}
+	return true;
+}
+
+bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
+								const header& response,
+								std::string* errMsg,
+								const char* legacySomeErrorMessage = "Server returned SOMEERROR")
+{
+	auto closeTransport = [&socket]() {
+		boost::system::error_code ignored;
+		socket.close(ignored);
+	};
+
+	if (response.command == COMMAND::SOMEERROR) {
+		if (errMsg)
+			*errMsg = legacySomeErrorMessage;
+		closeTransport();
+		return true;
+	}
+
+	if (response.command == COMMAND::SERVER_BUSY_ERROR) {
+		if (errMsg)
+			*errMsg = "SERVER_BUSY_ERROR";
+		closeTransport();
+		return true;
+	}
+
+	if (response.command != COMMAND::ERROR_RESPONSE)
+		return false;
+
+	if (response.size != sizeof(search_protocol::ErrorResponseV1)) {
+		if (errMsg) {
+			*errMsg = "Некорректный ERROR_RESPONSE: размер " +
+				std::to_string(static_cast<std::uint64_t>(response.size)) +
+				", ожидалось " +
+				std::to_string(sizeof(search_protocol::ErrorResponseV1));
+		}
+		closeTransport();
+		return true;
+	}
+
+	search_protocol::ErrorResponseV1 payload{};
+	if (!read_exact_idle_timeout(socket, &payload, sizeof(payload), errMsg)) {
+		closeTransport();
+		return true;
+	}
+
+	if (payload.version != search_protocol::ERROR_RESPONSE_VERSION) {
+		if (errMsg) {
+			*errMsg = "Неподдерживаемая версия ERROR_RESPONSE: " +
+				std::to_string(payload.version);
+		}
+		closeTransport();
+		return true;
+	}
+
+	if (payload.errorCode ==
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::ServerBusy)) {
+		if (errMsg)
+			*errMsg = "SERVER_BUSY_ERROR";
+		closeTransport();
+		return true;
+	}
+
+	if (errMsg) {
+		*errMsg = "Ошибка сервера: " +
+			std::string(serverErrorCodeName(payload.errorCode)) +
+			" (код " + std::to_string(payload.errorCode) + ")";
+	}
+	closeTransport();
 	return true;
 }
 
@@ -173,15 +283,7 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 			return false;
 		}
 
-		if (resp.command == COMMAND::SOMEERROR) {
-			if (errMsg) *errMsg = "Server returned SOMEERROR";
-			return false;
-		}
-
-		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
-			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
-			boost::system::error_code ignored;
-			socket_->close(ignored);
+		if (consumeServerErrorResponse(*socket_, resp, errMsg)) {
 			return false;
 		}
 
@@ -248,14 +350,7 @@ bool MyAsioClient::requestText(const std::string& request,
 			socket_->close(ignored);
 			return false;
 		}
-		if (resp.command == COMMAND::SOMEERROR) {
-			if (errMsg) *errMsg = "Server returned SOMEERROR";
-			return false;
-		}
-		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
-			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
-			boost::system::error_code ignored;
-			socket_->close(ignored);
+		if (consumeServerErrorResponse(*socket_, resp, errMsg)) {
 			return false;
 		}
 
@@ -356,14 +451,8 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 			return false;
 		}
 
-		if (resp.command == COMMAND::SOMEERROR) {
-			if (errMsg) *errMsg = "Сервер не нашёл запрошенный файл";
-			removePart();
-			return false;
-		}
-		if (resp.command == COMMAND::SERVER_BUSY_ERROR) {
-			if (errMsg) *errMsg = "SERVER_BUSY_ERROR";
-			invalidateTransport();
+		if (consumeServerErrorResponse(
+				*socket_, resp, errMsg, "Сервер не нашёл запрошенный файл")) {
 			removePart();
 			return false;
 		}
@@ -642,8 +731,7 @@ bool MyAsioClient::socketRead(std::string& out,
 			socket_->close(ignored);
             return false;
 		}
-        if (myHeader_.command == COMMAND::SOMEERROR) {
-            if (errMsg) *errMsg = "Server returned SOMEERROR";
+		if (consumeServerErrorResponse(*socket_, myHeader_, errMsg)) {
             return false;
         }
 
@@ -702,8 +790,7 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
 			socket_->close(ignored);
             return false;
 		}
-        if (myHeader_.command == COMMAND::SOMEERROR) {
-            if (errMsg) *errMsg = "Server returned SOMEERROR";
+		if (consumeServerErrorResponse(*socket_, myHeader_, errMsg)) {
             return false;
         }
 
