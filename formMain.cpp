@@ -218,6 +218,11 @@ using namespace std;
 typedef std::map<std::string,std::map<std::string, Request>> mapTemplates;
 
 namespace {
+const int MAIN_FORM_DESIGN_PPI = 192;
+const int MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI = 1932;
+const int MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI = 1194;
+const int RESPONSIVE_LAYOUT_INTERVAL_MS = 75;
+
 void EqualizeSettingsColumnWidths(TDBGridEh* grid)
 {
 	if (!grid || grid->Columns->Count == 0)
@@ -229,16 +234,15 @@ void EqualizeSettingsColumnWidths(TDBGridEh* grid)
 	for (int i = 0; i < grid->Columns->Count; ++i) {
 		TColumnEh* column = grid->Columns->Items[i];
 		column->AutoFitColWidth = true;
-		column->Width = 100;
+		column->Width = std::max(1,
+			MulDiv(100, grid->CurrentPPI, MAIN_FORM_DESIGN_PPI));
 	}
 	grid->AutoFitColWidths = true;
 	grid->Columns->FixupAutoFitColWidths(grid->ClientWidth);
 }
-
 const wchar_t* const MAIN_WINDOW_REGISTRY_KEY =
 	L"Software\\GoodbyeYVO\\SearchClient\\MainWindow";
 const DWORD MAIN_WINDOW_PLACEMENT_VERSION = 1;
-
 bool ReadRegistryDword(HKEY key, const wchar_t* name, DWORD& value) noexcept
 {
 	DWORD type = 0;
@@ -247,7 +251,6 @@ bool ReadRegistryDword(HKEY key, const wchar_t* name, DWORD& value) noexcept
 		reinterpret_cast<LPBYTE>(&value), &size) == ERROR_SUCCESS
 		&& type == REG_DWORD && size == sizeof(value);
 }
-
 bool ReadMainWindowPlacement(RECT& normalRect, bool& maximized) noexcept
 {
 	HKEY key = nullptr;
@@ -256,7 +259,6 @@ bool ReadMainWindowPlacement(RECT& normalRect, bool& maximized) noexcept
 	{
 		return false;
 	}
-
 	DWORD version = 0;
 	DWORD left = 0;
 	DWORD top = 0;
@@ -274,7 +276,6 @@ bool ReadMainWindowPlacement(RECT& normalRect, bool& maximized) noexcept
 	RegCloseKey(key);
 	if (!loaded)
 		return false;
-
 	normalRect.left = static_cast<LONG>(left);
 	normalRect.top = static_cast<LONG>(top);
 	normalRect.right = static_cast<LONG>(right);
@@ -285,17 +286,14 @@ bool ReadMainWindowPlacement(RECT& normalRect, bool& maximized) noexcept
 		- normalRect.top;
 	if (width < 320 || height < 240 || width > 100000 || height > 100000)
 		return false;
-
 	maximized = maximizedValue != 0;
 	return true;
 }
-
 bool WriteRegistryDword(HKEY key, const wchar_t* name, DWORD value) noexcept
 {
 	return RegSetValueExW(key, name, 0, REG_DWORD,
 		reinterpret_cast<const BYTE*>(&value), sizeof(value)) == ERROR_SUCCESS;
 }
-
 bool WriteMainWindowPlacement(const RECT& normalRect, bool maximized) noexcept
 {
 	HKEY key = nullptr;
@@ -305,7 +303,6 @@ bool WriteMainWindowPlacement(const RECT& normalRect, bool maximized) noexcept
 	{
 		return false;
 	}
-
 	// Version is the commit marker: an interrupted multi-value write is ignored
 	// on the next launch instead of mixing old and new coordinates.
 	bool written = WriteRegistryDword(key, L"Version", 0);
@@ -324,41 +321,39 @@ bool WriteMainWindowPlacement(const RECT& normalRect, bool maximized) noexcept
 	RegCloseKey(key);
 	return written;
 }
-
-void KeepWindowPlacementReachable(RECT& rect) noexcept
+void KeepNormalWindowReachable(HWND window, int currentPpi) noexcept
 {
+	RECT rect = {};
+	if (!window || !GetWindowRect(window, &rect))
+		return;
 	HMONITOR monitor = MonitorFromRect(&rect, MONITOR_DEFAULTTONEAREST);
 	MONITORINFO info = {};
 	info.cbSize = sizeof(info);
 	if (!monitor || !GetMonitorInfoW(monitor, &info))
 		return;
-
-	const LONG workWidth = info.rcWork.right - info.rcWork.left;
-	const LONG workHeight = info.rcWork.bottom - info.rcWork.top;
-	LONG width = std::min(rect.right - rect.left, workWidth);
-	LONG height = std::min(rect.bottom - rect.top, workHeight);
-	width = std::max<LONG>(1, width);
-	height = std::max<LONG>(1, height);
-
-	const LONG visibleTitleWidth = std::min<LONG>(64, width);
-	const LONG visibleTitleHeight = std::min<LONG>(32, height);
+	const LONG width = std::max<LONG>(1, rect.right - rect.left);
+	const LONG height = std::max<LONG>(1, rect.bottom - rect.top);
+	const int safePpi = currentPpi > 0 ? currentPpi : 96;
+	const LONG visibleTitleWidth = std::min<LONG>(width,
+		std::max(1, MulDiv(64, safePpi, 96)));
+	const LONG visibleTitleHeight = std::min<LONG>(height,
+		std::max(1, MulDiv(32, safePpi, 96)));
 	const LONG minLeft = info.rcWork.left - width + visibleTitleWidth;
 	const LONG maxLeft = info.rcWork.right - visibleTitleWidth;
 	const LONG minTop = info.rcWork.top;
 	const LONG maxTop = info.rcWork.bottom - visibleTitleHeight;
 	const LONG left = std::max(minLeft, std::min(rect.left, maxLeft));
 	const LONG top = std::max(minTop, std::min(rect.top, maxTop));
-	rect.left = left;
-	rect.top = top;
-	rect.right = left + width;
-	rect.bottom = top + height;
+	if (left != rect.left || top != rect.top)
+	{
+		SetWindowPos(window, nullptr, left, top, width, height,
+			SWP_NOACTIVATE | SWP_NOZORDER);
+	}
 }
-
 void RealignControlTree(TWinControl* control)
 {
 	if (!control)
 		return;
-
 	control->Realign();
 	const int children = control->ControlCount;
 	for (int i = 0; i < children; ++i) {
@@ -1050,6 +1045,10 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 		ShowMessage("Дождитесь завершения сохранения файлов или нажмите \"Отмена\".");
 		return;
 	}
+	SaveMainWindowPlacement();
+	shuttingDown_ = true;
+	if (responsiveLayoutTimer_)
+		responsiveLayoutTimer_->Enabled = false;
 	auto safeRelease = [this](auto* &fr) {
 
 		if (fr) {
@@ -1064,8 +1063,6 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 	safeRelease(myFrAttachments);
 	safeRelease(myFrPdtv);
 	safeRelease(myFrWay);
-	SaveMainWindowPlacement();
-
 	WordServer::Cleanup();
 }
 
@@ -1414,6 +1411,22 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
 
 void __fastcall TfMain::FormCreate(TObject *Sender)
 {
+	(void)Sender;
+	Align = alNone;
+	AlignWithMargins = false;
+	AutoSize = false;
+	ScreenSnap = false;
+	DragMode = dmManual;
+	Position = poDesigned;
+	const HWND mainWindowHandle = Handle;
+	(void)mainWindowHandle;
+	RestoreMainWindowPlacement();
+	CreateResponsiveScrollHost();
+	responsiveLayoutTimer_ = new TTimer(this);
+	responsiveLayoutTimer_->Enabled = false;
+	responsiveLayoutTimer_->Interval = RESPONSIVE_LAYOUT_INTERVAL_MS;
+	responsiveLayoutTimer_->OnTimer = ResponsiveLayoutTimerTimer;
+
 	const String productVersion = GetSearchClientProductVersion();
 	Caption = productVersion.IsEmpty() ? L"SearchClient_asio" : L"SearchClient_asio v" + productVersion;
 	InitDbgMenuDS();
@@ -1489,10 +1502,7 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	myFrPdtv->setHeigthMulti(1.4);
 	myFrPdtv->Align = alClient;
 	myFrPdtv->Visible = false;
-
-
-
-
+	ScheduleResponsiveLayout();
 }
 //--------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -1595,6 +1605,7 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
 		// Newly added server/year rows become selectable without restarting the client.
 		reloadAvailableYears();
 	}
+	ScheduleResponsiveLayout();
 }
 
 
@@ -2410,7 +2421,8 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 
 void __fastcall TfMain::Button3Click(TObject *Sender)
 {
-		pnShablons->Visible = !pnShablons->Visible;
+	pnShablons->Visible = !pnShablons->Visible;
+	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
@@ -2518,20 +2530,94 @@ void __fastcall TfMain::N3Click(TObject *Sender)
 
 void __fastcall TfMain::WndProc(TMessage &Message)
 {
-	if (Message.Msg == WM_REFRESH_RESPONSIVE_LAYOUT) {
-		responsiveLayoutPosted_ = false;
-		UpdateResponsiveLayout();
-		Message.Result = 0;
+	if (Message.Msg == WM_ENTERSIZEMOVE) {
+		windowMoveSizeActive_ = true;
+		if (responsiveLayoutTimer_)
+			responsiveLayoutTimer_->Enabled = false;
+		TForm::WndProc(Message);
+		return;
+	}
+	if (Message.Msg == WM_EXITSIZEMOVE) {
+		TForm::WndProc(Message);
+		windowMoveSizeActive_ = false;
+		SaveMainWindowPlacement();
+		ScheduleResponsiveLayout();
 		return;
 	}
 	TForm::WndProc(Message);
 }
 
+void TfMain::CreateResponsiveScrollHost()
+{
+	if (responsiveScrollHost_ || !PageControl1)
+		return;
+
+	const int pageTabOrder = PageControl1->TabOrder;
+	const int pageMarginLeft = PageControl1->Margins->Left;
+	const int pageMarginTop = PageControl1->Margins->Top;
+	const int pageMarginRight = PageControl1->Margins->Right;
+	const int pageMarginBottom = PageControl1->Margins->Bottom;
+	PageControl1->Align = alNone;
+	PageControl1->AlignWithMargins = false;
+
+	responsiveScrollHost_ = new TScrollBox(this);
+	responsiveScrollHost_->Parent = this;
+	responsiveScrollHost_->Align = alClient;
+	responsiveScrollHost_->AlignWithMargins = true;
+	responsiveScrollHost_->Margins->Left = pageMarginLeft;
+	responsiveScrollHost_->Margins->Top = pageMarginTop;
+	responsiveScrollHost_->Margins->Right = pageMarginRight;
+	responsiveScrollHost_->Margins->Bottom = pageMarginBottom;
+	responsiveScrollHost_->AutoScroll = true;
+	responsiveScrollHost_->BorderStyle = bsNone;
+	responsiveScrollHost_->HorzScrollBar->Tracking = true;
+	responsiveScrollHost_->VertScrollBar->Tracking = true;
+	responsiveScrollHost_->TabOrder = pageTabOrder;
+	responsiveScrollHost_->TabStop = false;
+
+	PageControl1->Parent = responsiveScrollHost_;
+	PageControl1->TabOrder = 0;
+	PageControl1->SetBounds(0, 0,
+		std::max(1, responsiveScrollHost_->ClientWidth),
+		std::max(1, responsiveScrollHost_->ClientHeight));
+}
+
 void TfMain::ScheduleResponsiveLayout()
 {
-	if (responsiveLayoutPosted_ || !HandleAllocated())
+	if (shuttingDown_ || updatingResponsiveLayout_ ||
+		!responsiveLayoutTimer_ || !HandleAllocated())
+	{
 		return;
-	responsiveLayoutPosted_ = PostMessage(Handle, WM_REFRESH_RESPONSIVE_LAYOUT, 0, 0) != FALSE;
+	}
+
+	responsiveLayoutPassesRemaining_ = 2;
+	if (windowMoveSizeActive_)
+		return;
+
+	responsiveLayoutTimer_->Enabled = false;
+	responsiveLayoutTimer_->Enabled = true;
+}
+
+void __fastcall TfMain::ResponsiveLayoutTimerTimer(TObject *Sender)
+{
+	(void)Sender;
+	if (!responsiveLayoutTimer_)
+		return;
+
+	responsiveLayoutTimer_->Enabled = false;
+	if (shuttingDown_ || windowMoveSizeActive_ ||
+		responsiveLayoutPassesRemaining_ <= 0)
+	{
+		return;
+	}
+
+	--responsiveLayoutPassesRemaining_;
+	UpdateResponsiveLayout();
+	if (!shuttingDown_ && !windowMoveSizeActive_ &&
+		responsiveLayoutPassesRemaining_ > 0)
+	{
+		responsiveLayoutTimer_->Enabled = true;
+	}
 }
 
 void TfMain::UpdateResponsiveLayout()
@@ -2541,16 +2627,25 @@ void TfMain::UpdateResponsiveLayout()
 	{
 		return;
 	}
-
 	updatingResponsiveLayout_ = true;
 	DisableAlign();
 	try
 	{
-		for (int pass = 0; pass < 2; ++pass)
+		if (responsiveScrollHost_ && PageControl1)
 		{
-			Realign();
-			RealignControlTree(this);
+			const int ppi = PageControl1->CurrentPPI > 0
+				? PageControl1->CurrentPPI : MAIN_FORM_DESIGN_PPI;
+			const int minimumWidth = std::max(1, MulDiv(
+				MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI, ppi,
+				MAIN_FORM_DESIGN_PPI));
+			const int minimumHeight = std::max(1, MulDiv(
+				MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI, ppi,
+				MAIN_FORM_DESIGN_PPI));
+			PageControl1->SetBounds(0, 0,
+				std::max(minimumWidth, responsiveScrollHost_->ClientWidth),
+				std::max(minimumHeight, responsiveScrollHost_->ClientHeight));
 		}
+		RealignControlTree(this);
 		Invalidate();
 	}
 	__finally
@@ -2559,41 +2654,71 @@ void TfMain::UpdateResponsiveLayout()
 		updatingResponsiveLayout_ = false;
 	}
 }
-
 void TfMain::RestoreMainWindowPlacement()
 {
-	if (windowPlacementRestored_ || !HandleAllocated())
+	if (windowPlacementRestored_)
+		return;
+
+	const HWND windowHandle = Handle;
+	if (!windowHandle)
 		return;
 	windowPlacementRestored_ = true;
 
 	RECT normalRect = {};
 	bool maximized = true;
-	if (!ReadMainWindowPlacement(normalRect, maximized))
-		return;
+	bool placementApplied = false;
+	if (ReadMainWindowPlacement(normalRect, maximized))
+	{
+		WINDOWPLACEMENT placement = {};
+		placement.length = sizeof(placement);
+		if (GetWindowPlacement(windowHandle, &placement))
+		{
+			placement.flags = 0;
+			placement.showCmd = SW_SHOWNORMAL;
+			placement.rcNormalPosition = normalRect;
+			if (SetWindowPlacement(windowHandle, &placement))
+			{
+				KeepNormalWindowReachable(windowHandle, CurrentPPI);
+				WINDOWPLACEMENT adjustedPlacement = {};
+				adjustedPlacement.length = sizeof(adjustedPlacement);
+				if (GetWindowPlacement(windowHandle, &adjustedPlacement))
+				{
+					adjustedPlacement.flags = 0;
+					adjustedPlacement.showCmd = maximized
+						? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+					placementApplied = SetWindowPlacement(
+						windowHandle, &adjustedPlacement) != FALSE;
+				}
+			}
+		}
+	}
 
-	KeepWindowPlacementReachable(normalRect);
-	WINDOWPLACEMENT placement = {};
-	placement.length = sizeof(placement);
-	if (!GetWindowPlacement(Handle, &placement))
-		return;
+	if (!placementApplied)
+	{
+		WINDOWPLACEMENT defaultPlacement = {};
+		defaultPlacement.length = sizeof(defaultPlacement);
+		if (GetWindowPlacement(windowHandle, &defaultPlacement))
+		{
+			defaultPlacement.flags = 0;
+			defaultPlacement.showCmd = SW_SHOWMAXIMIZED;
+			placementApplied = SetWindowPlacement(
+				windowHandle, &defaultPlacement) != FALSE;
+		}
+		if (!placementApplied)
+			WindowState = wsMaximized;
+	}
 
-	placement.flags = 0;
-	placement.showCmd = maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
-	placement.rcNormalPosition = normalRect;
-	if (!SetWindowPlacement(Handle, &placement))
-		WindowState = wsMaximized;
+	SaveMainWindowPlacement();
 }
 
 void TfMain::SaveMainWindowPlacement() noexcept
 {
-	if (!windowPlacementRestored_ || windowPlacementSaved_ || !HandleAllocated())
+	if (!windowPlacementRestored_ || !HandleAllocated())
 		return;
-
 	WINDOWPLACEMENT placement = {};
 	placement.length = sizeof(placement);
 	if (!GetWindowPlacement(Handle, &placement))
 		return;
-
 	const RECT& normalRect = placement.rcNormalPosition;
 	const LONGLONG width = static_cast<LONGLONG>(normalRect.right)
 		- normalRect.left;
@@ -2601,19 +2726,16 @@ void TfMain::SaveMainWindowPlacement() noexcept
 		- normalRect.top;
 	if (width < 320 || height < 240 || width > 100000 || height > 100000)
 		return;
-
 	const bool maximized = placement.showCmd == SW_SHOWMAXIMIZED
 		|| (placement.showCmd == SW_SHOWMINIMIZED
 			&& (placement.flags & WPF_RESTORETOMAXIMIZED) != 0);
-	windowPlacementSaved_ = WriteMainWindowPlacement(normalRect, maximized);
+	WriteMainWindowPlacement(normalRect, maximized);
 }
-
 void __fastcall TfMain::FormResize(TObject *Sender)
 {
 	(void)Sender;
 	ScheduleResponsiveLayout();
 }
-
 void __fastcall TfMain::FormAfterMonitorDpiChanged(TObject* Sender, int OldDPI, int NewDPI)
 {
 	(void)Sender;
@@ -2621,9 +2743,7 @@ void __fastcall TfMain::FormAfterMonitorDpiChanged(TObject* Sender, int OldDPI, 
 	(void)NewDPI;
 	ScheduleResponsiveLayout();
 }
-
 //---------------------------------------------------------------------------
-
 void __fastcall TfMain::lstTemplatesDblClick(TObject *Sender)
 {
 	lstTemplatesClick(Sender);
@@ -2901,6 +3021,7 @@ void __fastcall TfMain::onSuccessfulAuthorization(const std::string& user_name, 
 	token_dir_ = filePath;
 	//tmLoginIn->Enabled = false;
 	tmLoginOut->Enabled = true;
+	ScheduleResponsiveLayout();
 }
 
 
@@ -3301,36 +3422,54 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	auto progressForm = std::make_unique<TForm>(this);
 	progressForm->BorderStyle = bsDialog;
 	progressForm->Caption = L"Сохранение";
-	const int desiredWidth = MulDiv(600, progressForm->CurrentPPI, 192);
-	const int desiredHeight = MulDiv(200, progressForm->CurrentPPI, 192);
-	progressForm->Width = std::max(1, desiredWidth);
-	progressForm->Height = std::max(1, desiredHeight);
-	progressForm->Position = poScreenCenter;
-
+	progressForm->DefaultMonitor = dmActiveForm;
+	progressForm->PopupParent = this;
+	progressForm->Position = poOwnerFormCenter;
+	progressForm->Font->Assign(Font);
 	auto label = std::make_unique<TLabel>(progressForm.get());
 	label->Parent = progressForm.get();
 	label->Caption = L"Идет сохранение, пожалуйста, подождите...";
 	label->Align = alClient;
+	label->AlignWithMargins = true;
 	label->Alignment = taCenter;
 	label->Layout = tlCenter;
+	label->AutoSize = false;
+	label->WordWrap = true;
 	label->Font->Style = TFontStyles() << fsBold;
-
-	progressForm->Show();
+	const HWND progressWindowHandle = progressForm->Handle;
+	(void)progressWindowHandle;
+	const int progressPpi = progressForm->CurrentPPI > 0
+		? progressForm->CurrentPPI : MAIN_FORM_DESIGN_PPI;
+	const int labelMargin = std::max(1,
+		MulDiv(16, progressPpi, MAIN_FORM_DESIGN_PPI));
+	label->Margins->Left = labelMargin;
+	label->Margins->Top = labelMargin;
+	label->Margins->Right = labelMargin;
+	label->Margins->Bottom = labelMargin;
+	const int desiredWidth = std::max(1,
+		MulDiv(600, progressPpi, MAIN_FORM_DESIGN_PPI));
+	const int desiredHeight = std::max(1,
+		MulDiv(200, progressPpi, MAIN_FORM_DESIGN_PPI));
 	if (progressForm->Monitor != nullptr) {
-		const auto workArea = progressForm->Monitor->WorkAreaRect;
-		const int margin = std::max(1, MulDiv(16, progressForm->CurrentPPI, 192));
-		const int maxWidth = std::max(1, workArea.Width() - margin);
-		const int maxHeight = std::max(1, workArea.Height() - margin);
-		progressForm->Width = std::min(progressForm->Width, maxWidth);
-		progressForm->Height = std::min(progressForm->Height, maxHeight);
-		progressForm->Left = workArea.Left
-			+ std::max(1, (workArea.Width() - progressForm->Width) / 2);
-		progressForm->Top = workArea.Top
-			+ std::max(1, (workArea.Height() - progressForm->Height) / 2);
+		const auto workArea = progressForm->Monitor->WorkareaRect;
+		const int margin = std::max(1,
+			MulDiv(16, progressPpi, MAIN_FORM_DESIGN_PPI));
+		const int maxWidth = std::max(1, workArea.Width() - 2 * margin);
+		const int maxHeight = std::max(1, workArea.Height() - 2 * margin);
+		const int formWidth = std::min(desiredWidth, maxWidth);
+		const int formHeight = std::min(desiredHeight, maxHeight);
+		progressForm->SetBounds(
+			workArea.Left + std::max(0, (workArea.Width() - formWidth) / 2),
+			workArea.Top + std::max(0, (workArea.Height() - formHeight) / 2),
+			formWidth, formHeight);
 	} else {
-		progressForm->Left = std::max(0, (Screen->Width - progressForm->Width) / 2);
-		progressForm->Top = std::max(0, (Screen->Height - progressForm->Height) / 2);
+		progressForm->SetBounds(
+			std::max(0, (Screen->Width - desiredWidth) / 2),
+			std::max(0, (Screen->Height - desiredHeight) / 2),
+			desiredWidth, desiredHeight);
 	}
+	progressForm->Position = poDesigned;
+	progressForm->Show();
 	Application->ProcessMessages();
 
 	auto save_byte = str[25];
@@ -3413,8 +3552,9 @@ void __fastcall TfMain::chkTextClick(TObject *Sender)
 
 void __fastcall TfMain::FormShow(TObject *Sender)
 {
-   RestoreMainWindowPlacement();
-   ScheduleResponsiveLayout();
+	(void)Sender;
+	UpdateResponsiveLayout();
+	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
@@ -3515,7 +3655,8 @@ void __fastcall TfMain::deleteFilesFromUI()
 
 void __fastcall TfMain::rchEdtClick(TObject *Sender)
 {
-    pnShablons->Visible = false;
+	pnShablons->Visible = false;
+	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------
 
@@ -3541,13 +3682,18 @@ void __fastcall TfMain::dbgEhRowDetailPanelShow(TCustomDBGridEh *Sender, bool &C
 
     int rowCount   = mtMenu->RecordCount;
 	int rowHeight  = dbgMenu->DefaultRowHeight;
+	const int menuPpi = dbgMenu->CurrentPPI > 0
+		? dbgMenu->CurrentPPI : MAIN_FORM_DESIGN_PPI;
 	if (rowHeight <= 0)
-		rowHeight = -dbgMenu->Font->Height + 6;  // fallback по шрифту
+		rowHeight = -dbgMenu->Font->Height + std::max(1,
+			MulDiv(6, menuPpi, MAIN_FORM_DESIGN_PPI));
 
 	int titleHeight = dbgMenu->TitleHeight;
 
 	// +1 строка сверху, чтобы последняя помещалась, и небольшой запас
-	int newHeight = 15 + titleHeight + (rowCount + 1) * rowHeight;
+	int newHeight = std::max(1,
+		MulDiv(15, menuPpi, MAIN_FORM_DESIGN_PPI))
+		+ titleHeight + (rowCount + 1) * rowHeight;
 
 	dbgEh->RowDetailPanel->Height   = newHeight;
 	dbgMenu->RowDetailPanel->Height = newHeight;
@@ -3589,6 +3735,7 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 			auth_ = false;
 			disconnectUiFull();
 			componentsEnable(false);
+			ScheduleResponsiveLayout();
 		});
 	});
 }
@@ -3667,10 +3814,8 @@ void __fastcall TfMain::dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool 
 			Close();
 		}
 		ScheduleResponsiveLayout();
-
 }
 //---------------------------------------------------------------------------
-
 void __fastcall TfMain::dbgMenuRowDetailPanelHide(TCustomDBGridEh *Sender, bool &CanHide)
 {
     dbgEh->RowDetailPanel->Height -= dbgMenu->RowDetailPanel->Height;

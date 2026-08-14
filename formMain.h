@@ -383,23 +383,23 @@ private:	// User declarations
 	std::map<String,String> getMapFromQry(TFDQuery* qry, const String& table_name);
 
 	std::map<std::string,std::map<std::string, Request>> mTemplates{};
-
 	std::map<String, int> mapFieldInd;
-
 	bool useF12Control();
 	void __fastcall finishSearch();
 	void __fastcall WndProc(TMessage &Message);
+	void __fastcall ResponsiveLayoutTimerTimer(TObject *Sender);
+	void CreateResponsiveScrollHost();
 	void ScheduleResponsiveLayout();
 	void UpdateResponsiveLayout();
 	void RestoreMainWindowPlacement();
 	void SaveMainWindowPlacement() noexcept;
-
-	static constexpr unsigned int WM_REFRESH_RESPONSIVE_LAYOUT = WM_APP + 75;
-	bool responsiveLayoutPosted_ = false;
+	TTimer* responsiveLayoutTimer_ = nullptr;
+	TScrollBox* responsiveScrollHost_ = nullptr;
+	int responsiveLayoutPassesRemaining_ = 0;
 	bool updatingResponsiveLayout_ = false;
+	bool windowMoveSizeActive_ = false;
+	bool shuttingDown_ = false;
 	bool windowPlacementRestored_ = false;
-	bool windowPlacementSaved_ = false;
-
 	bool searchSuccess = false;
 	std::string searchError;
 	std::vector<Telega> telegi_async;

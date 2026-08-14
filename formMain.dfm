@@ -1,8 +1,8 @@
 object fMain: TfMain
-  AlignWithMargins = True
+  AlignWithMargins = False
   Left = 429
   Top = 166
-  Align = alCustom
+  Align = alNone
   AlphaBlend = True
   AutoSize = False
   BiDiMode = bdLeftToRight
@@ -20,14 +20,14 @@ object fMain: TfMain
   Font.Name = 'Segoe UI'
   Font.Style = []
   ParentBiDiMode = False
-  Position = poScreenCenter
-  WindowState = wsMaximized
+  Position = poDesigned
+  WindowState = wsNormal
   StyleName = 'Windows'
+  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
   OnCreate = FormCreate
-  OnShow = FormShow
   OnResize = FormResize
-  OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
+  OnShow = FormShow
   PixelsPerInch = 192
   TextHeight = 36
   object ggSaveProgress: TGauge
