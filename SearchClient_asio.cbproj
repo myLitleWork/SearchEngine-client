@@ -164,9 +164,9 @@
         <DynamicRTL>false</DynamicRTL>
         <UsePackages>false</UsePackages>
         <Icon_MainIcon>SearchClient_asio_Icon.ico</Icon_MainIcon>
-        <PreBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PreBuild-SearchClientVersion.bat&quot;</PreBuildEvent>
+        <PreBuildEvent><![CDATA[call "$(MSBuildProjectDirectory)\scripts\PreBuild-SearchClientVersion.bat"]]></PreBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
-        <PostBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PostBuild-SearchClientPortable.bat&quot;</PostBuildEvent>
+        <PostBuildEvent><![CDATA[call "$(MSBuildProjectDirectory)\scripts\PostBuild-SearchClientPortable.bat"]]></PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
@@ -330,11 +330,11 @@
             <DependentOn>WordServer\WordServer.h</DependentOn>
             <BuildOrder>27</BuildOrder>
         </CppCompile>
-        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <FormResources Include="formMain.dfm"/>
         <FormResources Include="Frames\FrameAttachments.dfm"/>
         <FormResources Include="Frames\FramePdtv.dfm"/>
         <FormResources Include="Frames\FrameWay.dfm"/>
+        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -1306,4 +1306,12 @@
     <Import Project="$(BDS)\Bin\CodeGear.Cpp.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Cpp.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
+    <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
+        <PreBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PreBuild-SearchClientVersion.bat&quot;</PreBuildEvent>
+        <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
+        <PreLinkEvent/>
+        <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
+        <PostBuildEvent>call &quot;$(MSBuildProjectDirectory)\scripts\PostBuild-SearchClientPortable.bat&quot;</PostBuildEvent>
+        <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+    </PropertyGroup>
 </Project>
