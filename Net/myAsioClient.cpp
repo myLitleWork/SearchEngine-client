@@ -13,6 +13,9 @@
 #include <fstream>
 #include <memory>
 #include <vector>
+#include <map>
+#include <windows.h>
+#include <nlohmann/json.hpp>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
@@ -21,45 +24,64 @@ namespace {
 // Единый idle-таймаут для чтения с сокета (как SocketFileSaver): без новых байт N секунд — ошибка.
 constexpr auto kSocketReadIdleTimeout = std::chrono::seconds(10);
 
-const char* serverErrorCodeName(std::uint32_t rawCode) noexcept
+using ErrorMessages = std::map<std::uint32_t, std::string>;
+
+std::filesystem::path errorMessagesPath()
 {
-	using search_protocol::ErrorCode;
-	switch (static_cast<ErrorCode>(rawCode)) {
-	case ErrorCode::PayloadTooLarge: return "PayloadTooLarge";
-	case ErrorCode::InvalidCommand: return "InvalidCommand";
-	case ErrorCode::CommandNotRegistered: return "CommandNotRegistered";
-	case ErrorCode::ServerBusy: return "ServerBusy";
-	case ErrorCode::ServerStopping: return "ServerStopping";
-	case ErrorCode::InvalidRequest: return "InvalidRequest";
-	case ErrorCode::InvalidJson: return "InvalidJson";
-	case ErrorCode::InvalidBinaryPayload: return "InvalidBinaryPayload";
-	case ErrorCode::FileNotFound: return "FileNotFound";
-	case ErrorCode::FileMetadataFailed: return "FileMetadataFailed";
-	case ErrorCode::FileOpenFailed: return "FileOpenFailed";
-	case ErrorCode::FileReadFailed: return "FileReadFailed";
-	case ErrorCode::FileWriteFailed: return "FileWriteFailed";
-	case ErrorCode::DirectoryCreateFailed: return "DirectoryCreateFailed";
-	case ErrorCode::ConfigurationError: return "ConfigurationError";
-	case ErrorCode::DatabaseOpenFailed: return "DatabaseOpenFailed";
-	case ErrorCode::DatabaseBusy: return "DatabaseBusy";
-	case ErrorCode::DatabaseQueryFailed: return "DatabaseQueryFailed";
-	case ErrorCode::DatabaseSchemaFailed: return "DatabaseSchemaFailed";
-	case ErrorCode::SerializationFailed: return "SerializationFailed";
-	case ErrorCode::IndexUnavailable: return "IndexUnavailable";
-	case ErrorCode::IndexDataInconsistent: return "IndexDataInconsistent";
-	case ErrorCode::IndexUpdateInProgress: return "IndexUpdateInProgress";
-	case ErrorCode::IndexUpdateFailed: return "IndexUpdateFailed";
-	case ErrorCode::OperatorNotRegistered: return "OperatorNotRegistered";
-	case ErrorCode::AttachmentNotFound: return "AttachmentNotFound";
-	case ErrorCode::MessageNotFound: return "MessageNotFound";
-	case ErrorCode::MessageSaveFailed: return "MessageSaveFailed";
-	case ErrorCode::MessageReadFailed: return "MessageReadFailed";
-	case ErrorCode::ResponseQueueFull: return "ResponseQueueFull";
-	case ErrorCode::CommandExecutionFailed: return "CommandExecutionFailed";
-	case ErrorCode::InternalError: return "InternalError";
-	}
-	return "UnknownErrorCode";
+	wchar_t exe[MAX_PATH]{};
+	const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+	if (n == 0 || n >= MAX_PATH) return {};
+	return std::filesystem::path(exe).parent_path() / L"config" / L"server-error-messages.json";
 }
+
+const ErrorMessages& loadedErrorMessages() noexcept
+{
+	static const ErrorMessages messages = [] {
+		ErrorMessages result;
+		static const char* const expectedNames[33] = { nullptr,
+			"PayloadTooLarge", "InvalidCommand", "CommandNotRegistered", "ServerBusy",
+			"ServerStopping", "InvalidRequest", "InvalidJson", "InvalidBinaryPayload",
+			"FileNotFound", "FileMetadataFailed", "FileOpenFailed", "FileReadFailed",
+			"FileWriteFailed", "DirectoryCreateFailed", "ConfigurationError",
+			"DatabaseOpenFailed", "DatabaseBusy", "DatabaseQueryFailed", "DatabaseSchemaFailed",
+			"SerializationFailed", "IndexUnavailable", "IndexDataInconsistent",
+			"IndexUpdateInProgress", "IndexUpdateFailed", "OperatorNotRegistered",
+			"AttachmentNotFound", "MessageNotFound", "MessageSaveFailed", "MessageReadFailed",
+			"ResponseQueueFull", "CommandExecutionFailed", "InternalError" };
+		try {
+			std::ifstream input(errorMessagesPath(), std::ios::binary);
+			if (!input) return result;
+			nh::json document = nh::json::parse(input);
+			if (document.at("formatVersion").get<int>() != 1) return ErrorMessages{};
+			const auto& errors = document.at("errors");
+			if (!errors.is_array()) return ErrorMessages{};
+			for (const auto& item : errors) {
+				const auto code = item.at("code").get<std::uint32_t>();
+				const auto name = item.at("name").get<std::string>();
+				const auto message = item.at("message").get<std::string>();
+				if (code < 1 || code > 32 || name != expectedNames[code] ||
+					message.empty() || !result.emplace(code, message).second) return ErrorMessages{};
+			}
+			if (result.size() != 32) return ErrorMessages{};
+		} catch (...) { return ErrorMessages{}; }
+		return result;
+	}();
+	return messages;
+}
+
+std::string serverErrorUserMessage(std::uint32_t rawCode)
+{
+	const auto& messages = loadedErrorMessages();
+	if (messages.empty())
+		return "На сервере произошла внутренняя ошибка. Код ошибки: " + std::to_string(rawCode) + ".";
+	const auto it = messages.find(rawCode);
+	if (it == messages.end()) return "Сервер вернул неизвестную ошибку. Код ошибки: " + std::to_string(rawCode) + ".";
+	return it->second + " Код ошибки: " + std::to_string(rawCode) + ".";
+}
+std::string legacyServerErrorUserMessage()
+{ return "Сервер сообщил о внутренней ошибке. Повторите попытку или обратитесь к администратору."; }
+std::string busyServerErrorUserMessage()
+{ return "Сервер занят. Повторите попытку позже."; }
 
 bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
                              void* dest,
@@ -150,7 +172,7 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 
 	if (response.command == COMMAND::SOMEERROR) {
 		if (errMsg)
-			*errMsg = legacySomeErrorMessage;
+			*errMsg = legacyServerErrorUserMessage();
 		closeTransport();
 		return true;
 	}
@@ -162,7 +184,7 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 				false);
 		}
 		if (errMsg)
-			*errMsg = "SERVER_BUSY_ERROR";
+			*errMsg = busyServerErrorUserMessage();
 		closeTransport();
 		return true;
 	}
@@ -201,15 +223,13 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 	if (payload.errorCode ==
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::ServerBusy)) {
 		if (errMsg)
-			*errMsg = "SERVER_BUSY_ERROR";
+			*errMsg = busyServerErrorUserMessage();
 		closeTransport();
 		return true;
 	}
 
 	if (errMsg) {
-		*errMsg = "Ошибка сервера: " +
-			std::string(serverErrorCodeName(payload.errorCode)) +
-			" (код " + std::to_string(payload.errorCode) + ")";
+		*errMsg = serverErrorUserMessage(payload.errorCode);
 	}
 	closeTransport();
 	return true;

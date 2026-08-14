@@ -1583,7 +1583,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 				" байт - успешно сохранен!").c_str());
 			return 1;
 		}
-		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES) {
+		if (err == busyServerErrorUserMessage() && attempt < MAX_TRIES) {
 			pushLog(
 				"Сервер занят при запросе файла \"" + String(f.remotePath.c_str()) +
 				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
@@ -1636,7 +1636,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 			break;
 
 		// проверка по строке
-		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
+		if (err == busyServerErrorUserMessage() && attempt < MAX_TRIES)
 		{
 			if (!reconnectTransport(f.serverId))
 				break;
@@ -1824,7 +1824,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& 
 			f.serverId, std::string(zip_dir.c_str()), str, nullptr, &err);
 		if (ok && !str.empty())
 			break;
-		if (err == "SERVER_BUSY_ERROR" && attempt < MAX_TRIES)
+		if (err == busyServerErrorUserMessage() && attempt < MAX_TRIES)
 		{
 			if (!reconnectTransport(f.serverId))
 				break;
@@ -2983,7 +2983,9 @@ static String getAttachmentsRequestErrorMessage(
 		}
 	}
 
-	return String(L"Ошибка запроса: ") + String(AnsiString(fallback.c_str()));
+	if (!serverError.hasCode)
+		return String(AnsiString(legacyServerErrorUserMessage().c_str()));
+	return String(AnsiString(fallback.c_str()));
 }
 //---------------------------------------------------------------------------------------------
 void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)

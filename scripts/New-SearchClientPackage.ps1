@@ -130,6 +130,8 @@ $requiredTemplatePayloadNames = @(
     'Settings.db3',
     'admin984.bin'
 )
+$errorMessagesPath = Join-Path $projectRoot 'config\server-error-messages.json'
+if (-not (Test-Path -LiteralPath $errorMessagesPath -PathType Leaf)) { throw "Required error message map is missing: $errorMessagesPath" }
 $requiredTemplatePayloadHashes = @{
     'Settings.db3' = '40A4D999B39B0FE4C18649DB71B7EC60222E8DDF28E2F059E24897B3032F0B13'
 }
@@ -160,6 +162,8 @@ try {
     foreach ($file in $templatePayloadFiles) {
         Copy-Item -LiteralPath $file.FullName -Destination (Join-Path (Join-Path $staging 'app') $file.Name) -Force
     }
+    New-Item -ItemType Directory -Force -Path (Join-Path $staging 'app\config') | Out-Null
+    Copy-Item -LiteralPath $errorMessagesPath -Destination (Join-Path $staging 'app\config\server-error-messages.json') -Force
     if (Test-Path -LiteralPath $tutorialRoot -PathType Container) {
         Copy-Item -LiteralPath $tutorialRoot -Destination (Join-Path $staging 'tutorials') -Recurse
     }

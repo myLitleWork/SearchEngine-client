@@ -53,7 +53,8 @@ foreach ($relative in @(
     'deployment\SearchClientPortable\Verify-Package.ps1',
     'deployment\SearchClientPortable\app\sht.docm',
     'deployment\SearchClientPortable\app\Settings.db3',
-    'deployment\SearchClientPortable\app\admin984.bin'
+    'deployment\SearchClientPortable\app\admin984.bin',
+    'config\server-error-messages.json'
 )) {
     $path = Join-Path $projectRoot $relative
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

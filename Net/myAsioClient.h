@@ -150,6 +150,10 @@ namespace search_protocol
 	};
 }
 
+std::string serverErrorUserMessage(std::uint32_t rawCode);
+std::string legacyServerErrorUserMessage();
+std::string busyServerErrorUserMessage();
+
 static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
 static_assert(static_cast<std::uint64_t>(COMMAND::SOMEERROR) == 0);
 static_assert(static_cast<std::uint64_t>(COMMAND::PING) == 18);

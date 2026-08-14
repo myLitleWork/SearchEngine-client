@@ -46,7 +46,8 @@ function Get-ReleaseInputSha256 {
         'deployment/SearchClientPortable/Verify-Package.ps1',
         'deployment/SearchClientPortable/app/sht.docm',
         'deployment/SearchClientPortable/app/Settings.db3',
-        'deployment/SearchClientPortable/app/admin984.bin'
+        'deployment/SearchClientPortable/app/admin984.bin',
+        'config/server-error-messages.json'
     )
     $inputs = @()
     $inputs += Get-ChildItem -LiteralPath $ProjectRoot -File | Where-Object {

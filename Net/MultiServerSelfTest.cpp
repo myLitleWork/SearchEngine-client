@@ -232,7 +232,7 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 45;
 	if (typedErrorOk || !typedErrorResponse.empty())
 		return 46;
-	if (typedErrorMessage != "Ошибка сервера: OperatorNotRegistered (код 25)")
+	if (typedErrorMessage != "Оператор не зарегистрирован на сервере. Код ошибки: 25.")
 		return 47;
 	if (!typedErrorInfo.hasCode || !typedErrorInfo.isTyped ||
 		!typedErrorInfo.is(search_protocol::ErrorCode::OperatorNotRegistered))

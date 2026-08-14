@@ -26,7 +26,8 @@ foreach ($required in @(
     'app\libcrypto-3.dll',
     'app\sht.docm',
     'app\Settings.db3',
-    'app\admin984.bin'
+    'app\admin984.bin',
+    'app\config\server-error-messages.json'
 )) {
     $requiredPath = Join-Path $root $required
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
