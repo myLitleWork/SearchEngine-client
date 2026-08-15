@@ -119,6 +119,8 @@
 #include <map>
 #include <list>
 #include <mutex>
+#include <atomic>
+#include <memory>
 #include <my_json/Telega.h>
 #include <myRequest.h>
 #include "SocketFileSaver.h"
@@ -375,8 +377,10 @@ private:	// User declarations
 
 	void __fastcall GridColumnMenuClick(TObject *Sender);
 	void FillPopUpMenuWithGridColumns(TPopupMenu *popDbg, TDBGridEh *grid);
-	void __fastcall updateFileLoadUI();
-	void __fastcall deleteFilesFromUI();
+	void __fastcall updateFileLoadUI(const String& filePath, bool ok);
+	void __fastcall deleteFilesFromUI(const std::vector<String>& files);
+	bool uiIsLive() const;
+	std::shared_ptr<void> trackBackgroundOp();
 
     friend class ComponentsGuard;
 
@@ -399,6 +403,9 @@ private:	// User declarations
 	bool updatingResponsiveLayout_ = false;
 	bool windowMoveSizeActive_ = false;
 	bool shuttingDown_ = false;
+	std::shared_ptr<std::atomic_bool> uiLive_ =
+		std::make_shared<std::atomic_bool>(true);
+	std::atomic<int> uiInflight_{0};
 	bool windowPlacementRestored_ = false;
 	bool searchSuccess = false;
 	std::string searchError;
@@ -423,10 +430,7 @@ private:	// User declarations
     int saveTotalCount = 0;
 	TStringList* saveLog = nullptr;
 
-	std::vector<String> filesToDeleteUI;
-
-	UnicodeString uiFilePath;
-	bool uiOk;
+	TMemTableEh *mtMenu = nullptr;
 
 
 
@@ -539,7 +543,8 @@ public:		// User declarations
 	RecentComboHistory ComboHistory{nullptr,0};
 
 
-	std::vector<uint8_t> loadFileToVector2(const std::string& filePath, const std::wstring& file_name);
+	std::vector<uint8_t> loadFileToVector2(const std::string& filePath, const std::wstring& file_name,
+		bool showErrors = true);
 	void __fastcall onSuccessfulAuthorization(const std::string& user_name, const std::string& filePath);
 
 	void makeErrorWay(bool error);

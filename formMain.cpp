@@ -200,6 +200,34 @@ struct BusyGuardAtomic {
 	explicit operator bool() const { return owns; }
 };
 
+namespace {
+struct InflightToken {
+	std::atomic<int>* counter = nullptr;
+	explicit InflightToken(std::atomic<int>* c) : counter(c)
+	{
+		if (counter)
+			counter->fetch_add(1, std::memory_order_acq_rel);
+	}
+	~InflightToken()
+	{
+		if (counter)
+			counter->fetch_sub(1, std::memory_order_acq_rel);
+	}
+	InflightToken(const InflightToken&) = delete;
+	InflightToken& operator=(const InflightToken&) = delete;
+};
+} // namespace
+
+bool TfMain::uiIsLive() const
+{
+	return uiLive_ && uiLive_->load(std::memory_order_acquire) && !shuttingDown_;
+}
+
+std::shared_ptr<void> TfMain::trackBackgroundOp()
+{
+	return std::shared_ptr<void>(std::make_shared<InflightToken>(&uiInflight_));
+}
+
 
 
 
@@ -574,9 +602,11 @@ __fastcall TfMain::TfMain(TComponent* Owner)
 
 	FillPopUpMenuWithGridColumns(popDbg, dbgEh);
 }
-std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, const std::wstring& file_name) {
+std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, const std::wstring& file_name,
+	bool showErrors) {
 	if (filePath.empty()) {
-		ShowMessage("File path is empty. Cannot open file.");
+		if (showErrors)
+			ShowMessage("File path is empty. Cannot open file.");
 		return {};
     }
 
@@ -587,13 +617,15 @@ std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, cons
         fileStream = new TFileStream(wfilePath.c_str(), fmOpenRead | fmShareDenyWrite);
 	}
 	catch (...) {
-        ShowMessage("Failed to open the file.");
+		if (showErrors)
+			ShowMessage("Failed to open the file.");
 		delete fileStream;
         return {};
 	}
 
 	if (!fileStream) {
-        ShowMessage("Failed to create file stream.");
+		if (showErrors)
+			ShowMessage("Failed to create file stream.");
 		return {};
 	}
 
@@ -852,6 +884,8 @@ void TfMain::registryOnServer(const std::string& user_name)
 
 void __fastcall TfMain::finishSearch()
 {
+	if (!uiIsLive())
+		return;
 	if (!searchSuccess) {
 		std::unique_ptr<TStringList> message(new TStringList());
 		message->Add(String(searchError.c_str()));
@@ -942,6 +976,8 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 	auto tok = std::make_shared<ComponentsGuard>(gSearchProcessing, this);
 	if (!*tok) return;
+	if (!uiIsLive())
+		return;
 
 
    //	ComponentsGuard guard2(gSaveProcessing, this);
@@ -1021,7 +1057,9 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 		return;
 	}
     // --- Запуск фоновой задачи ---
-	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds, Sender]() {
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds, Sender, live, op]() {
 		struct Outcome {
 			std::string serverId;
 			std::string displayName;
@@ -1029,11 +1067,14 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			std::string error;
 			bool success{false};
 		};
+		try {
 		std::vector<Outcome> outcomes(serverIds.size());
 		std::vector<std::thread> workers;
 		workers.reserve(serverIds.size());
 		for (std::size_t i = 0; i < serverIds.size(); ++i) {
-			workers.emplace_back([this, &outcomes, &serverIds, &requestBody, searchCommand, i]() {
+			workers.emplace_back([this, &outcomes, &serverIds, &requestBody, searchCommand, i, live]() {
+				if (live && !live->load(std::memory_order_acquire))
+					return;
 				Outcome& outcome = outcomes[i];
 				outcome.serverId = serverIds[i];
 				outcome.displayName = serverManager_.displayName(outcome.serverId);
@@ -1085,8 +1126,13 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			? std::string{}
 			: std::string("Ни один сервер не ответил успешно");
 		this->lastSender = Sender;
-		TThread::Queue(nullptr, [this, tok]() {
-			finishSearch();
+		} catch (...) {
+			this->searchSuccess = false;
+			this->searchError = "Ошибка выполнения поиска";
+		}
+		TThread::Queue(nullptr, [this, tok, live, op]() {
+			if (live && live->load(std::memory_order_acquire) && !shuttingDown_)
+				finishSearch();
 		});
 	});
 }
@@ -1100,10 +1146,28 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 		ShowMessage("Дождитесь завершения сохранения файлов или нажмите \"Отмена\".");
 		return;
 	}
-	SaveMainWindowPlacement();
-	shuttingDown_ = true;
+
+	if (uiLive_)
+		uiLive_->store(false, std::memory_order_release);
+	if (tmLoadText)
+		tmLoadText->Enabled = false;
 	if (responsiveLayoutTimer_)
 		responsiveLayoutTimer_->Enabled = false;
+
+	for (int spin = 0; spin < 300 && uiInflight_.load(std::memory_order_acquire) > 0; ++spin) {
+		Application->ProcessMessages();
+		Sleep(20);
+	}
+	if (uiInflight_.load(std::memory_order_acquire) > 0) {
+		if (uiLive_)
+			uiLive_->store(true, std::memory_order_release);
+		Action = caNone;
+		ShowMessage(L"Дождитесь завершения фоновых операций (поиск, загрузка файлов, текст).");
+		return;
+	}
+
+	shuttingDown_ = true;
+	SaveMainWindowPlacement();
 	auto safeRelease = [this](auto* &fr) {
 
 		if (fr) {
@@ -1135,7 +1199,7 @@ void TfMain::clear()
 	memTbl->Active = false;
 	memTbl->Active = true;
 
-	searchSaveReport_.Empty();
+	searchSaveReport_ = L"";
 	searchSaveAttempted_ = 0;
 	searchSaveInserted_ = 0;
 	searchSaveFailed_ = 0;
@@ -1379,10 +1443,10 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     ggSaveProgress->Progress = 0;
 
     searchSaveAttempted_ = static_cast<int>(telegi.size());
-    searchSaveInserted_ = 0;
+	searchSaveInserted_ = 0;
     searchSaveFailed_ = 0;
     searchSavePartial_ = false;
-    searchSaveReport_.Empty();
+	searchSaveReport_ = L"";
 
     std::unique_ptr<TStringList> report(new TStringList());
     TFDCustomConnection* conn = qryTelegi->Connection;
@@ -2953,6 +3017,9 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 
 
 
+	if (!uiIsLive())
+		return;
+
 	if (!auth_ || !dbgEh || !dbgEh->DataSource || !dbgEh->DataSource->DataSet ||
 		!dbgEh->DataSource->DataSet->Active  || dbgEh->Fields[0]->AsString.IsEmpty())
 		return;
@@ -2987,26 +3054,27 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 
 	// Подготовка переменных
 	std::string dir_str = AnsiString(dir).c_str();
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
 
-
-
-
-System::Threading::TTask::Run([=]() {
+System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op]() {
     std::lock_guard<std::mutex> lock(clickMutex);
 	std::string str;
 	std::string err;
 
+	if (live && !live->load(std::memory_order_acquire))
+		return;
+
 	// 1) отправка
 	if (!serverManager_.requestText(
 			sourceServerId, dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
-		TThread::Queue(nullptr, [err]() {
+		TThread::Queue(nullptr, [this, live, op, err]() {
+			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+				return;
 			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		});
 		return;
 	}
-
-	// дальше работаем со str
-
 
 	TStringList* reg = new TStringList();
 	reg->Text = str.c_str();
@@ -3014,8 +3082,9 @@ System::Threading::TTask::Run([=]() {
 	String text = reg->Text;
 	delete reg;
 
-    // Переносим всё в GUI-поток
-    TThread::Queue(nullptr, [=]() {
+    TThread::Queue(nullptr, [this, live, op, rowKey, text]() {
+		if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+			return;
 		if (last_loaded_num_ != rowKey)
             return;
 
@@ -3314,12 +3383,12 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 
 
 //---------------------------------------------------------------------------
-void __fastcall TfMain::updateFileLoadUI()
+void __fastcall TfMain::updateFileLoadUI(const String& filePath, bool ok)
 {
-    if (!uiOk)
-		memLogLoad->Lines->Add(uiFilePath + " - не удалось загрузить :(");
+    if (!ok)
+		memLogLoad->Lines->Add(filePath + " - не удалось загрузить :(");
 	else
-		memLogLoad->Lines->Add(uiFilePath + " - успешно загружен :)");
+		memLogLoad->Lines->Add(filePath + " - успешно загружен :)");
 	ggSaveProgress->AddProgress(1);
 }
 
@@ -3720,13 +3789,13 @@ void __fastcall TfMain::Button2Click(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TfMain::btnLoadOnServerFilesClick(TObject *Sender)
 {
+	if (!uiIsLive())
+		return;
+
     componentsEnable(false);
     ggSaveProgress->Progress = 0;
     memLogLoad->Lines->Clear();
 
-	filesToDeleteUI.clear();
-
-    // Готовим список файлов отдельно, не используем '=' для лямбды!
     std::vector<String> fileList;
     for (int i = 0; i < lstFiles->Items->Count; ++i)
 		fileList.push_back(lstFiles->Items->Strings[i]);
@@ -3734,52 +3803,65 @@ void __fastcall TfMain::btnLoadOnServerFilesClick(TObject *Sender)
     ggSaveProgress->MaxValue = fileList.size();
 	ggSaveProgress->Progress = 0;
 
-    // Запускаем задачу БЕЗ [=], только [this] и fileList явно!
-	System::Threading::TTask::Run([this, fileList]() {
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+	System::Threading::TTask::Run([this, fileList, live, op]() {
+		std::vector<String> toDelete;
+		auto finishUi = [this, live, op, &toDelete]() {
+			const std::vector<String> files = toDelete;
+			TThread::Queue(nullptr, [this, live, op, files]() {
+				if (shuttingDown_)
+					return;
+				deleteFilesFromUI(files);
+			});
+		};
+
         for (const auto &filePath : fileList)
 		{
+			if (live && !live->load(std::memory_order_acquire)) {
+				finishUi();
+				return;
+			}
+
 			std::wstring baseFileNameWStr = ExtractFileName(filePath).w_str();  // начальное имя
 			baseFileNameWStr = conv::to_wstring(user_) + L"\\" + baseFileNameWStr;  // полное имя
 
-
 			std::string err;
+			auto file = loadFileToVector2(AnsiString(filePath).c_str(), baseFileNameWStr, false);
 
-			// загружаем файл
-			auto file = loadFileToVector2(AnsiString(filePath).c_str(), baseFileNameWStr);
-
-			// отправляем на сервер
 			std::vector<uint8_t> str;
 			bool ok = serverManager_.requestBinary(
 				primaryServerId(), file, COMMAND::LOAD_TLG_TO_SEND, str, nullptr, &err);
 
 			if (!ok) {
-				ShowMessage("Ошибка чтения: " + AnsiString(err.c_str()));
+				const String pathCopy = filePath;
+				const String errCopy = String(err.c_str());
+				TThread::Queue(nullptr, [this, live, op, pathCopy, errCopy]() {
+					if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+						return;
+					updateFileLoadUI(pathCopy, false);
+					ShowMessage("Ошибка чтения: " + errCopy);
+				});
+				finishUi();
 				return;
 			}
 
-
-            // Сохраняем данные для UI (только через поля класса!)
-            this->uiFilePath = filePath;
-            this->uiOk = ok;
-
-            if (ok)
-                this->filesToDeleteUI.push_back(filePath);
-
-            // Обновление UI (очень простая лямбда, ранее 100% работала!)
-			TThread::Queue(nullptr, [this]() { updateFileLoadUI(); });
+			toDelete.push_back(filePath);
+			const String pathCopy = filePath;
+			TThread::Queue(nullptr, [this, live, pathCopy]() {
+				if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+					return;
+				updateFileLoadUI(pathCopy, true);
+			});
         }
 
-        // Очистка списка и финальное обновление UI
-        TThread::Queue(nullptr, [this]() { deleteFilesFromUI(); });
+		finishUi();
     });
 }
 
-
-
-
-void __fastcall TfMain::deleteFilesFromUI()
+void __fastcall TfMain::deleteFilesFromUI(const std::vector<String>& files)
 {
-    for (auto it = filesToDeleteUI.rbegin(); it != filesToDeleteUI.rend(); ++it) {
+    for (auto it = files.rbegin(); it != files.rend(); ++it) {
         int delInd = lstFiles->Items->IndexOf(*it);
         if (delInd != -1)
             lstFiles->Items->Delete(delInd);
