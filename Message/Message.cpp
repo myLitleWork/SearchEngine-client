@@ -26,7 +26,7 @@ void Message::addAttachment(const std::filesystem::path& _file_dir)
 {
     std::ifstream file(_file_dir, std::ios::binary);
     if (!file)
-        throw std::runtime_error("Cannot open file: " + _file_dir.string());
+        throw std::runtime_error("Не удалось открыть файл: " + _file_dir.string());
 
     std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
     attachments[_file_dir.filename().string()] = data;
@@ -70,7 +70,7 @@ Message Message::loadFromDirectory(const std::filesystem::path& dirPath)
 		if (std::filesystem::is_regular_file(entry)) {
             std::ifstream file(entry.path(), std::ios::binary);
 			if (!file) {
-                throw std::runtime_error("Failed to open attachment file: " + entry.path().string());
+                throw std::runtime_error("Не удалось открыть файл вложения: " + entry.path().string());
 			}
             std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
 

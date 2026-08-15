@@ -251,7 +251,7 @@ public:
 
 	tcp::socket& getSocket() {
 		if (!socket_) {
-			throw std::runtime_error("Socket is not initialized");
+			throw std::runtime_error("Сокет не инициализирован");
 		}
 		return *socket_;
 	}

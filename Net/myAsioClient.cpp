@@ -172,7 +172,7 @@ bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
 bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 								const header& response,
 								std::string* errMsg,
-								const char* legacySomeErrorMessage = "Server returned SOMEERROR",
+								const char* legacySomeErrorMessage = "Сервер вернул ошибку",
 								search_protocol::ServerErrorInfo* serverError = nullptr)
 {
 	auto closeTransport = [&socket]() {
@@ -305,7 +305,7 @@ MyAsioClient::ProtocolNegotiationResult MyAsioClient::negotiateProtocol(
 	try {
 		if (!socket_ || !socket_->is_open()) {
 			if (errMsg)
-				*errMsg = "Socket is not connected";
+				*errMsg = "Нет подключения к серверу";
 			return ProtocolNegotiationResult::Failed;
 		}
 
@@ -404,7 +404,7 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
     try
 	{
 		if (!socket_ || !socket_->is_open()) {
-			if (errMsg) *errMsg = "Socket is not connected";
+			if (errMsg) *errMsg = "Нет подключения к серверу";
 			return false;
 		}
 
@@ -429,7 +429,7 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 				*socket_,
 				resp,
 				errMsg,
-				"Server returned SOMEERROR",
+				"Сервер вернул ошибку",
 				serverError)) {
 			return false;
 		}
@@ -494,7 +494,7 @@ bool MyAsioClient::requestText(const std::string& request,
 
 	try {
 		if (!socket_ || !socket_->is_open()) {
-			if (errMsg) *errMsg = "Socket is not connected";
+			if (errMsg) *errMsg = "Нет подключения к серверу";
 			return false;
 		}
 
@@ -621,7 +621,7 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 
 	try {
 		if (!socket_ || !socket_->is_open()) {
-			if (errMsg) *errMsg = "Socket is not connected";
+			if (errMsg) *errMsg = "Нет подключения к серверу";
 			removePart();
 			return false;
 		}
@@ -750,7 +750,7 @@ bool MyAsioClient::tryConnect(const std::string& host,
 		boost::system::error_code resolve_ec;
 		auto endpoints = resolver_->resolve(host, port, resolve_ec);
 		if (resolve_ec) {
-			errMsg = "DNS resolution failed: " + resolve_ec.message();
+			errMsg = "Не удалось разрешить адрес сервера: " + resolve_ec.message();
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
@@ -758,7 +758,7 @@ bool MyAsioClient::tryConnect(const std::string& host,
 
 		// Проверяем, что есть хотя бы один endpoint
 		if (endpoints.begin() == endpoints.end()) {
-			errMsg = "No endpoints resolved";
+			errMsg = "Не найден адрес сервера";
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
@@ -794,7 +794,7 @@ bool MyAsioClient::tryConnect(const std::string& host,
 
 		while (!connectDone || !timerDone) {
 			if (io_context_.run_one() == 0) {
-				errMsg = "Connection operation stopped unexpectedly";
+				errMsg = "Операция подключения прервалась";
 				if (socket_) { delete socket_; socket_ = nullptr; }
 				if (resolver_) { delete resolver_; resolver_ = nullptr; }
 				return false;
@@ -802,14 +802,14 @@ bool MyAsioClient::tryConnect(const std::string& host,
 		}
 
 		if (timedOut) {
-			errMsg = "Connection timeout";
+			errMsg = "Таймаут подключения к серверу";
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
 		}
 
 		if (connectEc) {
-			errMsg = "Connection failed: " + connectEc.message();
+			errMsg = "Не удалось подключиться к серверу: " + connectEc.message();
 			if (socket_) { delete socket_; socket_ = nullptr; }
 			if (resolver_) { delete resolver_; resolver_ = nullptr; }
 			return false;
@@ -821,13 +821,13 @@ bool MyAsioClient::tryConnect(const std::string& host,
     catch (const std::exception& e) {
         if (socket_) { delete socket_; socket_ = nullptr; }
         if (resolver_) { delete resolver_; resolver_ = nullptr; }
-        errMsg = "Exception: " + std::string(e.what());
+        errMsg = "Ошибка подключения: " + std::string(e.what());
         return false;
     }
     catch (...) {
         if (socket_) { delete socket_; socket_ = nullptr; }
         if (resolver_) { delete resolver_; resolver_ = nullptr; }
-        errMsg = "Unknown exception occurred";
+        errMsg = "Неизвестная ошибка подключения";
         return false;
     }
 }
@@ -856,7 +856,7 @@ bool MyAsioClient::socketWrite(const std::string& s,
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     if (!socket_ || !socket_->is_open()) {
-        if (errMsg) *errMsg = "Socket is not connected";
+        if (errMsg) *errMsg = "Нет подключения к серверу";
         return false;
     }
 
@@ -883,7 +883,7 @@ bool MyAsioClient::socketWrite(const std::vector<uint8_t>& data,
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     if (!socket_ || !socket_->is_open()) {
-        if (errMsg) *errMsg = "Socket is not connected";
+        if (errMsg) *errMsg = "Нет подключения к серверу";
         return false;
     }
 
@@ -910,7 +910,7 @@ bool MyAsioClient::socketRead(std::string& out,
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     if (!socket_ || !socket_->is_open()) {
-        if (errMsg) *errMsg = "Socket is not connected";
+        if (errMsg) *errMsg = "Нет подключения к серверу";
         return false;
     }
 
@@ -969,7 +969,7 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
     std::lock_guard<std::mutex> lk(io_mutex_);
 
     if (!socket_ || !socket_->is_open()) {
-        if (errMsg) *errMsg = "Socket is not connected";
+        if (errMsg) *errMsg = "Нет подключения к серверу";
         return false;
     }
 
@@ -1034,7 +1034,7 @@ bool MyAsioClient::readHeader(header& hdr, std::string* errMsg)
     std::lock_guard<std::mutex> lk(io_mutex_);
     
     if (!socket_ || !socket_->is_open()) {
-        if (errMsg) *errMsg = "Socket is not connected";
+        if (errMsg) *errMsg = "Нет подключения к серверу";
         return false;
     }
     

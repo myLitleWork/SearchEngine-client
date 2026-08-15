@@ -164,8 +164,8 @@ private:
 					if (!client_.tryConnect(
 							endpoint_.host, endpoint_.port, legacyConnectError)) {
 						if (errMsg) {
-							*errMsg = "Negotiation failed (" + negotiationError +
-								"); legacy reconnect failed: " + legacyConnectError;
+							*errMsg = "Ошибка согласования протокола (" + negotiationError +
+								"); не удалось переподключиться в legacy-режиме: " + legacyConnectError;
 						}
 						return false;
 					}
@@ -176,7 +176,7 @@ private:
 					client_.disConnect();
 					if (errMsg) {
 						*errMsg = negotiationError.empty()
-							? "Protocol negotiation failed"
+							? "Не удалось согласовать протокол с сервером"
 							: negotiationError;
 					}
 					return false;
@@ -192,7 +192,7 @@ private:
 				return false;
 			}
 			if (reply != "OK") {
-				if (errMsg) *errMsg = "Server rejected USER_REGISTRY: " + reply;
+				if (errMsg) *errMsg = "Сервер отклонил регистрацию пользователя: " + reply;
 				return false;
 			}
 			registeredUser_ = user;
@@ -362,7 +362,7 @@ private:
 
 	static bool missingServer(const std::string& serverId, std::string* errMsg)
 	{
-		if (errMsg) *errMsg = "Unknown server_id: " + serverId;
+		if (errMsg) *errMsg = "Неизвестный идентификатор сервера: " + serverId;
 		return false;
 	}
 

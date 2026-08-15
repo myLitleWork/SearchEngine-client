@@ -19,7 +19,7 @@ FileData::FileData(const std::string& filename, const std::vector<uint8_t>& data
 FileData::FileData(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Failed to open file: " + filepath);
+        throw std::runtime_error("Не удалось открыть файл: " + filepath);
     }
     std::filesystem::path filePath = filepath;
 
