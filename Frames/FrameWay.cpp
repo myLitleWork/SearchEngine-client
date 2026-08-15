@@ -117,8 +117,10 @@ void TfrWay::FillDbg()
 
 	Screen->Cursor = crHourGlass;
 
+	auto live = uiLive_;
+	auto op = TrackOp();
 
-	System::Threading::TTask::Run([this, numberS, cmd, serverId]() {
+	System::Threading::TTask::Run([this, numberS, cmd, serverId, live, op]() {
 		std::string number = AnsiString(numberS).c_str();
 		std::string jsonStr;
 		bool ok = true;
@@ -126,33 +128,38 @@ void TfrWay::FillDbg()
 		std::list<std::map<std::string, std::string>> result;
 
 		try {
+			if (live && !live->load(std::memory_order_acquire))
+				ok = false;
+
 			std::string err;
 
-			if (!serverManager.requestText(serverId, number, cmd, jsonStr, nullptr, &err)) {
+			if (ok && !serverManager.requestText(serverId, number, cmd, jsonStr, nullptr, &err)) {
 				const String message = "Ошибка запроса: " + AnsiString(err.c_str());
-				TThread::Queue(nullptr, [message]() { ShowMessage(message); });
+				TThread::Queue(nullptr, [live, message]() {
+					if (!live || !live->load(std::memory_order_acquire))
+						return;
+					ShowMessage(message);
+				});
 				ok = false;
 			}
 
 			if (ok) {
-				// JSON может кинуть исключение Ч ловим
 				result = JSON::get<std::list<std::map<std::string, std::string>>>(jsonStr);
 			}
 		} catch (...) {
 			ok = false;
-			Screen->Cursor = crDefault;
 		}
 
-		TThread::Queue(nullptr, [this, ok, result]() {
+		TThread::Queue(nullptr, [this, ok, result, live, op]() {
+			if (!live || !live->load(std::memory_order_acquire) ||
+				detached_.load(std::memory_order_acquire))
+				return;
 
 			if (!ok) { Screen->Cursor = crDefault; return; }
 
 
 			FillDbgWayFromResult(result);
 			Screen->Cursor = crDefault;
-			// Ќ» ј »’ Sleep в UI-потоке
-
-			// dbgMain->SetFocus(); // по желанию; лучше не мен¤ть фокус насильно
 		});
 	});
 

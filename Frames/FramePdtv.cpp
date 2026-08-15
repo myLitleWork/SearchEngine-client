@@ -54,12 +54,6 @@ void TfrPdtv::InitDbgDS()
 void TfrPdtv::FillDbg()
 {
 
-		// Безопасный показ сообщения из фонового потока.
-		auto safeShow = [](const String& msg)
-		{
-			TThread::Queue(nullptr, [m = String(msg)]() { ShowMessage(m); });
-		};
-
 		dbgPdtv->RowDetailPanel->Active = false;
 
 		mt->EmptyTable();
@@ -72,11 +66,21 @@ void TfrPdtv::FillDbg()
 		numberS = dbgMain->Fields[0]->AsString; // номер документа
 		to      = dbgMain->Fields[8]->AsString; // получатели
 
-		// Подготавливаем запрос в GUI-потоке.
 		TCursor prev = Screen->Cursor;
 		Screen->Cursor = crHourGlass;
 
-		System::Threading::TTask::Run([this, numberS, to, cmd, prev, safeShow, serverId]()
+		auto live = uiLive_;
+		auto op = TrackOp();
+		auto safeShow = [live](const String& msg)
+		{
+			TThread::Queue(nullptr, [live, m = String(msg)]() {
+				if (!live || !live->load(std::memory_order_acquire))
+					return;
+				ShowMessage(m);
+			});
+		};
+
+		System::Threading::TTask::Run([this, numberS, to, cmd, prev, safeShow, serverId, live, op]()
 		{
 			std::string number;
 			std::string jsonStr;
@@ -85,10 +89,13 @@ void TfrPdtv::FillDbg()
 
 			try
 			{
+				if (live && !live->load(std::memory_order_acquire))
+					ok = false;
+
 				number = AnsiString(numberS).c_str();
 
 				std::string err;
-				if (!serverManager.requestText(
+				if (ok && !serverManager.requestText(
 						serverId, number, cmd, jsonStr, nullptr, &err)) {
 					ok = false;
 					safeShow(L"Ошибка запроса: " + AnsiString(err.c_str()));
@@ -128,9 +135,12 @@ void TfrPdtv::FillDbg()
                 safeShow(L"Неизвестная ошибка запроса данных ПДТВ");
             }
 
-            TThread::Queue(nullptr, [this, to, ok, result, prev, safeShow]()
+            TThread::Queue(nullptr, [this, to, ok, result, prev, safeShow, live, op]()
             {
-                // Обновляем таблицу в GUI-потоке.
+				if (!live || !live->load(std::memory_order_acquire) ||
+					detached_.load(std::memory_order_acquire))
+					return;
+
                 Screen->Cursor = prev;
 
                 try

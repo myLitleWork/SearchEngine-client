@@ -1162,7 +1162,7 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 		if (uiLive_)
 			uiLive_->store(true, std::memory_order_release);
 		Action = caNone;
-		ShowMessage(L"Дождитесь завершения фоновых операций (поиск, загрузка файлов, текст).");
+		ShowMessage(L"Дождитесь завершения фоновых операций (поиск, детали, загрузка, авторизация).");
 		return;
 	}
 
@@ -1731,6 +1731,15 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	myFrPdtv->setHeigthMulti(1.4);
 	myFrPdtv->Align = alClient;
 	myFrPdtv->Visible = false;
+
+	auto bindFrameLife = [this](TFrameDbg* frame) {
+		if (!frame)
+			return;
+		frame->BindLife(uiLive_, [this]() { return trackBackgroundOp(); });
+	};
+	bindFrameLife(myFrAttachments);
+	bindFrameLife(myFrWay);
+	bindFrameLife(myFrPdtv);
 	ScheduleResponsiveLayout();
 }
 //--------------------------------------------------------------------------
@@ -3295,17 +3304,23 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 
 	BusyGuardAtomic guard(gLogInBusy);
     if (!guard) return; // уже идёт задача
+	if (!uiIsLive())
+		return;
 
     // Переносим владение гардом в shared_ptr, чтобы RAII дожил до конца задачи
     auto guard_holder = std::make_shared<BusyGuardAtomic>(std::move(guard));
-    System::Threading::TTask::Run([this, guard_holder]() {
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+    System::Threading::TTask::Run([this, guard_holder, live, op]() {
 		const std::wstring adminFile =
 			auth_paths::fileBesideExecutable(L"admin984.bin");
 		// Temporary simplified authorization: the marker must be a regular file
 		// located beside the running EXE. The path stays Unicode throughout.
 		if (!auth_ && user_ != "admin" && auth_paths::isRegularFile(adminFile)) {
 			const std::string adminFileUtf8 = auth_paths::toUtf8(adminFile);
-			TThread::Queue(nullptr, [this, adminFileUtf8]() {
+			TThread::Queue(nullptr, [this, adminFileUtf8, live, op]() {
+				if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+					return;
 				onSuccessfulAuthorization("admin", adminFileUtf8);
 				if (tryConnect()) {
 					registryOnServer("admin");
@@ -3363,7 +3378,9 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 
         try {
             FlashPodpis fp = loadFromBinaryFile(desired);
-            TThread::Queue(nullptr, [this, fp, desired]() {
+            TThread::Queue(nullptr, [this, fp, desired, live, op]() {
+				if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+					return;
                 onSuccessfulAuthorization(fp.fio, desired);
                 gCurrentPath = desired;
                 disconnectTransportOnly();
@@ -3458,14 +3475,19 @@ void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 
 	componentsEnable(false);
 
-	System::Threading::TTask::Run([this, fullFileName]() {
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+	System::Threading::TTask::Run([this, fullFileName, live, op]() {
 		try {
 			std::vector<BYTE> str;
 			std::string err;
 			if (!serverManager_.requestBinary(
 					primaryServerId(), std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE,
 					str, nullptr, &err) || str.empty()) {
-				TThread::Queue(nullptr, [this]() {
+				TThread::Queue(nullptr, [this, live, op]() {
+					(void)live;
+					if (shuttingDown_)
+						return;
 					ShowMessage("Ошибка получения базы!");
 					componentsEnable(true);
 				});
@@ -3475,19 +3497,28 @@ void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 			std::wstring saveError;
 			if (!user_file_replace::WriteReplacing(
 					fullFileName, str.data(), str.size(), &saveError)) {
-				TThread::Queue(nullptr, [this]() {
+				TThread::Queue(nullptr, [this, live, op]() {
+					(void)live;
+					if (shuttingDown_)
+						return;
 					ShowMessage("Не удалось открыть файл для записи!");
 					componentsEnable(true);
 				});
 				return;
 			}
 
-			TThread::Queue(nullptr, [this, fullFileName]() {
+			TThread::Queue(nullptr, [this, fullFileName, live, op]() {
+				(void)live;
+				if (shuttingDown_)
+					return;
 				ShowMessage("База успешно сохранена - " + String(fullFileName.c_str()));
 				componentsEnable(true);
 			});
 		} catch (...) {
-			TThread::Queue(nullptr, [this]() {
+			TThread::Queue(nullptr, [this, live, op]() {
+				(void)live;
+				if (shuttingDown_)
+					return;
 				ShowMessage("Ошибка при сохранении базы!");
 				componentsEnable(true);
 			});
@@ -3941,13 +3972,20 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 	if (SafeExistsWin(toW(token_dir_)))
 		return;
 
+	if (!uiIsLive())
+		return;
+
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
 	// Очищаем данные в фоне (если вдруг очистка attachments может быть долгой)
-	System::Threading::TTask::Run([this]() {
+	System::Threading::TTask::Run([this, live, op]() {
 		message_.attachments.clear();
 		user_.clear();
 
 		// Возврат в главный поток для UI и остальных операций
-		TThread::Queue(nullptr, [this]() {
+		TThread::Queue(nullptr, [this, live, op]() {
+			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+				return;
 			clear();
 			//tmLoginOut->Enabled = false;
 			tmLoginIn->Enabled = true;

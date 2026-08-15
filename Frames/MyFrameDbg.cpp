@@ -50,8 +50,31 @@ void TFrameDbg::PlusDbgHeigth()
 }
 
 // � TFrameDbg.cpp
+void TFrameDbg::BindLife(
+	std::shared_ptr<std::atomic_bool> live,
+	std::function<std::shared_ptr<void>()> trackOp)
+{
+	uiLive_ = std::move(live);
+	trackOp_ = std::move(trackOp);
+}
+
+bool TFrameDbg::IsUiLive() const
+{
+	if (detached_.load(std::memory_order_acquire))
+		return false;
+	return uiLive_ && uiLive_->load(std::memory_order_acquire);
+}
+
+std::shared_ptr<void> TFrameDbg::TrackOp()
+{
+	if (trackOp_)
+		return trackOp_();
+	return {};
+}
+
 void TFrameDbg::Detach()
 {
+	detached_.store(true, std::memory_order_release);
     try {
         if (dbgMain) dbgMain->DataSource = nullptr;
         if (dbgMenu) dbgMenu->DataSource = nullptr;

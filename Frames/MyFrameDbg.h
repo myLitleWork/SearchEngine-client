@@ -21,6 +21,10 @@
 
 #include "MultiServerManager.h"
 
+#include <atomic>
+#include <functional>
+#include <memory>
+
 //---------------------------------------------------------------------------
 class TFrameDbg : public TFrame
 {
@@ -37,7 +41,12 @@ protected:	// User declarations
 
 	virtual void InitDbgDS() = 0;
 
+	std::shared_ptr<std::atomic_bool> uiLive_;
+	std::function<std::shared_ptr<void>()> trackOp_;
+	std::atomic_bool detached_{false};
 
+	bool IsUiLive() const;
+	std::shared_ptr<void> TrackOp();
 
 public:
 
@@ -48,7 +57,10 @@ public:
 	void PlusDbgHeigth();
 	void MinusbgHeigth();
 	void setHeigthMulti(double kof);
-	void Detach();   // 👈 добавляем метод
+	void Detach();
+	void BindLifetime(
+		std::shared_ptr<std::atomic_bool> live,
+		std::function<std::shared_ptr<void>()> trackOp);
 
 	TMemTableEh *mt = nullptr;
 
