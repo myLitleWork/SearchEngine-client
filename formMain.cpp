@@ -3729,16 +3729,15 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 		return;
 	}
 
-	std::wstring savePath = std::wstring(token_dir_.begin(), token_dir_.end());
 	std::unique_ptr<TFileOpenDialog> dirDialog(new TFileOpenDialog(this));
 	dirDialog->Options << fdoPickFolders;
 	dirDialog->DefaultFolder = String{token_dir_.c_str()};
 	dirDialog->Title = "Выбор дирректории сохранения приложений";
-	//dirDialog->
 
-	if (dirDialog->Execute()) {
-		savePath = dirDialog->FileName.c_str();
-	}
+	if (!dirDialog->Execute())
+		return;
+
+	std::wstring savePath = dirDialog->FileName.c_str();
 	if (savePath.empty()) {
 		ShowMessage("Папка для сохранения не выбрана.");
 		return;
