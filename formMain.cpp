@@ -16,6 +16,7 @@
 #include "stdint.h"
 #include "formMain.h"
 #include "AuthPaths.h"
+#include "UserFileReplace.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
 #include <iostream>
@@ -218,6 +219,29 @@ using namespace std;
 typedef std::map<std::string,std::map<std::string, Request>> mapTemplates;
 
 namespace {
+std::wstring TemplatesJsonPath()
+{
+	return auth_paths::fileBesideExecutable(L"Templates.json");
+}
+
+void LoadTemplatesFromDisk()
+{
+	const std::wstring path = TemplatesJsonPath();
+	if (!auth_paths::isRegularFile(path))
+		return;
+	std::string bytes;
+	if (!user_file_replace::ReadAll(path, bytes))
+		return;
+	myRequest::loadTemplates(JSON::get<mapTemplates>(bytes));
+}
+
+void SaveTemplatesToDisk()
+{
+	nh::json json = myRequest::getTemplates();
+	const std::string text = json.dump(2);
+	user_file_replace::WriteReplacing(TemplatesJsonPath(), text.data(), text.size());
+}
+
 const int MAIN_FORM_DESIGN_PPI = 192;
 const int MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI = 1932;
 const int MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI = 1194;
@@ -1469,8 +1493,7 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 
 
 
-	if(FileExists("Templates.json"))
-		myRequest::loadTemplates(JSON::getFromFile<mapTemplates>("Templates.json"));
+	LoadTemplatesFromDisk();
 
 	for(const auto& i : myRequest::groupsNames())
 		lstShGroups->Items->Add(i);
@@ -2444,7 +2467,7 @@ void __fastcall TfMain::Button1Click(TObject *Sender)
 
 	myRequest::saveTemplate(tm_group, tm_name);
 
-	JSON::saveToJsonFile(myRequest::getTemplates(), "Templates.json");
+	SaveTemplatesToDisk();
 
 	if(lstShGroups->Items->IndexOf(tm_group) == -1)
 		lstShGroups->Items->Add(tm_group);
@@ -2498,7 +2521,7 @@ void __fastcall TfMain::N2Click(TObject *Sender)
 	auto group = lstShGroups->Items->Strings[lstShGroups->ItemIndex];
 
 	myRequest::removeTemplate(group, name);
-	JSON::saveToJsonFile(myRequest::getTemplates(), "Templates.json");
+	SaveTemplatesToDisk();
 
 	lstTemplates->Items->Delete(lstTemplates->ItemIndex);
 
@@ -2521,7 +2544,7 @@ void __fastcall TfMain::N3Click(TObject *Sender)
 
 	myRequest::removeGroup(tm_group);
 
-	JSON::saveToJsonFile(myRequest::getTemplates(), "Templates.json");
+	SaveTemplatesToDisk();
 
 	lstShGroups->Items->Delete(lstShGroups->ItemIndex);
 	lstTemplates->Items->Clear();
@@ -3236,54 +3259,59 @@ void __fastcall TfMain::tbLoadShow(TObject *Sender)
 
 void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 {
-    // Копии нужных переменных для лямбды
-    std::string dir = AnsiString(ExtractFileDir(String{token_dir_.c_str()})).c_str();
-    std::string god = AnsiString{cmbGod->Text}.c_str();
-    std::string full_file_name = dir + "\\" + god + ".db";
+	const String yearText = Trim(cmbGod->Text);
+	bool yearOk = !yearText.IsEmpty();
+	for (int i = 1; yearOk && i <= yearText.Length(); ++i) {
+		const wchar_t ch = yearText[i];
+		if (ch < L'0' || ch > L'9')
+			yearOk = false;
+	}
+	if (!yearOk) {
+		ShowMessage("Ошибка при сохранении базы!");
+		return;
+	}
 
-    // Заблокируем интерфейс
-    componentsEnable(false);
+	const std::wstring tokenPath = toW(token_dir_);
+	const std::wstring dir = user_file_replace::ParentDirectory(tokenPath);
+	const std::wstring fullFileName = dir + L"\\" + std::wstring(yearText.c_str()) + L".db";
 
-    System::Threading::TTask::Run([=]() {
-        // --- Фоновая часть ---
-        try {
-            std::vector<BYTE> str;
+	componentsEnable(false);
+
+	System::Threading::TTask::Run([this, fullFileName]() {
+		try {
+			std::vector<BYTE> str;
 			std::string err;
 			if (!serverManager_.requestBinary(
 					primaryServerId(), std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE,
-					str, nullptr, &err)) {
-                TThread::Queue(nullptr, [this]() {
-                    ShowMessage("Ошибка получения базы!");
+					str, nullptr, &err) || str.empty()) {
+				TThread::Queue(nullptr, [this]() {
+					ShowMessage("Ошибка получения базы!");
 					componentsEnable(true);
-                });
-                return;
+				});
+				return;
 			}
 
-            if (std::filesystem::exists(full_file_name))
-                std::filesystem::remove(full_file_name);
+			std::wstring saveError;
+			if (!user_file_replace::WriteReplacing(
+					fullFileName, str.data(), str.size(), &saveError)) {
+				TThread::Queue(nullptr, [this]() {
+					ShowMessage("Не удалось открыть файл для записи!");
+					componentsEnable(true);
+				});
+				return;
+			}
 
-            FILE* file = fopen((full_file_name).c_str(), "wb");
-            if (file) {
-                fwrite(&str[0], sizeof(BYTE), str.size(), file);
-                fclose(file);
-
-                TThread::Queue(nullptr, [this, full_file_name]() {
-                    ShowMessage("База успешно сохранена - " + String{full_file_name.c_str()});
-                    componentsEnable(true);
-                });
-            } else {
-                TThread::Queue(nullptr, [this]() {
-                    ShowMessage("Не удалось открыть файл для записи!");
-                    componentsEnable(true);
-                });
-            }
-        } catch (...) {
-            TThread::Queue(nullptr, [this]() {
-                ShowMessage("Ошибка при сохранении базы!");
-                componentsEnable(true);
-            });
-        }
-    });
+			TThread::Queue(nullptr, [this, fullFileName]() {
+				ShowMessage("База успешно сохранена - " + String(fullFileName.c_str()));
+				componentsEnable(true);
+			});
+		} catch (...) {
+			TThread::Queue(nullptr, [this]() {
+				ShowMessage("Ошибка при сохранении базы!");
+				componentsEnable(true);
+			});
+		}
+	});
 }
 
 //---------------------------------------------------------------------------

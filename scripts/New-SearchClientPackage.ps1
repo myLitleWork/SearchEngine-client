@@ -134,6 +134,7 @@ $errorMessagesPath = Join-Path $projectRoot 'config\server-error-messages.json'
 if (-not (Test-Path -LiteralPath $errorMessagesPath -PathType Leaf)) { throw "Required error message map is missing: $errorMessagesPath" }
 $requiredTemplatePayloadHashes = @{
     'Settings.db3' = '40A4D999B39B0FE4C18649DB71B7EC60222E8DDF28E2F059E24897B3032F0B13'
+    'sht.docm' = '85EB429F9BD08ACE7127729887520EE7EFC34AA348C290ACC6EE818F438B938F'
 }
 $templatePayloadFiles = @(
     foreach ($name in $requiredTemplatePayloadNames) {

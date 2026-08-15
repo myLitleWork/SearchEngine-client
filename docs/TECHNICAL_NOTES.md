@@ -15,7 +15,7 @@
 ## Версия и имя продукта
 
 - `Version.h`, `app-version.json`
-- Заголовок окна: `SearchClient_asio v4.3.0`
+- Заголовок окна: `SearchClient_asio v` + PE `ProductVersion`
 - Проект: `SearchClient_asio.cbproj` (Win32)
 
 ## Основные формы и фреймы

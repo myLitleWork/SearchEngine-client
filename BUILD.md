@@ -6,8 +6,7 @@
 tools\release.bat
 ```
 
-Собирается `Release|Win32` (с bump patch в `app-version.json`), затем
-пересоздаётся версионный пакет:
+Собирается `Release|Win32`, затем пересоздаётся версионный пакет:
 
 ```text
 out\package\<version>\SearchClient-<version>
@@ -15,12 +14,15 @@ out\package\<version>\SearchClient-<version>
 
 Пример: `out\package\4.3.1\SearchClient-4.3.1`.
 
-Каждая **Release**-сборка поднимает patch на 1:
+Release запрашивает `-BumpPatch`. Patch повышается максимум на 1 и только если
+изменился ограниченный fingerprint release-входов; повтор без изменений номер
+сохраняет. Намеренный новый номер без изменений исходников требует
+`-ForceBumpPatch`.
 
 - IDE Release|Win32 — через ранний PreBuild
   (`scripts\PreBuild-SearchClientVersion.bat`), вызываемый через
   `$(MSBuildProjectDirectory)`;
-- `Build-SearchClientPackage.ps1` — bump до MSBuild (Pre/Post build
+- `Build-SearchClientPackage.ps1` — `-BumpPatch` до MSBuild (Pre/Post build
   events на этом пути отключаются, чтобы не поднять версию дважды).
 
 `tools\release.bat` — канонический агентский entrypoint полного Release/publish;
