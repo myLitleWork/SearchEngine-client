@@ -184,6 +184,9 @@
         <None Include="UserFileReplace.h">
             <BuildOrder>35</BuildOrder>
         </None>
+        <None Include="ClientFilePublish.h">
+            <BuildOrder>36</BuildOrder>
+        </None>
         <CppCompile Include="BinaryFileLoad\FileData.cpp">
             <BuildOrder>13</BuildOrder>
         </CppCompile>

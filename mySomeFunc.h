@@ -7,6 +7,7 @@
 #include <vector>
 #include <System.Zip.hpp>
 #include <System.IOUtils.hpp>
+#include "ClientFilePublish.h"
 
 // Проверка, существует ли файл в указанной директории
 
@@ -42,87 +43,129 @@ void setUniqFileName(String& full_file_dir)
 }
 
 
-void ExtZip(String zipFile, String targetDir, const std::map<String, String>& fileMappings)
+inline client_file_publish::ZipExtractStats ExtZip(
+	String zipFile,
+	String targetDir,
+	const std::map<String, String>& fileMappings)
 {
+	using client_file_publish::ZipExtractStats;
+	using client_file_publish::ResolveUnderBase;
+	using client_file_publish::EnsureUniqueFilePath;
+	using client_file_publish::MoveNewFile;
+	namespace fs = std::filesystem;
+
+	ZipExtractStats stats;
+	stats.expected = static_cast<int>(fileMappings.size());
+
 	TZipFile *z = new TZipFile();
-	z->Open(zipFile, zmRead);
+	try {
+		z->Open(zipFile, zmRead);
 
-	// Создаем временную директорию для извлечения файлов
-	String tempDir = TPath::GetTempPath() + "ZipExtractTemp\\";
-    if (!TDirectory::Exists(tempDir))
-	{
-		TDirectory::CreateDirectory(tempDir);
-	}
+		String tempDir = TPath::GetTempPath() + "ZipExtractTemp\\";
+		if (!TDirectory::Exists(tempDir))
+			TDirectory::CreateDirectory(tempDir);
 
-    // Извлечение файлов, указанных в fileMappings
-    for (const auto& pair : fileMappings)
-    {
-		String archivePath = pair.first;
+		const fs::path baseDir(targetDir.c_str());
+		const fs::path tempBase(tempDir.c_str());
 
-        // Заменяем обратные слэши на прямые для совпадения с путями в архиве
-        archivePath = StringReplace(archivePath, "\\", "/", TReplaceFlags() << rfReplaceAll);
+		for (const auto& pair : fileMappings)
+		{
+			String archivePath = pair.first;
+			archivePath = StringReplace(archivePath, "\\", "/", TReplaceFlags() << rfReplaceAll);
 
-        try
-        {
-			// Проверяем, существует ли файл в архиве
-            if (z->IndexOf(archivePath) == -1)
-			{
-                std::cerr << "Файл " << archivePath.c_str() << " не найден в архиве." << std::endl;
-                continue;
-            }
-
-            // Извлекаем файл в временную директорию, сохраняется внутренняя структура директорий
-            z->Extract(archivePath, tempDir);
-
-            // Полный путь к извлеченному файлу, включая внутренние директории из архива
-            String extractedFilePath = tempDir + archivePath;
-
-            // Заменяем прямые слэши на обратные для корректной работы с путями Windows
-            extractedFilePath = StringReplace(extractedFilePath, "/", "\\", TReplaceFlags() << rfReplaceAll);
-
-            // Целевой путь с новым именем файла
-			String targetPath = targetDir + "\\" + pair.second;
-
-			setUniqFileName(targetPath);
-
-            // Создаем директорию назначения, если она не существует
-            String targetDirPath = TPath::GetDirectoryName(targetPath);
-			if (!TDirectory::Exists(targetDirPath))
-            {
-                TDirectory::CreateDirectory(targetDirPath);
-            }
-
-            // Перемещаем и переименовываем файл
-			TFile::Move(extractedFilePath, targetPath);
-        }
-        catch (const Exception& e)
-        {
-            std::cerr << "Ошибка при извлечении файла " << archivePath.c_str() << ": " << e.Message.c_str() << std::endl;
-        }
-	}
-
-    // Удаляем временную директорию после завершения
-    TDirectory::Delete(tempDir, true);
-
-	z->Close();
-	delete z;
-}
-
-void copyFile(const std::vector<String>& prils,  const String& archive_zip_dir, const String& out_dir)
-{
-
-
-			std::map<String, String> fileMappings;
-
-			for (int i = 0; i < prils.size(); i++)
-			{
-				String archiveFilePath = "MESSAGE\\aps\\make_msg\\tmpvl00" + IntToStr(i + 1) + ".srg";
-				String targetFilePath = prils[i];
-				fileMappings[archiveFilePath] = targetFilePath;
+			std::wstring pathError;
+			fs::path archiveRel(StringReplace(pair.first, "/", "\\", TReplaceFlags() << rfReplaceAll).c_str());
+			fs::path archiveAbs;
+			if (!ResolveUnderBase(tempBase, archiveRel, archiveAbs, &pathError)) {
+				++stats.failed;
+				stats.errors.push_back(
+					L"Небезопасный путь в архиве \"" + std::wstring(archivePath.c_str()) +
+					L"\": " + pathError);
+				continue;
 			}
 
-			ExtZip(archive_zip_dir, out_dir, fileMappings);
+			fs::path targetAbs;
+			fs::path targetRel(pair.second.c_str());
+			if (!ResolveUnderBase(baseDir, targetRel, targetAbs, &pathError)) {
+				++stats.failed;
+				stats.errors.push_back(
+					L"Небезопасный целевой путь \"" + std::wstring(pair.second.c_str()) +
+					L"\": " + pathError);
+				continue;
+			}
+			if (!EnsureUniqueFilePath(targetAbs)) {
+				++stats.failed;
+				stats.errors.push_back(
+					L"Не удалось подобрать свободное имя для \"" +
+					std::wstring(pair.second.c_str()) + L"\"");
+				continue;
+			}
 
+			try
+			{
+				if (z->IndexOf(archivePath) == -1)
+				{
+					++stats.failed;
+					stats.errors.push_back(
+						L"Файл \"" + std::wstring(archivePath.c_str()) +
+						L"\" не найден в архиве");
+					continue;
+				}
+
+				z->Extract(archivePath, tempDir);
+
+				String extractedFilePath = tempDir + archivePath;
+				extractedFilePath = StringReplace(
+					extractedFilePath, "/", "\\", TReplaceFlags() << rfReplaceAll);
+
+				if (!FileExists(extractedFilePath)) {
+					++stats.failed;
+					stats.errors.push_back(
+						L"После извлечения не найден файл \"" +
+						std::wstring(extractedFilePath.c_str()) + L"\"");
+					continue;
+				}
+
+				if (!MoveNewFile(fs::path(extractedFilePath.c_str()), targetAbs, &pathError)) {
+					++stats.failed;
+					stats.errors.push_back(
+						L"\"" + std::wstring(archivePath.c_str()) + L"\": " + pathError);
+					continue;
+				}
+				++stats.extracted;
+			}
+			catch (const Exception& e)
+			{
+				++stats.failed;
+				stats.errors.push_back(
+					L"Ошибка извлечения \"" + std::wstring(archivePath.c_str()) +
+					L"\": " + std::wstring(e.Message.c_str()));
+			}
+		}
+
+		TDirectory::Delete(tempDir, true);
+		z->Close();
+	}
+	__finally {
+		delete z;
+	}
+
+	return stats;
+}
+
+inline client_file_publish::ZipExtractStats copyFile(
+	const std::vector<String>& prils,
+	const String& archive_zip_dir,
+	const String& out_dir)
+{
+	std::map<String, String> fileMappings;
+	for (int i = 0; i < static_cast<int>(prils.size()); i++)
+	{
+		String archiveFilePath = "MESSAGE\\aps\\make_msg\\tmpvl00" + IntToStr(i + 1) + ".srg";
+		String targetFilePath = prils[i];
+		fileMappings[archiveFilePath] = targetFilePath;
+	}
+	return ExtZip(archive_zip_dir, out_dir, fileMappings);
 }
 
 //---------------------------------------------------------------------------

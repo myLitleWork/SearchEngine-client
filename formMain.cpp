@@ -17,6 +17,7 @@
 #include "formMain.h"
 #include "AuthPaths.h"
 #include "UserFileReplace.h"
+#include "ClientFilePublish.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
 #include <iostream>
@@ -1919,10 +1920,11 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 
 int TfMain::SaveFileVh(const std::string& out_dir,
 					   const RemoteFileRequest& f,
-					   bool makeDocx,
+	bool makeDocx,
 					   bool flushStreamToOs,
 					   DocxConversionSession* docxSession)
 {
+	(void)flushStreamToOs; // WriteNewFile всегда делает FlushFileBuffers перед публикацией
 
 	std::vector<uint8_t> str;
 	constexpr int MAX_TRIES = 5;
@@ -1981,33 +1983,16 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 
 	std::string file_name = f.outputName;
-	std::string full_file_name = out_dir + "\\" + file_name;
-	std::string pref;
-	int try_limit = 1;
-
-	if (!makeDocx && FileExists(String{full_file_name.c_str()}))
-	{
-		auto exist_file_size = getFileSize(full_file_name);
-
-		if (exist_file_size == str.size())
-		{
-			pushLog(("Файл \"" + file_name + "\", " + std::to_string(str.size()) + " байт - уже существует!").c_str());
-			return 1;
-		}
-
-        do {
-            pref = "(" + std::to_string(try_limit++) + ") ";
-			file_name = pref + f.outputName;
-            full_file_name = out_dir + "\\" + file_name;
-		}
-        while (FileExists(String{full_file_name.c_str()}) && try_limit <= 30);
-
-        if (try_limit > 30)
-        {
-            ShowMessage("Ошибка при генерации имени файла!");
-            return 0;
-        }
-    }
+	namespace fs = std::filesystem;
+	const fs::path baseDir(String(out_dir.c_str()).c_str());
+	fs::path absolutePath;
+	std::wstring pathError;
+	if (!client_file_publish::ResolveUnderBase(
+			baseDir, fs::path(String(file_name.c_str()).c_str()), absolutePath, &pathError)) {
+		pushLog(L"Небезопасное имя файла \"" + String(file_name.c_str()) + L"\": " +
+			String(pathError.c_str()));
+		return 0;
+	}
 
 	if (makeDocx)
     {
@@ -2015,19 +2000,19 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 			if (saveCancelRequested.load(std::memory_order_acquire))
 				return 0;
             String shtPath = ExtractFilePath(Application->ExeName) + "sht.docm";
-            const String requestedOutDocx = ChangeFileExt(
-				String(out_dir.c_str()) + "\\" + String(f.outputName.c_str()), ".docx");
-            String outDocx = requestedOutDocx;
-
-            for (int suffix = 1; FileExists(outDocx) && suffix <= 999; ++suffix) {
-                outDocx = ExtractFilePath(requestedOutDocx) +
-                    "(" + String(suffix) + ") " + ExtractFileName(requestedOutDocx);
-            }
-            if (FileExists(outDocx)) {
-                pushLog("Не удалось подобрать свободное имя DOCX для файла \"" +
+			fs::path docxPath;
+			const String docxRel = ChangeFileExt(String(f.outputName.c_str()), L".docx");
+			if (!client_file_publish::ResolveUnderBase(
+					baseDir, fs::path(docxRel.c_str()), docxPath, &pathError)) {
+				pushLog(L"Небезопасное имя DOCX \"" + docxRel + L"\": " + String(pathError.c_str()));
+				return 0;
+			}
+			if (!client_file_publish::EnsureUniqueFilePath(docxPath)) {
+				pushLog("Не удалось подобрать свободное имя DOCX для файла \"" +
 					String(f.outputName.c_str()) + "\"");
-                return 0;
-            }
+				return 0;
+			}
+			const String outDocx = String(docxPath.c_str());
 
             // Преобразуем байты в текст, применяя OemToAnsi
             AnsiString raw((const char*)&str[0], str.size());
@@ -2086,45 +2071,25 @@ int TfMain::SaveFileVh(const std::string& out_dir,
     }
     else
 	{
-        FILE* file = fopen(full_file_name.c_str(), "wb");
-
-		if (file)
-        {
-			const std::size_t written = fwrite(str.data(), sizeof(BYTE), str.size(), file);
-			if (written != str.size())
-			{
-				fclose(file);
-				std::remove(full_file_name.c_str());
-				pushLog(("Ошибка записи файла: " + String(full_file_name.c_str()) +
-					". Записано " + UIntToStr(written) + " из " +
-					UIntToStr(str.size()) + " байт.").c_str());
-				return 0;
-			}
-			if (flushStreamToOs && fflush(file) != 0)
-			{
-				fclose(file);
-				std::remove(full_file_name.c_str());
-				pushLog(("Ошибка сброса буфера файла: " + String(full_file_name.c_str())).c_str());
-				return 0;
-			}
-			if (fclose(file) != 0)
-			{
-				std::remove(full_file_name.c_str());
-				pushLog(("Ошибка закрытия файла: " + String(full_file_name.c_str())).c_str());
-				return 0;
-			}
-		}
-		else
-		{
-			pushLog(("Не удалось открыть файл для записи: " + String(full_file_name.c_str())).c_str());
+		if (!client_file_publish::EnsureUniqueFilePath(absolutePath)) {
+			pushLog(L"Не удалось подобрать свободное имя для \"" +
+				String(f.outputName.c_str()) + L"\"");
 			return 0;
-        }
+		}
 
+		if (!client_file_publish::WriteNewFile(
+				absolutePath, str.data(), str.size(), &pathError)) {
+			pushLog(L"Ошибка записи файла \"" + String(absolutePath.c_str()) +
+				L"\": " + String(pathError.c_str()));
+			return 0;
+		}
+
+		const String publishedName = String(absolutePath.filename().c_str());
         std::string result;
-		if (file_name == f.outputName)
+		if (publishedName == String(f.outputName.c_str()))
 			result = "\"" + f.outputName + "\"";
 		else
-			result = "\"" + f.outputName + "\" (\"" + file_name + "\")";
+			result = "\"" + f.outputName + "\" (\"" + std::string(AnsiString(publishedName).c_str()) + "\")";
 
 		pushLog(("Файл " + result + ", " + std::to_string(str.size()) + " байт - успешно сохранен!").c_str());
     }
@@ -2225,9 +2190,20 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& 
 	if(cc > 99999)
 		cc = 0;
 
-	copyFile(f.files, fullDirZip, String{out_dir.c_str()});
+	const auto extractStats = copyFile(f.files, fullDirZip, String{out_dir.c_str()});
 
 	TDirectory::Delete(tempDir, true);
+
+	if (!extractStats.fullyOk()) {
+		pushLog(
+			L"ZIP \"" + String(zip_name) + L"\": распаковано " +
+			String(extractStats.extracted) + L" из " + String(extractStats.expected) +
+			L" файлов."
+		);
+		for (const auto& item : extractStats.errors)
+			pushLog(String(item.c_str()));
+		return 0;
+	}
 
 	pushLog(("Файл " + std::string{zip_name.c_str()} + ", " + std::to_string(str.size()) + " байт - успешно сохранен и распакован!").c_str());
 

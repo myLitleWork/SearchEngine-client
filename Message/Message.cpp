@@ -1,5 +1,6 @@
 ﻿
 #include "Message.h"
+#include "ClientFilePublish.h"
 #include <fstream>
 #include <sstream>
 #include <filesystem>
@@ -36,19 +37,24 @@ void Message::saveToDirectory(const std::filesystem::path& dirPath) const
 	std::filesystem::create_directory(dirPath);
 
     for (const auto& [relative_path, data] : attachments) {
-        // Construct the full path including any subdirectories
-        //std::wstring relative_path = myConverter::utf8ToWstring(relative_path_str);
-		std::filesystem::path full_path = dirPath / relative_path;
-
-        // Создаем все необходимые директории для вложенных путей
-        std::filesystem::create_directories(full_path.parent_path());
-
-        std::ofstream file(full_path, std::ios::binary);
-        if (!file)
-            throw std::runtime_error("Failed to open attachment file for writing: " + relative_path.string());
-
-        file.write(reinterpret_cast<const char*>(data.data()), data.size());
-        file.close();
+		std::filesystem::path absolutePath;
+		std::wstring pathError;
+		if (!client_file_publish::ResolveUnderBase(
+				dirPath, relative_path, absolutePath, &pathError)) {
+			throw std::runtime_error(
+				"Небезопасный путь вложения: " + relative_path.string() +
+				" (" + client_file_publish::Narrow(pathError) + ")");
+		}
+		if (!client_file_publish::EnsureUniqueFilePath(absolutePath)) {
+			throw std::runtime_error(
+				"Не удалось подобрать свободное имя для: " + relative_path.string());
+		}
+		if (!client_file_publish::WriteNewFile(
+				absolutePath, data.data(), data.size(), &pathError)) {
+			throw std::runtime_error(
+				"Ошибка записи вложения: " + relative_path.string() +
+				" (" + client_file_publish::Narrow(pathError) + ")");
+		}
     }
 
 }
@@ -87,7 +93,7 @@ std::vector<uint8_t> Message::serializeToBytes(const Message &fileData) {
     std::vector<BYTE> buffer;
 
     // Перемещаем символы из строки в вектор с использованием индекса
-    buffer.reserve(str.size());  // Резервируем память заранее для повышения эффективности
+    buffer.reserve(str.size());  // Резервируем память заранее для повышения производительности
     for (char i : str) {
         buffer.push_back(static_cast<BYTE>(i));  // Добавляем символ в вектор
     }
