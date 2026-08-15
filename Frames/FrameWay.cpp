@@ -37,9 +37,7 @@
 __fastcall TfrWay::TfrWay(TComponent* _Owner, MultiServerManager& manager, TDBGridEh *_dbgMain, TDBGridEh *_dbgMenu)
   : TFrameDbg(_Owner, manager, _dbgMain, _dbgMenu)
 {
-
-
-
+	InitDbgDS();
 }
 
 //---------------------------------------------------------------------------

@@ -24,7 +24,7 @@
 __fastcall TFrameDbg::TFrameDbg(TComponent* Owner, MultiServerManager& manager, TDBGridEh* g, TDBGridEh *_dbgMenu)
 	: TFrame(Owner), serverManager(manager), dbgMain(g), dbgMenu(_dbgMenu)
 {
-    InitDbgDS();
+	// Do not call pure virtual InitDbgDS() here — derived constructors must.
 }
 
 std::string TFrameDbg::SourceServerId() const
