@@ -608,47 +608,36 @@ std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, cons
 		if (showErrors)
 			ShowMessage("File path is empty. Cannot open file.");
 		return {};
-    }
+	}
 
-	std::wstring wfilePath = String(filePath.c_str()).c_str(); // Преобразуем std::string в std::wstring
-	TFileStream* fileStream = nullptr;
-
-    try {
-        fileStream = new TFileStream(wfilePath.c_str(), fmOpenRead | fmShareDenyWrite);
+	const std::wstring wfilePath = String(filePath.c_str()).c_str();
+	std::unique_ptr<TFileStream> fileStream;
+	try {
+		fileStream.reset(new TFileStream(wfilePath.c_str(), fmOpenRead | fmShareDenyWrite));
 	}
 	catch (...) {
 		if (showErrors)
 			ShowMessage("Failed to open the file.");
-		delete fileStream;
-        return {};
-	}
-
-	if (!fileStream) {
-		if (showErrors)
-			ShowMessage("Failed to create file stream.");
 		return {};
 	}
 
-	// Читаем содержимое файла в вектор
-	std::vector<uint8_t> fileContent(fileStream->Size);
-    fileStream->ReadBuffer(&fileContent[0], fileStream->Size);
+	std::vector<uint8_t> fileContent;
+	const __int64 size = fileStream->Size;
+	if (size > 0) {
+		fileContent.resize(static_cast<size_t>(size));
+		try {
+			fileStream->ReadBuffer(fileContent.data(), static_cast<NativeInt>(size));
+		}
+		catch (...) {
+			if (showErrors)
+				ShowMessage("Failed to read the file.");
+			return {};
+		}
+	}
 
-	// Получаем имя файла из пути
-	std::string baseFileNameStr = conv::to_string(file_name);
-
+	const std::string baseFileNameStr = conv::to_string(file_name);
 	FileData fileDataObject(baseFileNameStr, fileContent);
-
-    std::vector<uint8_t> serializedData = serializeToBytes(fileDataObject);
-  //	FileData fd = deserializeFromBytes(serializedData);
-
-	int g = serializedData.size();
-
-    //ShowMessage(IntToStr(g).c_str());
-    //ShowMessage(IntToStr(sizeof(fd)).c_str());
-    //ShowMessage(fd.getFilename().c_str());
-
-	delete fileStream;
-	return serializedData;
+	return serializeToBytes(fileDataObject);
 }
 
 void TfMain::InitDbgMenuDS()
