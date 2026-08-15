@@ -2702,10 +2702,8 @@ void __fastcall TfMain::chkSQLClick(TObject *Sender)
 
 void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 {
-
+	(void)Sender;
 	std::string err;
-
-	// 1) отправка
 	std::string str;
 	if (!serverManager_.requestText(
 			primaryServerId(), "START update!", COMMAND::START_UPDATE_BASE,
@@ -2714,8 +2712,11 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 		return;
 	}
 
-	// дальше используем str
-
+	const String reply = Trim(UTF8String(str.c_str()));
+	if (!reply.IsEmpty())
+		ShowMessage(L"Команда обновления базы принята.\r\n" + reply);
+	else
+		ShowMessage(L"Команда обновления базы принята.");
 }
 //---------------------------------------------------------------------------
 
