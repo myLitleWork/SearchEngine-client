@@ -37,12 +37,13 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		Application->Initialize();
 		Application->MainFormOnTaskBar = true;
 		Application->CreateForm(__classid(TfMain), &fMain);
-        ReportMemoryLeaksOnShutdown = true;
+		ReportMemoryLeaksOnShutdown = true;
 		Application->Run();
 	}
 	catch (Exception &exception)
 	{
 		Application->ShowException(&exception);
+		return 1;
 	}
 	catch (...)
 	{
@@ -54,6 +55,7 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 		{
 			Application->ShowException(&exception);
 		}
+		return 1;
 	}
 	return 0;
 }
