@@ -681,6 +681,24 @@ void TfMain::applyRchEdtText(const String& telegramText, bool highlightQuery)
 void TfMain::loadTextToEditFromServer()
 {
 	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+		String num;
+		try {
+			num = dbgEh->DataSource->DataSet->FieldValues["num"];
+		} catch (...) {
+		}
+		const String msg = num.IsEmpty()
+			? String(deletedFileMessage())
+			: (L"Шт. " + num + L" - файл удалён (только след в индексе)");
+		rchEdt->Lines->BeginUpdate();
+		try {
+			if (!searchSaveReport_.IsEmpty())
+				rchEdt->Lines->Text = searchSaveReport_ + L"\r\n\r\n" + msg;
+			else
+				rchEdt->Lines->Text = msg;
+		}
+		__finally {
+			rchEdt->Lines->EndUpdate();
+		}
 		ShowMessage(deletedFileMessage());
 		return;
 	}
@@ -3122,11 +3140,6 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 	}
 
-	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
-		tmLoadText->Enabled = false;
-		return;
-	}
-
 	std::lock_guard<std::mutex> lock(clickMutex);
 	String new_num = dbgEh->Fields[0]->AsString;
 	const std::string sourceServerId = currentSourceServerId();
@@ -3135,6 +3148,31 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 	last_loaded_num_ = rowKey;
 	tmLoadText->Enabled = false;
+
+	// Удалённая строка: не оставляем текст предыдущей телеграммы и
+	// инвалидируем in-flight FILETEXT через last_loaded_num_.
+	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
+		String num;
+		try {
+			num = dbgEh->DataSource->DataSet->FieldValues["num"];
+		} catch (...) {
+			num = new_num;
+		}
+		const String msg = num.IsEmpty()
+			? String(deletedFileMessage())
+			: (L"Шт. " + num + L" - файл удалён (только след в индексе)");
+		rchEdt->Lines->BeginUpdate();
+		try {
+			if (!searchSaveReport_.IsEmpty())
+				rchEdt->Lines->Text = searchSaveReport_ + L"\r\n\r\n" + msg;
+			else
+				rchEdt->Lines->Text = msg;
+		}
+		__finally {
+			rchEdt->Lines->EndUpdate();
+		}
+		return;
+	}
 
 	String dir;
 	try {
