@@ -35,7 +35,8 @@ foreach ($required in @(
 foreach ($helperName in @(
     'Resolve-WorkspaceReleaseScript.ps1',
     'Get-VclAppVersionNames.ps1',
-    'Publish-ReleasePackageIfConfigured.ps1'
+    'Publish-ReleasePackageIfConfigured.ps1',
+    'Commit-VclReleaseVersion.ps1'
 )) {
     $null = Find-RequiredReleaseHelper -Name $helperName
 }
@@ -133,6 +134,9 @@ if ($cloudRootConfigured -and -not $SkipCloudPublish) {
         throw 'Release cloud ZIP SHA-256 value is missing.'
     }
 }
+
+$commitHelper = Find-RequiredReleaseHelper -Name 'Commit-VclReleaseVersion.ps1'
+$null = & $commitHelper -ProjectRoot $projectRoot -ProductName 'SearchClient'
 
 Write-Host 'Release complete'
 }
