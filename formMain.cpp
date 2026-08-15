@@ -640,7 +640,7 @@ void TfMain::applyRchEdtText(const String& telegramText, bool highlightQuery)
 	String text = telegramText;
 	if (!searchSaveReport_.IsEmpty()) {
 		text = searchSaveReport_ +
-			L"\r\n\r\n--- текст телеграммы ---\r\n\r\n" +
+			L"\r\n\r\n——— текст телеграммы ———\r\n\r\n" +
 			telegramText;
 	}
 
@@ -1442,7 +1442,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
                     report->Add(
                         rowLabel(index1, t, type) +
                         L": не разобрана дата подписи \"" + US(t.date_podp) +
-                        L"\" - " + e.Message + L". Записано пустое значение.");
+                        L"\" — " + e.Message + L". Записано пустое значение.");
                 }
             } catch (...) {
                 P->ParamByName("date_podp")->Value = Null();
@@ -1464,7 +1464,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
                     report->Add(
                         rowLabel(index1, t, type) +
                         L": не разобрана дата \"" + US(t.date) +
-                        L"\" - " + e.Message + L". Записано пустое значение.");
+                        L"\" — " + e.Message + L". Записано пустое значение.");
                 }
             } catch (...) {
                 P->ParamByName("date")->Value = Null();
@@ -1502,7 +1502,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             ++searchSaveFailed_;
             report->Add(
                 rowLabel(index1, t, type) +
-                L": ошибка вставки - " + e.Message
+                L": ошибка вставки — " + e.Message
             );
         }
         catch (...)
@@ -1510,7 +1510,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             ++searchSaveFailed_;
             report->Add(
                 rowLabel(index1, t, type) +
-                L": ошибка вставки - неизвестное исключение"
+                L": ошибка вставки — неизвестное исключение"
             );
         }
 
@@ -1562,7 +1562,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         }
         if (searchSaveFailed_ > 0)
             header->Add(L"Не сохранено строк: " + String(searchSaveFailed_) + L".");
-        header->Add(L"Ниже - где и что не разобралось или не записалось:");
+        header->Add(L"Ниже — где и что не разобралось или не записалось:");
         header->Add(L"");
         if (!report->Text.IsEmpty())
             header->AddStrings(report.get());
