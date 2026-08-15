@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <vector>
 #include <map>
@@ -24,6 +25,10 @@ namespace {
 
 // Единый idle-таймаут для чтения с сокета (как SocketFileSaver): без новых байт N секунд — ошибка.
 constexpr auto kSocketReadIdleTimeout = std::chrono::seconds(10);
+
+// Fail-closed ceiling for in-memory response payloads (requestBinary / requestText).
+// Streamed downloads (requestFileToPath) are not bound by this RAM limit.
+constexpr std::uint64_t kMaxInMemoryPayloadBytes = 1024ull * 1024ull * 1024ull; // 1 GiB
 
 using ErrorMessages = std::map<std::uint32_t, std::string>;
 
@@ -429,12 +434,26 @@ bool MyAsioClient::requestBinary(const std::vector<uint8_t>& request,
 			return false;
 		}
 
-        const std::size_t total = resp.size;
-        last_total_.store(total, std::memory_order_relaxed);
-        if (progress) progress->store(0, std::memory_order_relaxed);
+		const std::uint64_t total64 = static_cast<std::uint64_t>(resp.size);
+		if (total64 > kMaxInMemoryPayloadBytes ||
+			total64 > static_cast<std::uint64_t>((std::numeric_limits<std::size_t>::max)())) {
+			if (errMsg) {
+				*errMsg =
+					"Ответ сервера слишком большой для загрузки в память (" +
+					std::to_string(total64) + " байт, лимит " +
+					std::to_string(kMaxInMemoryPayloadBytes) + " байт)";
+			}
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+			return false;
+		}
 
-        // --- read payload ---
-        out.resize(total);
+		const std::size_t total = static_cast<std::size_t>(total64);
+		last_total_.store(total64, std::memory_order_relaxed);
+		if (progress) progress->store(0, std::memory_order_relaxed);
+
+		// --- read payload ---
+		out.resize(total);
 
         std::size_t off = 0;
         constexpr std::size_t block = 64 * 1024;
@@ -496,8 +515,22 @@ bool MyAsioClient::requestText(const std::string& request,
 			return false;
 		}
 
-		const std::size_t total = static_cast<std::size_t>(resp.size);
-		last_total_.store(total, std::memory_order_relaxed);
+		const std::uint64_t total64 = static_cast<std::uint64_t>(resp.size);
+		if (total64 > kMaxInMemoryPayloadBytes ||
+			total64 > static_cast<std::uint64_t>((std::numeric_limits<std::size_t>::max)())) {
+			if (errMsg) {
+				*errMsg =
+					"Ответ сервера слишком большой для загрузки в память (" +
+					std::to_string(total64) + " байт, лимит " +
+					std::to_string(kMaxInMemoryPayloadBytes) + " байт)";
+			}
+			boost::system::error_code ignored;
+			socket_->close(ignored);
+			return false;
+		}
+
+		const std::size_t total = static_cast<std::size_t>(total64);
+		last_total_.store(total64, std::memory_order_relaxed);
 		if (progress) progress->store(0, std::memory_order_relaxed);
 		out.reserve(total);
 
