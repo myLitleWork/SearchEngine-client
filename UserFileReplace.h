@@ -307,4 +307,26 @@ namespace user_file_replace
 
 		return PublishTemporary(temporaryPath, finalPath, temporaryGuard, error);
 	}
+
+	// Publish a sibling already written and closed (for example a SQLite file).
+	// Same create-new / ReplaceFileW rules as WriteReplacing. On failure the
+	// temporary file is deleted unless replacement left both copies.
+	inline bool PublishExistingTemporary(
+		const std::wstring& temporaryPath,
+		const std::wstring& finalPath,
+		std::wstring* error = nullptr)
+	{
+		if (temporaryPath.empty() || finalPath.empty()) {
+			SetError(error, L"Путь файла не задан");
+			return false;
+		}
+		if (!IsRegularFile(temporaryPath)) {
+			SetError(error, L"Временный файл для публикации не найден");
+			return false;
+		}
+
+		TemporaryFileGuard temporaryGuard;
+		temporaryGuard.path = temporaryPath;
+		return PublishTemporary(temporaryPath, finalPath, temporaryGuard, error);
+	}
 }

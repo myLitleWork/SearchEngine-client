@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "SqliteDb.h"
+#include "UserFileReplace.h"
 
 // ---------------------------------------------------------------------------
 // Header-only module: splitting legacy Res.db3 into Settings.db3 + SearchRes.db3.
@@ -295,31 +296,215 @@ namespace ResDbDetail
 		return copyTableRowByRow(legacyDbPath, targetDbPath, tableName, errorMsg);
 	}
 
+	inline bool tableExists(TFDConnection* con, const String& tableName)
+	{
+		VclPtr<TFDQuery> q(new TFDQuery(NULL));
+		q->Connection = con;
+		q->SQL->Text =
+			L"SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :name";
+		q->ParamByName(L"name")->AsString = tableName;
+		q->Open();
+		return !q->Eof;
+	}
+
+	inline bool tableRowCount(TFDConnection* con, const String& tableName, int* count)
+	{
+		try {
+			VclPtr<TFDQuery> q(new TFDQuery(NULL));
+			q->Connection = con;
+			q->SQL->Text = L"SELECT COUNT(*) AS n FROM \"" + tableName + L"\"";
+			q->Open();
+			if (count)
+				*count = q->FieldByName(L"n")->AsInteger;
+			return true;
+		} catch (...) {
+			return false;
+		}
+	}
+
+	inline void closeConnection(VclPtr<TFDConnection>& con)
+	{
+		if (!con)
+			return;
+		try {
+			if (con->Connected)
+				con->Connected = false;
+		} catch (...) {}
+		con.reset();
+	}
+
+	inline String allocateUniqueSibling(const String& directory, const wchar_t* prefix)
+	{
+		const String parent = ExcludeTrailingPathDelimiter(directory);
+		for (int attempt = 0; attempt < 256; ++attempt) {
+			const String candidate =
+				parent + L"\\" +
+				String(user_file_replace::NextTemporaryLeaf(prefix, L".tmp").c_str());
+			if (!FileExists(candidate) && !DirectoryExists(candidate))
+				return candidate;
+		}
+		return String();
+	}
+
+	inline bool requiredSettingsTablesPresent(TFDConnection* con)
+	{
+		static const wchar_t* tables[] = {
+			L"map", L"map_ish", L"map_vh", L"ports", L"settings"
+		};
+		for (int i = 0; i < (int)(sizeof(tables) / sizeof(tables[0])); ++i) {
+			if (!tableExists(con, tables[i]))
+				return false;
+		}
+		return true;
+	}
+
+	inline bool countsMatchLegacy(
+		TFDConnection* legacyCon,
+		TFDConnection* targetCon,
+		const wchar_t* const* tables,
+		int tableCount)
+	{
+		for (int i = 0; i < tableCount; ++i) {
+			const String name = tables[i];
+			if (!tableExists(legacyCon, name))
+				continue;
+			if (!tableExists(targetCon, name))
+				return false;
+			int legacyCount = -1;
+			int targetCount = -1;
+			if (!tableRowCount(legacyCon, name, &legacyCount) ||
+				!tableRowCount(targetCon, name, &targetCount))
+				return false;
+			if (legacyCount != targetCount)
+				return false;
+		}
+		return true;
+	}
+
+	inline bool settingsMigrationComplete(const LocalDbPaths& paths)
+	{
+		if (!FileExists(paths.settingsDb) || !FileExists(paths.legacyResDb))
+			return false;
+		try {
+			VclPtr<TFDConnection> settingsCon = openConnection(paths.settingsDb);
+			VclPtr<TFDConnection> legacyCon = openConnection(paths.legacyResDb);
+			if (!requiredSettingsTablesPresent(settingsCon.get()))
+				return false;
+			static const wchar_t* tables[] = {
+				L"map", L"map_ish", L"map_vh", L"ports", L"settings"
+			};
+			const bool ok = countsMatchLegacy(
+				legacyCon.get(), settingsCon.get(), tables,
+				(int)(sizeof(tables) / sizeof(tables[0])));
+			closeConnection(legacyCon);
+			closeConnection(settingsCon);
+			return ok;
+		} catch (...) {
+			return false;
+		}
+	}
+
+	inline bool validateMigratedPair(
+		const String& settingsTmp,
+		const String& searchTmp,
+		const String& legacyDb,
+		String* errorMsg)
+	{
+		VclPtr<TFDConnection> settingsCon = openConnection(settingsTmp);
+		VclPtr<TFDConnection> searchCon = openConnection(searchTmp);
+		VclPtr<TFDConnection> legacyCon = openConnection(legacyDb);
+
+		if (!requiredSettingsTablesPresent(settingsCon.get())) {
+			if (errorMsg)
+				*errorMsg = L"Временный Settings.db3 не содержит обязательные таблицы.";
+			return false;
+		}
+		if (!tableExists(searchCon.get(), L"res")) {
+			if (errorMsg)
+				*errorMsg = L"Временный SearchRes.db3 не содержит таблицу res.";
+			return false;
+		}
+
+		static const wchar_t* settingsTables[] = {
+			L"map", L"map_ish", L"map_vh", L"ports", L"settings"
+		};
+		if (!countsMatchLegacy(
+				legacyCon.get(), settingsCon.get(), settingsTables,
+				(int)(sizeof(settingsTables) / sizeof(settingsTables[0])))) {
+			if (errorMsg)
+				*errorMsg = L"Число строк в скопированных таблицах настроек не совпало с Res.db3.";
+			return false;
+		}
+
+		static const wchar_t* resTables[] = { L"res" };
+		if (tableExists(legacyCon.get(), L"res") &&
+			!countsMatchLegacy(legacyCon.get(), searchCon.get(), resTables, 1)) {
+			if (errorMsg)
+				*errorMsg = L"Число строк в таблице res не совпало с Res.db3.";
+			return false;
+		}
+
+		closeConnection(legacyCon);
+		closeConnection(searchCon);
+		closeConnection(settingsCon);
+		return true;
+	}
+
+	inline bool publishDbFile(const String& temporaryPath, const String& finalPath, String* errorMsg)
+	{
+		std::wstring publishError;
+		if (user_file_replace::PublishExistingTemporary(
+				std::wstring(temporaryPath.c_str()),
+				std::wstring(finalPath.c_str()),
+				&publishError))
+			return true;
+		if (errorMsg)
+			*errorMsg = String(publishError.c_str());
+		return false;
+	}
+
 	inline bool migrateLegacyResDb(const LocalDbPaths& paths, String* errorMsg)
 	{
 		static const wchar_t* settingsTables[] = {
 			L"map", L"map_ish", L"map_vh", L"ports", L"settings"
 		};
 
+		const String settingsTmp = allocateUniqueSibling(paths.exeDir, L"_SCM-set-");
+		const String searchTmp = allocateUniqueSibling(paths.exeDir, L"_SCM-res-");
+		if (settingsTmp.IsEmpty() || searchTmp.IsEmpty()) {
+			if (errorMsg)
+				*errorMsg = L"Не удалось выбрать уникальные временные файлы миграции.";
+			return false;
+		}
+
+		user_file_replace::TemporaryFileGuard settingsGuard;
+		user_file_replace::TemporaryFileGuard searchGuard;
+		settingsGuard.path = std::wstring(settingsTmp.c_str());
+		searchGuard.path = std::wstring(searchTmp.c_str());
+
 		try {
-			createDatabaseSchema(paths.settingsDb, settingsDdl());
-			createDatabaseSchema(paths.searchResDb, resDdl());
+			createDatabaseSchema(settingsTmp, settingsDdl());
+			createDatabaseSchema(searchTmp, resDdl());
 
 			for (int i = 0; i < (int)(sizeof(settingsTables) / sizeof(settingsTables[0])); ++i) {
-				if (!copyTable(paths.legacyResDb, paths.settingsDb, settingsTables[i], errorMsg))
+				if (!copyTable(paths.legacyResDb, settingsTmp, settingsTables[i], errorMsg))
 					return false;
 			}
 
-			if (!copyTable(paths.legacyResDb, paths.searchResDb, L"res", errorMsg))
+			if (!copyTable(paths.legacyResDb, searchTmp, L"res", errorMsg))
 				return false;
 
-			{
-				VclPtr<TFDConnection> con = openConnection(paths.settingsDb);
-				VclPtr<TFDQuery> q(new TFDQuery(NULL));
-				q->Connection = con.get();
-				q->SQL->Text = L"SELECT COUNT(*) FROM ports";
-				q->Open();
-			}
+			if (!validateMigratedPair(settingsTmp, searchTmp, paths.legacyResDb, errorMsg))
+				return false;
+
+			// SearchRes first, then Settings (the retry gate). Res.db3 last.
+			searchGuard.Release();
+			if (!publishDbFile(searchTmp, paths.searchResDb, errorMsg))
+				return false;
+
+			settingsGuard.Release();
+			if (!publishDbFile(settingsTmp, paths.settingsDb, errorMsg))
+				return false;
 
 			if (!DeleteFile(paths.legacyResDb.c_str())) {
 				if (errorMsg)
@@ -359,12 +544,18 @@ inline bool ensureLocalDatabases(const String& exeDir, String* errorMsg)
 
 	try {
 		const bool legacyExists = FileExists(paths.legacyResDb);
-		const bool settingsExists = FileExists(paths.settingsDb);
 
-		if (legacyExists && !settingsExists) {
+		if (legacyExists && !ResDbDetail::settingsMigrationComplete(paths)) {
 			if (!ResDbDetail::migrateLegacyResDb(paths, errorMsg))
 				return false;
 		} else {
+			if (legacyExists) {
+				if (!DeleteFile(paths.legacyResDb.c_str())) {
+					if (errorMsg)
+						*errorMsg = L"Не удалось удалить старый файл Res.db3. Закройте другие программы, использующие базу.";
+					return false;
+				}
+			}
 			ResDbDetail::ensureDatabaseExists(paths.settingsDb, ResDbDetail::settingsDdl());
 			ResDbDetail::ensureDatabaseExists(paths.searchResDb, ResDbDetail::resDdl());
 		}

@@ -47,7 +47,7 @@
 |---|---|
 | `Settings.db3` | `servers`, `server_ports`, `ports`, `settings`, `map*` |
 | `SearchRes.db3` | `res` — текущие результаты |
-| Legacy `Res.db3` | миграция в пару Settings/SearchRes |
+| Legacy `Res.db3` | миграция в пару Settings/SearchRes: сначала временные файлы `_SCM-set-`/`_SCM-res-`, публикация только после проверки таблиц и числа строк; `Res.db3` удаляется последним |
 
 Доступ: FireDAC + SQLite.
 
