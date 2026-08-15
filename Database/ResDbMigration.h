@@ -160,37 +160,95 @@ namespace ResDbDetail
 		return false;
 	}
 
-	inline void ensureResDeletedColumn(const String& searchResDbPath)
+	inline bool tableExists(TFDConnection* con, const String& tableName);
+
+	inline bool ensureResDeletedColumn(const String& searchResDbPath, String* errorMsg)
 	{
 		if (!FileExists(searchResDbPath))
-			return;
-		VclPtr<TFDConnection> con = openConnection(searchResDbPath);
-		if (!resTableHasColumn(con.get(), L"deleted"))
-			execSql(con.get(), L"ALTER TABLE res ADD COLUMN deleted INTEGER DEFAULT 0");
+			return true;
+		try {
+			VclPtr<TFDConnection> con = openConnection(searchResDbPath);
+			if (!tableExists(con.get(), L"res")) {
+				if (errorMsg)
+					*errorMsg =
+						L"Локальная схема SearchRes неполная: нет таблицы res.";
+				return false;
+			}
+			if (!resTableHasColumn(con.get(), L"deleted"))
+				execSql(con.get(), L"ALTER TABLE res ADD COLUMN deleted INTEGER DEFAULT 0");
+			if (!resTableHasColumn(con.get(), L"deleted")) {
+				if (errorMsg)
+					*errorMsg =
+						L"Локальная схема SearchRes неполная: нет колонки res.deleted.";
+				return false;
+			}
+			return true;
+		}
+		catch (const Exception& e) {
+			if (errorMsg)
+				*errorMsg =
+					L"Не удалось проверить/обновить колонку res.deleted: " + e.Message;
+			return false;
+		}
 	}
 
-	inline void ensureMultiServerSchema(const String& settingsDbPath,
-									const String& searchResDbPath)
+	inline bool ensureMultiServerSchema(const String& settingsDbPath,
+										const String& searchResDbPath,
+										String* errorMsg)
 	{
-		{
-			VclPtr<TFDConnection> con = openConnection(settingsDbPath);
-			execSql(con.get(),
-				L"CREATE TABLE IF NOT EXISTS servers ("
-				L"server_id VARCHAR NOT NULL PRIMARY KEY, display_name VARCHAR NOT NULL, "
-				L"host VARCHAR NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, "
-				L"sort_order INTEGER NOT NULL DEFAULT 0)");
-			execSql(con.get(),
-				L"CREATE TABLE IF NOT EXISTS server_ports ("
-				L"server_id VARCHAR NOT NULL, god VARCHAR NOT NULL, port INTEGER NOT NULL, "
-				L"enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (server_id, god))");
-		}
+		try {
+			{
+				VclPtr<TFDConnection> con = openConnection(settingsDbPath);
+				execSql(con.get(),
+					L"CREATE TABLE IF NOT EXISTS servers ("
+					L"server_id VARCHAR NOT NULL PRIMARY KEY, display_name VARCHAR NOT NULL, "
+					L"host VARCHAR NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, "
+					L"sort_order INTEGER NOT NULL DEFAULT 0)");
+				execSql(con.get(),
+					L"CREATE TABLE IF NOT EXISTS server_ports ("
+					L"server_id VARCHAR NOT NULL, god VARCHAR NOT NULL, port INTEGER NOT NULL, "
+					L"enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (server_id, god))");
+				if (!tableExists(con.get(), L"servers")) {
+					if (errorMsg)
+						*errorMsg =
+							L"Локальная схема Settings неполная: нет таблицы servers.";
+					return false;
+				}
+				if (!tableExists(con.get(), L"server_ports")) {
+					if (errorMsg)
+						*errorMsg =
+							L"Локальная схема Settings неполная: нет таблицы server_ports.";
+					return false;
+				}
+			}
 
-		if (!FileExists(searchResDbPath))
-			return;
-		VclPtr<TFDConnection> con = openConnection(searchResDbPath);
-		if (!resTableHasColumn(con.get(), L"source_server_id"))
-			execSql(con.get(),
-				L"ALTER TABLE res ADD COLUMN source_server_id VARCHAR NOT NULL DEFAULT 'default'");
+			if (!FileExists(searchResDbPath))
+				return true;
+
+			VclPtr<TFDConnection> con = openConnection(searchResDbPath);
+			if (!tableExists(con.get(), L"res")) {
+				if (errorMsg)
+					*errorMsg =
+						L"Локальная схема SearchRes неполная: нет таблицы res.";
+				return false;
+			}
+			if (!resTableHasColumn(con.get(), L"source_server_id"))
+				execSql(con.get(),
+					L"ALTER TABLE res ADD COLUMN source_server_id VARCHAR NOT NULL DEFAULT 'default'");
+			if (!resTableHasColumn(con.get(), L"source_server_id")) {
+				if (errorMsg)
+					*errorMsg =
+						L"Локальная схема SearchRes неполная: нет колонки res.source_server_id.";
+				return false;
+			}
+			return true;
+		}
+		catch (const Exception& e) {
+			if (errorMsg)
+				*errorMsg =
+					L"Не удалось проверить/обновить multi-server схему: " + e.Message;
+			return false;
+		}
 	}
 
 	inline bool copyTableAttach(
@@ -560,8 +618,10 @@ inline bool ensureLocalDatabases(const String& exeDir, String* errorMsg)
 			ResDbDetail::ensureDatabaseExists(paths.searchResDb, ResDbDetail::resDdl());
 		}
 
-		ResDbDetail::ensureResDeletedColumn(paths.searchResDb);
-		ResDbDetail::ensureMultiServerSchema(paths.settingsDb, paths.searchResDb);
+		if (!ResDbDetail::ensureResDeletedColumn(paths.searchResDb, errorMsg))
+			return false;
+		if (!ResDbDetail::ensureMultiServerSchema(paths.settingsDb, paths.searchResDb, errorMsg))
+			return false;
 
 		return true;
 	} catch (const Exception& e) {
