@@ -2409,7 +2409,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
         return;
 
 	if (!DirectoryExists(out_dir.c_str())) {
-        ShowMessage(String(out_dir.c_str()) + " - дирректория не существует!");
+        ShowMessage(String(out_dir.c_str()) + " - директория не существует!");
         edtSaveDir->Text = "";
         return;
     }
@@ -3733,7 +3733,7 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	std::unique_ptr<TFileOpenDialog> dirDialog(new TFileOpenDialog(this));
 	dirDialog->Options << fdoPickFolders;
 	dirDialog->DefaultFolder = String{token_dir_.c_str()};
-	dirDialog->Title = "Выбор дирректории сохранения приложений";
+	dirDialog->Title = "Выбор директории сохранения приложений";
 
 	if (!dirDialog->Execute())
 		return;

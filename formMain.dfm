@@ -652,7 +652,7 @@ object fMain: TfMain
               MaxWidth = 200
               MinWidth = 55
               TextEditing = False
-              Title.Caption = #1044#1080#1088#1088#1077#1082#1090#1086#1088#1080#1103' '#1092#1072#1081#1083#1072
+              Title.Caption = #1044#1080#1088#1077#1082#1090#1086#1088#1080#1103' '#1092#1072#1081#1083#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
               Title.Font.Height = -22
@@ -891,7 +891,7 @@ object fMain: TfMain
             Margins.Right = 6
             Margins.Bottom = 6
             Align = alLeft
-            Caption = #1044#1080#1088#1088#1077#1082#1090#1086#1088#1080#1103
+            Caption = #1044#1080#1088#1077#1082#1090#1086#1088#1080#1103
             TabOrder = 1
             object edtSaveDir: TEdit
               AlignWithMargins = True
