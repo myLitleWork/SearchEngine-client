@@ -425,13 +425,13 @@ void FillCheckListBoxFromDBGrid(TCheckListBox* chkField, TDBGridEh* grid) {
 	chkField->Items->BeginUpdate();
 	try {
 		chkField->Items->Clear();
-        for (int i = 0; i < grid->Columns->Count; ++i) {
+		for (int i = 0; i < grid->Columns->Count; ++i) {
 			auto col = grid->Columns->Items[i];
 			int idx = chkField->Items->Add(col->Title->Caption);
 			chkField->Checked[idx] = col->Visible;
-        }
+		}
 	}
-	catch(...) {
+	__finally {
 		chkField->Items->EndUpdate();
 	}
 }
