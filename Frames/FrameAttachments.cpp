@@ -198,6 +198,15 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
     if (!dlg->Execute())
         return; // пользователь отменил
 
+    // SaveDialog already confirmed overwrite when the path exists; remove it
+    // here so requestFileToPath can stay create-new / no-replace.
+    if (FileExists(dlg->FileName)) {
+        if (!DeleteFile(dlg->FileName)) {
+            ShowMessage(L"Не удалось заменить существующий файл:\n" + dlg->FileName);
+            return;
+        }
+    }
+
     // Оба способа сохранения теперь используют одну транзакцию:
     // запрос + заголовок + ровно объявленное число байт + временный .part.
     std::uint64_t receivedSize = 0;

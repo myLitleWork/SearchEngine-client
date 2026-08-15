@@ -3,6 +3,7 @@
 #pragma hdrstop
 
 #include "myAsioClient.h"
+#include "ClientFilePublish.h"
 #include <algorithm>
 #include <boost/asio/steady_timer.hpp>
 #include <atomic>
@@ -545,6 +546,21 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 
 	const fs::path targetPath(outPath);
 	const fs::path partPath(outPath + ".part");
+
+	{
+		std::error_code existsEc;
+		if (fs::exists(targetPath, existsEc) && fs::is_regular_file(targetPath, existsEc)) {
+			if (errMsg)
+				*errMsg = "Файл уже существует; замена запрещена";
+			return false;
+		}
+		if (fs::exists(targetPath, existsEc) && fs::is_directory(targetPath, existsEc)) {
+			if (errMsg)
+				*errMsg = "По конечному пути уже существует каталог";
+			return false;
+		}
+	}
+
 	std::error_code fsEc;
 	fs::remove(partPath, fsEc);
 
@@ -654,12 +670,13 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 			return false;
 		}
 
-		fsEc.clear();
-		fs::remove(targetPath, fsEc);
-		fsEc.clear();
-		fs::rename(partPath, targetPath, fsEc);
-		if (fsEc) {
-			if (errMsg) *errMsg = "Не удалось сохранить файл: " + fsEc.message();
+		// Create-new publish: never delete/replace an existing final path.
+		// If another process created the name after our early check, MoveNewFile
+		// fails closed instead of removing a foreign file.
+		std::wstring publishError;
+		if (!client_file_publish::MoveNewFile(partPath, targetPath, &publishError)) {
+			if (errMsg)
+				*errMsg = client_file_publish::Narrow(publishError);
 			removePart();
 			return false;
 		}
