@@ -13,13 +13,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $productName = 'SearchClient'
-$getNames = @(
-    (Join-Path $projectRoot '..\..\TOOLS\scripts\release\Get-VclAppVersionNames.ps1'),
-    (Join-Path $projectRoot '..\..\..\TOOLS\scripts\release\Get-VclAppVersionNames.ps1')
-) | ForEach-Object { [IO.Path]::GetFullPath($_) } |
-    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-    Select-Object -First 1
-if ($null -eq $getNames) { throw 'Get-VclAppVersionNames.ps1 not found.' }
+$getNames = & (Join-Path $PSScriptRoot 'Find-WorkspaceReleaseRoot.ps1') `
+    -Name 'Get-VclAppVersionNames.ps1' -StartPath $projectRoot
 $versionInfo = & $getNames -ProjectRoot $projectRoot -ProductName $productName
 if ([string]::IsNullOrWhiteSpace($BuildDirectory)) { $BuildDirectory = Join-Path $projectRoot 'Win32\Release' }
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
@@ -211,12 +206,9 @@ catch {
     throw "Packaged verifier failed: $($_.Exception.Message)"
 }
 
-$cloudHelper = @(
-    (Join-Path $projectRoot '..\..\TOOLS\scripts\release\Publish-ReleasePackageIfConfigured.ps1'),
-    (Join-Path $projectRoot '..\..\..\TOOLS\scripts\release\Publish-ReleasePackageIfConfigured.ps1')
-) | ForEach-Object { [IO.Path]::GetFullPath($_) } |
-    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-    Select-Object -First 1
+$cloudHelper = & (Join-Path $PSScriptRoot 'Find-WorkspaceReleaseRoot.ps1') `
+    -Name 'Publish-ReleasePackageIfConfigured.ps1' -StartPath $projectRoot `
+    -Optional
 
 $cloudPackage = $null
 $configuredCloudRoot = $CloudRoot

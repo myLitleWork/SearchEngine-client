@@ -16,16 +16,8 @@ $packageScript = Join-Path $PSScriptRoot 'New-SearchClientPackage.ps1'
 function Find-RequiredReleaseHelper {
     param([Parameter(Mandatory)][string]$Name)
 
-    $candidates = @(
-        (Join-Path $projectRoot "..\..\TOOLS\scripts\release\$Name"),
-        (Join-Path $projectRoot "..\..\..\TOOLS\scripts\release\$Name")
-    ) | ForEach-Object { [IO.Path]::GetFullPath($_) }
-
-    $helper = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
-    if ($null -eq $helper) {
-        throw "Required local release helper not found: $Name"
-    }
-    return $helper
+    return & (Join-Path $PSScriptRoot 'Find-WorkspaceReleaseRoot.ps1') `
+        -Name $Name -StartPath $projectRoot
 }
 
 # Complete every quick, non-mutating environment check before version sync can
