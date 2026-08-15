@@ -505,7 +505,13 @@ public:		// User declarations
 	std::vector<Telega> telegi;
 	std::list<std::pair<std::string, int>> telegs;
 	void convTelegs(std::vector<Telega>& t);
+	void applyRchEdtText(const String& telegramText, bool highlightQuery);
 	void setColor(String sS);
+	String searchSaveReport_;
+	int searchSaveAttempted_ = 0;
+	int searchSaveInserted_ = 0;
+	int searchSaveFailed_ = 0;
+	bool searchSavePartial_ = false;
 	std::map<String, String> mapPorts;
 	const String f12_dir = "D:\\F12\\";
 	bool saveToFile();

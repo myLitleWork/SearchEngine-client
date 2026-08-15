@@ -635,10 +635,32 @@ void TfMain::InitDbgMenuDS()
 
 }
 
+void TfMain::applyRchEdtText(const String& telegramText, bool highlightQuery)
+{
+	String text = telegramText;
+	if (!searchSaveReport_.IsEmpty()) {
+		text = searchSaveReport_ +
+			L"\r\n\r\n--- текст телеграммы ---\r\n\r\n" +
+			telegramText;
+	}
+
+	rchEdt->Lines->BeginUpdate();
+	try {
+		rchEdt->Lines->Text = text;
+		if (highlightQuery) {
+			std::unique_ptr<TStringList> sl(new TStringList());
+			sl->DelimitedText = chkUpper->Checked ? cmbReq->Text : cmbReq->Text.UpperCase();
+			for (const auto& s : sl.get())
+				setColor(s);
+		}
+	}
+	__finally {
+		rchEdt->Lines->EndUpdate();
+	}
+}
+
 void TfMain::loadTextToEditFromServer()
 {
-
-	rchEdt->Lines->Clear();
 	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
 		ShowMessage(deletedFileMessage());
 		return;
@@ -668,20 +690,8 @@ void TfMain::loadTextToEditFromServer()
 	auto reg = new TStringList();
 	reg->Text = str.c_str();
 	my_utils::F_SL_OemToAnsi(reg);
-	rchEdt->Text = reg->Text;
+	applyRchEdtText(reg->Text, true);
 	delete reg;
-
-	auto sl = new TStringList();
-	sl->DelimitedText = cmbReq->Text;
-
-	if(chkUpper->Checked)
-		sl->DelimitedText = cmbReq->Text;
-	else
-		sl->DelimitedText = cmbReq->Text.UpperCase();
-
-	for(const auto& s:sl)
-		setColor(s);
-
 }
 //---------------------------------------------------------------------------
 std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table_name)
@@ -853,7 +863,7 @@ void __fastcall TfMain::finishSearch()
 		btnSearch->Enabled = true;
         return;
     }
-    telegi = telegi_async;
+	telegi = telegi_async;
 	ggSaveProgress->Progress = ggSaveProgress->MaxValue;
 	if(telegi.size() > 0)
 		convTelegs(telegi);
@@ -880,6 +890,12 @@ void __fastcall TfMain::finishSearch()
 	if (TButton* button = dynamic_cast<TButton*>(lastSender))
 		button->Enabled = true;
 	dbgEh->Enabled = true;
+
+	const int savedCount = (telegi.empty() ? 0 : searchSaveInserted_);
+	const int attemptedCount = (telegi.empty() ? 0 : searchSaveAttempted_);
+	const bool savePartial = searchSavePartial_;
+	String statusServers = String(searchServerSuccessCount) + L"/" + String(searchServerTotalCount);
+
 	if (!searchFailures_async.empty()) {
 		std::unique_ptr<TStringList> failures(new TStringList());
 		failures->Add(
@@ -889,13 +905,27 @@ void __fastcall TfMain::finishSearch()
 			const String name = UTF8String(failure.displayName.c_str());
 			failures->Add(L"• " + name + L": " + String(failure.error.c_str()));
 		}
-		lbStatus->Caption = L"Поиск завершён частично: " +
-			String(searchServerSuccessCount) + L"/" + String(searchServerTotalCount);
+		if (savePartial) {
+			failures->Add(L"");
+			failures->Add(
+				L"Локально сохранено " + String(savedCount) + L" из " +
+				String(attemptedCount) +
+				L" строк. Подробности ошибок записи — в панели текста.");
+			lbStatus->Caption = L"Поиск завершён частично: серверов " + statusServers +
+				L", сохранено " + String(savedCount) + L" из " + String(attemptedCount);
+		}
+		else {
+			lbStatus->Caption = L"Поиск завершён частично: " + statusServers;
+		}
 		ShowMessage(failures->Text);
+	}
+	else if (savePartial) {
+		lbStatus->Caption = L"Поиск завершён частично: сохранено " +
+			String(savedCount) + L" из " + String(attemptedCount);
 	}
 	else {
 		lbStatus->Caption = L"Поиск завершён: серверов " + String(searchServerSuccessCount) +
-			L", результатов " + String(static_cast<int>(telegi.size()));
+			L", результатов " + String(savedCount);
 	}
 
 	if(cmbReq->CanFocus())
@@ -1104,6 +1134,11 @@ void TfMain::clear()
 	memTbl->Active = false;
 	memTbl->Active = true;
 
+	searchSaveReport_.Empty();
+	searchSaveAttempted_ = 0;
+	searchSaveInserted_ = 0;
+	searchSaveFailed_ = 0;
+	searchSavePartial_ = false;
 	rchEdt->Text = "";
 	ggSaveProgress->Progress = 0;
 	Label1->Caption = "Relative index:";
@@ -1333,7 +1368,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     P->ParamByName("deleted")->DataType    = ftInteger;
 	P->ParamByName("source_server_id")->DataType = ftWideString;
 
-    P->ParamByName("rel")->DataType        = ftInteger;
+    P->ParamByName("rel")->DataType        = ftFloat;
     P->ParamByName("date")->DataType       = ftDate;
     P->ParamByName("date_podp")->DataType  = ftDate;
 
@@ -1342,11 +1377,25 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     ggSaveProgress->MaxValue = telegi.size();
     ggSaveProgress->Progress = 0;
 
+    searchSaveAttempted_ = static_cast<int>(telegi.size());
+    searchSaveInserted_ = 0;
+    searchSaveFailed_ = 0;
+    searchSavePartial_ = false;
+    searchSaveReport_.Empty();
+
+    std::unique_ptr<TStringList> report(new TStringList());
     TFDCustomConnection* conn = qryTelegi->Connection;
     bool tranStarted = false;
 
-    try { conn->StartTransaction(); tranStarted = true; }
-    catch (const Exception& e) { ShowMessage(L"Не удалось начать транзакцию: " + e.Message); }
+    try {
+        conn->StartTransaction();
+        tranStarted = true;
+    }
+    catch (const Exception& e) {
+        report->Add(L"Не удалось начать транзакцию: " + e.Message);
+        report->Add(L"Запись продолжена без транзакции; при сбое часть строк могла остаться в базе.");
+        report->Add(L"");
+    }
 
     auto normalize_gde_sht = [](std::string s)
     {
@@ -1355,8 +1404,21 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         return s;
     };
 
+    auto rowLabel = [](int index1, const Telega& t, const String& type) -> String {
+        String label = L"Строка " + String(index1) + L" [" + type + L"]";
+        if (!t.num.empty())
+            label += L", № " + US(t.num);
+        if (!t.podp_num.empty())
+            label += L", подп. " + US(t.podp_num);
+        if (!t.source_server_id.empty())
+            label += L", сервер " + US(t.source_server_id);
+        return label;
+    };
+
+    int index1 = 0;
     for (auto& t : telegi)
     {
+        ++index1;
         // не модифицируй исходные поля без нужды, но раз уж делаешь:
         std::replace(t.from_to.begin(), t.from_to.end(), '\'', '"');
         std::replace(t.kr.begin(),      t.kr.end(),      '\'', '"');
@@ -1373,17 +1435,45 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             // date_podp
             try {
 				TDateTime d2 = StrToDate(US(t.date_podp));
-                P->ParamByName("date_podp")->Value = d2;   // ✅ ДАТА КАК ДАТА
+                P->ParamByName("date_podp")->Value = d2;
+            } catch (const Exception& e) {
+                P->ParamByName("date_podp")->Value = Null();
+                if (!t.date_podp.empty()) {
+                    report->Add(
+                        rowLabel(index1, t, type) +
+                        L": не разобрана дата подписи \"" + US(t.date_podp) +
+                        L"\" - " + e.Message + L". Записано пустое значение.");
+                }
             } catch (...) {
                 P->ParamByName("date_podp")->Value = Null();
+                if (!t.date_podp.empty()) {
+                    report->Add(
+                        rowLabel(index1, t, type) +
+                        L": не разобрана дата подписи \"" + US(t.date_podp) +
+                        L"\". Записано пустое значение.");
+                }
             }
 
             // date
             try {
                 TDateTime d1 = StrToDate(US(t.date));
-                P->ParamByName("date")->Value = d1;        // ✅ ДАТА КАК ДАТА
+                P->ParamByName("date")->Value = d1;
+            } catch (const Exception& e) {
+                P->ParamByName("date")->Value = Null();
+                if (!t.date.empty()) {
+                    report->Add(
+                        rowLabel(index1, t, type) +
+                        L": не разобрана дата \"" + US(t.date) +
+                        L"\" - " + e.Message + L". Записано пустое значение.");
+                }
             } catch (...) {
                 P->ParamByName("date")->Value = Null();
+                if (!t.date.empty()) {
+                    report->Add(
+                        rowLabel(index1, t, type) +
+                        L": не разобрана дата \"" + US(t.date) +
+                        L"\". Записано пустое значение.");
+                }
             }
 
             // строки — БЕЗ c_str()
@@ -1392,7 +1482,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
             P->ParamByName("tel_num")->Value    = US(t.tel_num);
             P->ParamByName("isp")->Value        = US(t.isp);
             P->ParamByName("from_to")->Value    = US(t.from_to);
-            P->ParamByName("rel")->Value        = (int)t.rel;
+            P->ParamByName("rel")->Value        = t.rel;
             P->ParamByName("dir")->Value        = US(t.dir);
 			P->ParamByName("type")->Value       = type;
             P->ParamByName("kr")->Value         = US(t.kr);
@@ -1405,15 +1495,22 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
 			P->ParamByName("source_server_id")->Value = US(t.source_server_id);
 
             qryTelegi->ExecSQL();
+            ++searchSaveInserted_;
         }
         catch (const Exception& e)
         {
-            ShowMessage(
-                L"Ошибка вставки:\n"
-                L"Тип: " + type +
-                L"\nНомер: " + US(t.num) +
-                L"\nПодписной номер: " + US(t.podp_num) +
-                L"\n\n" + e.Message
+            ++searchSaveFailed_;
+            report->Add(
+                rowLabel(index1, t, type) +
+                L": ошибка вставки - " + e.Message
+            );
+        }
+        catch (...)
+        {
+            ++searchSaveFailed_;
+            report->Add(
+                rowLabel(index1, t, type) +
+                L": ошибка вставки - неизвестное исключение"
             );
         }
 
@@ -1424,10 +1521,54 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     if (tranStarted)
     {
         try { conn->Commit(); }
-        catch (...) { conn->Rollback(); throw; }
+        catch (const Exception& e) {
+            try { conn->Rollback(); } catch (...) {}
+            report->Add(L"Ошибка фиксации транзакции: " + e.Message + L". Выполнен откат.");
+            searchSaveInserted_ = 0;
+            searchSaveFailed_ = searchSaveAttempted_;
+        }
+        catch (...) {
+            try { conn->Rollback(); } catch (...) {}
+            report->Add(L"Ошибка фиксации транзакции. Выполнен откат.");
+            searchSaveInserted_ = 0;
+            searchSaveFailed_ = searchSaveAttempted_;
+        }
     }
 
     ggSaveProgress->Progress = ggSaveProgress->MaxValue;
+
+    // Soft date-parse warnings keep inserted==attempted; still show the report.
+    // Partial means lost rows and/or writing without a started transaction.
+    searchSavePartial_ =
+        (searchSaveFailed_ > 0) ||
+        (searchSaveInserted_ < searchSaveAttempted_) ||
+        (!tranStarted && searchSaveAttempted_ > 0);
+
+    if (!report->Text.IsEmpty() || searchSavePartial_) {
+        std::unique_ptr<TStringList> header(new TStringList());
+        if (searchSavePartial_) {
+            header->Add(
+                L"Локальное сохранение результатов частичное: " +
+                String(searchSaveInserted_) + L" из " + String(searchSaveAttempted_) +
+                L" строк."
+            );
+        }
+        else {
+            header->Add(
+                L"Локальное сохранение результатов: " +
+                String(searchSaveInserted_) + L" из " + String(searchSaveAttempted_) +
+                L" строк (есть предупреждения)."
+            );
+        }
+        if (searchSaveFailed_ > 0)
+            header->Add(L"Не сохранено строк: " + String(searchSaveFailed_) + L".");
+        header->Add(L"Ниже - где и что не разобралось или не записалось:");
+        header->Add(L"");
+        if (!report->Text.IsEmpty())
+            header->AddStrings(report.get());
+        searchSaveReport_ = header->Text;
+        rchEdt->Lines->Text = searchSaveReport_;
+    }
 }
 
 
@@ -2907,13 +3048,7 @@ System::Threading::TTask::Run([=]() {
 
 
         // --- Bulk‑обновление ---
-        rchEdt->Lines->BeginUpdate();
-        rchEdt->Lines->Text = text;
-
-        std::unique_ptr<TStringList> sl(new TStringList());
-        sl->DelimitedText = chkUpper->Checked ? cmbReq->Text : cmbReq->Text.UpperCase();
-        for (const auto& s : sl.get())
-            setColor(s);
+        applyRchEdtText(text, true);
 
         // Каретка в начало
         CHARRANGE cr{0, 0};
@@ -2923,13 +3058,14 @@ System::Threading::TTask::Run([=]() {
         POINT top{0, 0};
         SendMessage(rchEdt->Handle, EM_SETSCROLLPOS, 0, (LPARAM)&top);
 
-		rchEdt->Lines->EndUpdate();
 		rchEdt->Enabled = true;
 
 		if(dbgEh->CanFocus())
 			dbgEh->SetFocus();
 
         tmLoadText->Enabled = true;
+		SendMessage(rchEdt->Handle, WM_SETREDRAW, TRUE, 0);
+		rchEdt->Invalidate();
     });
 });
 
