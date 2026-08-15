@@ -152,10 +152,7 @@ String GetSearchClientProductVersion()
 
 TfMain *fMain;
 
-
-
-
-
+static void EnsureResResultTextFieldSizes(TFDQuery* qry, TMemTableEh* mem);
 
 
 
@@ -608,7 +605,7 @@ std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, cons
 		if (showErrors)
 			ShowMessage("Путь к файлу пуст. Не удалось открыть файл.");
 		return {};
-	}
+    }
 
 	const std::wstring wfilePath = String(filePath.c_str()).c_str();
 	std::unique_ptr<TFileStream> fileStream;
@@ -895,12 +892,14 @@ void __fastcall TfMain::finishSearch()
     cmbReq->SelStart = 0;
 	cmbReq->SelLength = cmbReq->Text.Length();
 
+	if (memTbl->Active)
+		memTbl->Active = false;
+	if (qryTelegi->Active)
+		qryTelegi->Close();
 	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 	try {
 		qryTelegi->SQL->Text = ("select * from res");
 		qryTelegi->Open();
-
-		memTbl->Active = false;
 		memTbl->Active = true;
 	}
 	catch (const Exception& e) {
@@ -1204,17 +1203,18 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 
 void TfMain::clear()
 {
-
+	if (memTbl->Active)
+		memTbl->Active = false;
+	if (qryTelegi->Active)
+		qryTelegi->Close();
 
 	qryTelegi->SQL->Text = ("delete from res");
 	qryTelegi->ExecSQL();
-
 
 	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 	qryTelegi->SQL->Text = ("select * from res");
 	qryTelegi->Open();
 
-	memTbl->Active = false;
 	memTbl->Active = true;
 
 	searchSaveReport_ = L"";
@@ -1253,18 +1253,6 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 
 	try {
 		lbStatus->Caption = "Статус: подключение к серверам, " + cmbGod->Text + " год ...";
-
-
-		qryTelegi->SQL->Text = ("delete from res");
-		qryTelegi->ExecSQL();
-
-
-		qryTelegi->SQL->Text = ("select * from res");
-		qryTelegi->Open();
-
-		memTbl->Active = false;
-		memTbl->Active = true;
-
 
 		clear();
 
@@ -1424,30 +1412,37 @@ static const int kResUiTextMaxChars = 2048;
 
 static void EnsureResResultTextFieldSizes(TFDQuery* qry, TMemTableEh* mem)
 {
+	// Size / FieldDefs cannot be changed on an open dataset (VCL/FireDAC raises
+	// "Cannot perform this operation on an open dataset"). memTbl is fed from
+	// qryTelegi, so deactivate the memory table first.
+	const bool memWasActive = (mem != nullptr && mem->Active);
+	const bool qryWasActive = (qry != nullptr && qry->Active);
+	if (memWasActive)
+		mem->Active = false;
+	if (qryWasActive)
+		qry->Close();
+
 	if (qry != nullptr) {
 		for (int i = 0; i < qry->FieldCount; ++i) {
 			if (auto* f = dynamic_cast<TWideStringField*>(qry->Fields->Fields[i]))
 				f->Size = kResUiTextMaxChars;
 		}
 	}
-	if (mem == nullptr)
-		return;
-
-	const bool wasActive = mem->Active;
-	if (wasActive)
-		mem->Active = false;
-
-	for (int i = 0; i < mem->FieldDefs->Count; ++i) {
-		TFieldDef* def = mem->FieldDefs->Items[i];
-		if (def->DataType == ftWideString || def->DataType == ftString)
-			def->Size = kResUiTextMaxChars;
-	}
-	for (int i = 0; i < mem->FieldCount; ++i) {
-		if (auto* f = dynamic_cast<TWideStringField*>(mem->Fields->Fields[i]))
-			f->Size = kResUiTextMaxChars;
+	if (mem != nullptr) {
+		for (int i = 0; i < mem->FieldDefs->Count; ++i) {
+			TFieldDef* def = mem->FieldDefs->Items[i];
+			if (def->DataType == ftWideString || def->DataType == ftString)
+				def->Size = kResUiTextMaxChars;
+		}
+		for (int i = 0; i < mem->FieldCount; ++i) {
+			if (auto* f = dynamic_cast<TWideStringField*>(mem->Fields->Fields[i]))
+				f->Size = kResUiTextMaxChars;
+		}
 	}
 
-	if (wasActive)
+	if (qryWasActive)
+		qry->Open();
+	if (memWasActive)
 		mem->Active = true;
 }
 
@@ -1464,9 +1459,12 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted, :source_server_id"
         ")";
 
+	if (memTbl->Active)
+		memTbl->Active = false;
+	if (qryTelegi->Active)
+		qryTelegi->Close();
 	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 
-    qryTelegi->Close();
     qryTelegi->SQL->Text = SQL_INSERT_RES;
 
     // типы параметров
@@ -2712,7 +2710,7 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 		return;
 	}
 
-	const String reply = Trim(UTF8String(str.c_str()));
+	const String reply = Trim(US(str));
 	if (!reply.IsEmpty())
 		ShowMessage(L"Команда обновления базы принята.\r\n" + reply);
 	else
@@ -3408,7 +3406,12 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 				if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 					return;
 				onSuccessfulAuthorization("admin", adminFileUtf8);
-				if (tryConnect()) {
+				// Auto-login must not pop a modal when years/ports are not
+				// configured yet; status bar already reports that from FormCreate.
+				if (cmbGod->Text.IsEmpty()) {
+					lbStatus->Caption = L"Статус: Не выбран год поиска";
+				}
+				else if (tryConnect()) {
 					registryOnServer("admin");
 				}
 				gCurrentPath = adminFileUtf8;
