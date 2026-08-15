@@ -862,7 +862,6 @@ object fMain: TfMain
               Top = 74
               Width = 94
               Height = 56
-              Hint = 'Ctrl+Alt+T'
               Margins.Left = 12
               Margins.Top = 12
               Margins.Right = 12
@@ -876,7 +875,7 @@ object fMain: TfMain
               Font.Style = [fsBold]
               ParentFont = False
               ParentShowHint = False
-              ShowHint = True
+              ShowHint = False
               TabOrder = 2
               OnClick = chkDocxClick
             end
@@ -923,7 +922,7 @@ object fMain: TfMain
               Top = 44
               Width = 200
               Height = 42
-              Hint = 'Crtl+S'
+              Hint = 'Ctrl+S'
               Margins.Left = 6
               Margins.Top = 6
               Margins.Right = 6
