@@ -181,12 +181,6 @@
         <None Include="AuthPaths.h">
             <BuildOrder>25</BuildOrder>
         </None>
-        <None Include="UserFileReplace.h">
-            <BuildOrder>35</BuildOrder>
-        </None>
-        <None Include="ClientFilePublish.h">
-            <BuildOrder>36</BuildOrder>
-        </None>
         <CppCompile Include="BinaryFileLoad\FileData.cpp">
             <BuildOrder>13</BuildOrder>
         </CppCompile>
@@ -324,6 +318,12 @@
             <DependentOn>SqlCondition.h</DependentOn>
             <BuildOrder>6</BuildOrder>
         </CppCompile>
+        <None Include="UserFileReplace.h">
+            <BuildOrder>35</BuildOrder>
+        </None>
+        <None Include="ClientFilePublish.h">
+            <BuildOrder>36</BuildOrder>
+        </None>
         <CppCompile Include="utils.cpp">
             <DependentOn>utils.h</DependentOn>
             <BuildOrder>32</BuildOrder>
@@ -336,11 +336,11 @@
             <DependentOn>WordServer\WordServer.h</DependentOn>
             <BuildOrder>27</BuildOrder>
         </CppCompile>
+        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <FormResources Include="formMain.dfm"/>
         <FormResources Include="Frames\FrameAttachments.dfm"/>
         <FormResources Include="Frames\FramePdtv.dfm"/>
         <FormResources Include="Frames\FrameWay.dfm"/>
-        <FormResources Include="Frames\MyFrameDbg.dfm"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

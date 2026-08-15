@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <Windows.h>
 
@@ -74,11 +74,14 @@ namespace client_file_publish
 
 	inline fs::path LexicalAbsolute(const fs::path& path)
 	{
-		std::error_code ec;
-		fs::path absolute = fs::absolute(path, ec);
-		if (ec)
-			absolute = path;
-		return absolute.lexically_normal();
+		try
+		{
+			return fs::absolute(path).lexically_normal();
+		}
+		catch (...)
+		{
+			return path.lexically_normal(); // fallback on failure
+		}
 	}
 
 	// relativeOrName may contain subdirectories. Absolute, rooted, empty, and ".." are rejected.

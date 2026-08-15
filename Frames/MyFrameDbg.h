@@ -58,7 +58,7 @@ public:
 	void MinusbgHeigth();
 	void setHeigthMulti(double kof);
 	void Detach();
-	void BindLifetime(
+	void BindLife(
 		std::shared_ptr<std::atomic_bool> live,
 		std::function<std::shared_ptr<void>()> trackOp);
 

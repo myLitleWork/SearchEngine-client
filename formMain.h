@@ -431,11 +431,6 @@ private:	// User declarations
 	TStringList* saveLog = nullptr;
 
 	TMemTableEh *mtMenu = nullptr;
-
-
-
-
-	TMemTableEh *mtMenu = nullptr;
 	TDataSource *dsMenu = nullptr;
 
 
