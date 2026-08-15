@@ -906,12 +906,26 @@ void __fastcall TfMain::finishSearch()
     cmbReq->SelStart = 0;
 	cmbReq->SelLength = cmbReq->Text.Length();
 
+	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
+	try {
+		qryTelegi->SQL->Text = ("select * from res");
+		qryTelegi->Open();
 
-	qryTelegi->SQL->Text = ("select * from res");
-	qryTelegi->Open();
-
-	memTbl->Active = false;
-	memTbl->Active = true;
+		memTbl->Active = false;
+		memTbl->Active = true;
+	}
+	catch (const Exception& e) {
+		const String openErr =
+			L"Не удалось открыть локальные результаты поиска: " + e.Message;
+		if (searchSaveReport_.IsEmpty())
+			searchSaveReport_ = openErr;
+		else
+			searchSaveReport_ = searchSaveReport_ + L"\r\n\r\n" + openErr;
+		applyRchEdtText(L"", false);
+		lbStatus->Caption = L"Ошибка отображения результатов";
+		btnSearch->Enabled = true;
+		return;
+	}
 
     dbgEh->Columns->Items[4]->Title->SortMarker = smDownEh;
     dbgEh->DefaultApplySorting();
@@ -1193,6 +1207,7 @@ void TfMain::clear()
 	qryTelegi->ExecSQL();
 
 
+	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 	qryTelegi->SQL->Text = ("select * from res");
 	qryTelegi->Open();
 
@@ -1399,6 +1414,40 @@ inline UnicodeString US(const std::string& s)
 	return UTF8String(s.c_str());
 }
 
+// Match persistent TWideStringField.Size on qryTelegi/memTbl (formMain.dfm).
+// Values longer than this are skipped at insert so FireDAC Open does not abort
+// the whole result set with [DatS]-32 overflow.
+static const int kResUiTextMaxChars = 2048;
+
+static void EnsureResResultTextFieldSizes(TFDQuery* qry, TMemTableEh* mem)
+{
+	if (qry != nullptr) {
+		for (int i = 0; i < qry->FieldCount; ++i) {
+			if (auto* f = dynamic_cast<TWideStringField*>(qry->Fields->Fields[i]))
+				f->Size = kResUiTextMaxChars;
+		}
+	}
+	if (mem == nullptr)
+		return;
+
+	const bool wasActive = mem->Active;
+	if (wasActive)
+		mem->Active = false;
+
+	for (int i = 0; i < mem->FieldDefs->Count; ++i) {
+		TFieldDef* def = mem->FieldDefs->Items[i];
+		if (def->DataType == ftWideString || def->DataType == ftString)
+			def->Size = kResUiTextMaxChars;
+	}
+	for (int i = 0; i < mem->FieldCount; ++i) {
+		if (auto* f = dynamic_cast<TWideStringField*>(mem->Fields->Fields[i]))
+			f->Size = kResUiTextMaxChars;
+	}
+
+	if (wasActive)
+		mem->Active = true;
+}
+
 
 //---------------------------------------------------------------------------
 void TfMain::convTelegs(std::vector<Telega>& telegi)
@@ -1411,6 +1460,8 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         ":num, :date, :podp_num, :date_podp, :tel_num, :isp, :from_to, :rel, :dir, :type, :kr, "
         ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted, :source_server_id"
         ")";
+
+	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 
     qryTelegi->Close();
     qryTelegi->SQL->Text = SQL_INSERT_RES;
@@ -1493,6 +1544,39 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         case Telega::TYPE::ISHOD: type = L"Исх."; break;
         case Telega::TYPE::NOTTG: type = L"Не тг."; break;
         default: type = L"Вх."; break;
+        }
+
+        String oversizedDetails;
+        auto noteLongField = [&](const wchar_t* fieldName, const UnicodeString& value) {
+            if (value.Length() <= kResUiTextMaxChars)
+                return;
+            if (!oversizedDetails.IsEmpty())
+                oversizedDetails += L"; ";
+            oversizedDetails +=
+                String(fieldName) + L" (" + String(value.Length()) + L" симв.)";
+        };
+        noteLongField(L"isp", US(t.isp));
+        noteLongField(L"type", type);
+        noteLongField(L"podp_num", US(t.podp_num));
+        noteLongField(L"from_to", US(t.from_to));
+        noteLongField(L"dir", US(t.dir));
+        noteLongField(L"kr", US(t.kr));
+        noteLongField(L"pril_name", US(t.pril_name));
+        noteLongField(L"pril_count", US(t.pril_count));
+        noteLongField(L"last_mesto", US(t.last_mesto));
+        noteLongField(L"gde_sht", US(normalize_gde_sht(t.gde_sht)));
+        noteLongField(L"blank", US(t.blank));
+        noteLongField(L"source_server_id", US(t.source_server_id));
+        if (!oversizedDetails.IsEmpty()) {
+            ++searchSaveFailed_;
+            report->Add(
+                rowLabel(index1, t, type) +
+                L": слишком длинные текстовые поля — " + oversizedDetails +
+                L"; лимит " + String(kResUiTextMaxChars) +
+                L" символов. Строка пропущена.");
+            ggSaveProgress->AddProgress(1);
+            Application->ProcessMessages();
+            continue;
         }
 
         try
@@ -1660,6 +1744,7 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	const String productVersion = GetSearchClientProductVersion();
 	Caption = productVersion.IsEmpty() ? L"SearchClient_asio" : L"SearchClient_asio v" + productVersion;
 	InitDbgMenuDS();
+	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
 
 	ComboHistory = RecentComboHistory(cmbReq,9);
 	myRequest::init(cmbField, cmbReq, chkSQL, chkExc, rgTypeT);

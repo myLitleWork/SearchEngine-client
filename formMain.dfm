@@ -1804,26 +1804,26 @@ object fMain: TfMain
       DisplayLabel = #1055#1086#1076#1087'./'#1080#1089#1087'.'
       FieldName = 'isp'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
     object qryTelegitype: TWideStringField
       DisplayLabel = #1042#1093'/'#1048#1089#1093
       DisplayWidth = 25
       FieldName = 'type'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
     object qryTelegipodp_num: TWideStringField
       DisplayLabel = #1055#1086#1076#1087'. '#8470
       FieldName = 'podp_num'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
     object qryTelegifrom_to: TWideStringField
       DisplayLabel = #1050#1091#1076#1072'/'#1086#1090#1082#1091#1076#1072
       FieldName = 'from_to'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
     object qryTelegirel: TFloatField
       DisplayLabel = #1056#1077#1083'-'#1090#1100
@@ -1836,7 +1836,7 @@ object fMain: TfMain
       DisplayLabel = #1055#1091#1090#1100' '#1082' '#1092#1072#1081#1083#1091
       FieldName = 'dir'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
     object qryTelegitel_num: TIntegerField
       DisplayLabel = #1058#1077#1083'. '#8470
@@ -1846,27 +1846,27 @@ object fMain: TfMain
     object qryTelegikr: TWideStringField
       FieldName = 'kr'
       ReadOnly = True
-      Size = 100
+      Size = 2048
     end
     object qryTelegipril_name: TWideStringField
       FieldName = 'pril_name'
-      Size = 255
+      Size = 2048
     end
     object qryTelegipril_count: TWideStringField
       FieldName = 'pril_count'
-      Size = 255
+      Size = 2048
     end
     object qryTelegilast_mesto: TWideStringField
       FieldName = 'last_mesto'
-      Size = 255
+      Size = 2048
     end
     object qryTelegigde_sht: TWideStringField
       FieldName = 'gde_sht'
-      Size = 255
+      Size = 2048
     end
     object qryTelegiblank: TWideStringField
       FieldName = 'blank'
-      Size = 255
+      Size = 2048
     end
     object qryTelegideleted: TIntegerField
       DisplayLabel = #1057#1090#1072#1090#1091#1089
@@ -1877,7 +1877,7 @@ object fMain: TfMain
       DisplayLabel = #1057#1077#1088#1074#1077#1088
       FieldName = 'source_server_id'
       ReadOnly = True
-      Size = 255
+      Size = 2048
     end
   end
   object memTbl: TMemTableEh
@@ -1899,22 +1899,22 @@ object fMain: TfMain
       item
         Name = 'isp'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'type'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'podp_num'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'from_to'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'rel'
@@ -1924,7 +1924,7 @@ object fMain: TfMain
       item
         Name = 'dir'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'tel_num'
@@ -1934,32 +1934,32 @@ object fMain: TfMain
       item
         Name = 'kr'
         DataType = ftWideString
-        Size = 100
+        Size = 2048
       end
       item
         Name = 'pril_name'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'pril_count'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'last_mesto'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'gde_sht'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'blank'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end
       item
         Name = 'deleted'
@@ -1968,7 +1968,7 @@ object fMain: TfMain
       item
         Name = 'source_server_id'
         DataType = ftWideString
-        Size = 255
+        Size = 2048
       end>
     Filtered = True
     FetchAllOnOpen = True
@@ -1990,19 +1990,19 @@ object fMain: TfMain
     end
     object memTblisp: TWideStringField
       FieldName = 'isp'
-      Size = 255
+      Size = 2048
     end
     object memTbltype: TWideStringField
       FieldName = 'type'
-      Size = 255
+      Size = 2048
     end
     object memTblpodp_num: TWideStringField
       FieldName = 'podp_num'
-      Size = 255
+      Size = 2048
     end
     object memTblfrom_to: TWideStringField
       FieldName = 'from_to'
-      Size = 255
+      Size = 2048
     end
     object memTblrel: TFloatField
       FieldName = 'rel'
@@ -2010,7 +2010,7 @@ object fMain: TfMain
     end
     object memTbldir: TWideStringField
       FieldName = 'dir'
-      Size = 255
+      Size = 2048
     end
     object memTbltel_num: TIntegerField
       FieldName = 'tel_num'
@@ -2018,27 +2018,27 @@ object fMain: TfMain
     object memTblkr: TWideStringField
       DisplayWidth = 100
       FieldName = 'kr'
-      Size = 225
+      Size = 2048
     end
     object memTblpril_name: TWideStringField
       FieldName = 'pril_name'
-      Size = 255
+      Size = 2048
     end
     object memTblpril_count: TWideStringField
       FieldName = 'pril_count'
-      Size = 255
+      Size = 2048
     end
     object memTbllast_mesto: TWideStringField
       FieldName = 'last_mesto'
-      Size = 255
+      Size = 2048
     end
     object memTblgde_sht: TWideStringField
       FieldName = 'gde_sht'
-      Size = 255
+      Size = 2048
     end
     object memTblblank: TWideStringField
       FieldName = 'blank'
-      Size = 255
+      Size = 2048
     end
     object memTbldeleted: TIntegerField
       FieldName = 'deleted'
@@ -2047,7 +2047,7 @@ object fMain: TfMain
     object memTblsource_server_id: TWideStringField
       DisplayLabel = #1057#1077#1088#1074#1077#1088
       FieldName = 'source_server_id'
-      Size = 255
+      Size = 2048
     end
   end
   object ConnectionRes: TFDConnection
