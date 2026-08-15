@@ -999,15 +999,19 @@ DocxConversionResult DocxConversionSession::WaitForJobResponse(
     unsigned seq,
     const String& partialOutputPath,
     const String& outDocx,
-    unsigned timeoutMs,
+    unsigned conversionTimeoutMs,
+    unsigned wordStartTimeoutMs,
     ULONGLONG startedAt,
     const std::atomic_bool* cancelRequested)
 {
     DocxConversionResult result;
     result.outputPath = outDocx;
     const String responsePath = sessionDir_ + L"job.rsp";
+    const ULONGLONG jobSubmittedAt = GetTickCount64();
+    bool conversionPhase = false;
+    ULONGLONG conversionPhaseStartedAt = 0;
 
-    while (ElapsedMilliseconds(startedAt) < timeoutMs) {
+    while (true) {
         if (cancelRequested && cancelRequested->load(std::memory_order_acquire)) {
             KillWorker(L"job seq=" + String(seq) + L" cancelled");
             DeleteFileIfExists(partialOutputPath);
@@ -1076,28 +1080,56 @@ DocxConversionResult DocxConversionSession::WaitForJobResponse(
             }
         }
 
+        const String state = ReadStatusValue(statusPath_, L"STATE");
+        if (!conversionPhase) {
+            if (state == L"BUSY") {
+                conversionPhase = true;
+                conversionPhaseStartedAt = GetTickCount64();
+                AppendDocxLog(L"parent", L"job seq=" + String(seq) +
+                    L" entered conversion phase after wordStartMs=" +
+                    String(ElapsedMilliseconds(jobSubmittedAt)));
+            }
+            else if (ElapsedMilliseconds(jobSubmittedAt) >= wordStartTimeoutMs) {
+                KillWorker(L"job seq=" + String(seq) + L" word-start timeout");
+                DeleteFileIfExists(partialOutputPath);
+                DeleteFileIfExists(sessionDir_ + L"job.req");
+                DeleteFileIfExists(responsePath);
+
+                result.status = DocxConversionStatus::TimedOut;
+                result.message = L"Word не запустился за " +
+                    String(wordStartTimeoutMs / 1000) + L" секунд";
+                result.elapsedMs = ElapsedMilliseconds(startedAt);
+                AppendDocxLog(L"parent", L"job seq=" + String(seq) +
+                    L" word-start timed out elapsedMs=" + String(result.elapsedMs) +
+                    L" state=" + state);
+                return result;
+            }
+        }
+        else if (ElapsedMilliseconds(conversionPhaseStartedAt) >= conversionTimeoutMs) {
+            KillWorker(L"job seq=" + String(seq) + L" conversion timeout");
+            DeleteFileIfExists(partialOutputPath);
+            DeleteFileIfExists(sessionDir_ + L"job.req");
+            DeleteFileIfExists(responsePath);
+
+            result.status = DocxConversionStatus::TimedOut;
+            result.message = L"Макрос/SaveAs не завершился за " +
+                String(conversionTimeoutMs / 1000) + L" секунд";
+            result.elapsedMs = ElapsedMilliseconds(startedAt);
+            AppendDocxLog(L"parent", L"job seq=" + String(seq) +
+                L" conversion timed out elapsedMs=" + String(result.elapsedMs));
+            return result;
+        }
+
         Sleep(40);
     }
-
-    KillWorker(L"job seq=" + String(seq) + L" timeout");
-    DeleteFileIfExists(partialOutputPath);
-    DeleteFileIfExists(sessionDir_ + L"job.req");
-    DeleteFileIfExists(responsePath);
-
-    result.status = DocxConversionStatus::TimedOut;
-    result.message = L"Word/макрос не завершился за " +
-        String(timeoutMs / 1000) + L" секунд";
-    result.elapsedMs = ElapsedMilliseconds(startedAt);
-    AppendDocxLog(L"parent", L"job seq=" + String(seq) +
-        L" timed out elapsedMs=" + String(result.elapsedMs));
-    return result;
 }
 
 DocxConversionResult DocxConversionSession::Convert(
     const String& plainText,
     const String& outDocx,
     unsigned timeoutMs,
-    const std::atomic_bool* cancelRequested)
+    const std::atomic_bool* cancelRequested,
+    unsigned wordStartTimeoutMs)
 {
     const ULONGLONG startedAt = GetTickCount64();
     DocxConversionResult result;
@@ -1136,11 +1168,12 @@ DocxConversionResult DocxConversionSession::Convert(
         request += L"INPUT=" + inputPath + L"\r\n";
         request += L"OUTPUT=" + partialOutputPath + L"\r\n";
         WriteUtf16FileAtomic(requestPath, request);
-        AppendDocxLog(L"parent", L"job seq=" + String(seq) + L" submitted timeoutMs=" +
-            String(timeoutMs));
+        AppendDocxLog(L"parent", L"job seq=" + String(seq) +
+            L" submitted conversionTimeoutMs=" + String(timeoutMs) +
+            L" wordStartTimeoutMs=" + String(wordStartTimeoutMs));
 
         result = WaitForJobResponse(seq, partialOutputPath, outDocx, timeoutMs,
-                                    startedAt, cancelRequested);
+                                    wordStartTimeoutMs, startedAt, cancelRequested);
         DeleteFileIfExists(inputPath);
         if (result.status != DocxConversionStatus::Success)
             DeleteFileIfExists(partialOutputPath);
@@ -1221,10 +1254,12 @@ DocxConversionResult ConvertPlainTextToDocxWithTimeout(
                          const String& outDocx,
                          const String& macroDoc,
                          unsigned timeoutMs,
-                         const std::atomic_bool* cancelRequested)
+                         const std::atomic_bool* cancelRequested,
+                         unsigned wordStartTimeoutMs)
 {
     DocxConversionSession session(macroName, macroDoc);
-    return session.Convert(plainText, outDocx, timeoutMs, cancelRequested);
+    return session.Convert(plainText, outDocx, timeoutMs, cancelRequested,
+                           wordStartTimeoutMs);
 }
 
 #ifdef _DEBUG
@@ -1354,6 +1389,14 @@ int RunDocxTimeoutSelfTestFromCommandLine()
         return 31;
     }
 
+    const bool wordStartStage = SameText(stage, L"WORD_START");
+    const unsigned conversionTimeoutMs = wordStartStage
+        ? DOCX_CONVERSION_TIMEOUT_MS
+        : timeoutMs;
+    const unsigned wordStartTimeoutMs = wordStartStage
+        ? timeoutMs
+        : DOCX_WORD_START_TIMEOUT_MS;
+
     const std::set<DWORD> wordBefore = SnapshotWordProcessIds();
     const std::set<std::wstring> tempBefore = SnapshotCurrentProcessDocxDirectories();
     DocxConversionResult result;
@@ -1361,7 +1404,7 @@ int RunDocxTimeoutSelfTestFromCommandLine()
         ScopedDocxTestDelay delay(delayMs, stage);
         result = ConvertPlainTextToDocxWithTimeout(
             ReadUtf16Text(inputPath), L"Обработка_ШТ_2022",
-            outputPath, macroDoc, timeoutMs);
+            outputPath, macroDoc, conversionTimeoutMs, nullptr, wordStartTimeoutMs);
     }
 
     if (result.status != DocxConversionStatus::TimedOut)
@@ -1389,6 +1432,14 @@ int RunDocxCancelSelfTestFromCommandLine()
         return 41;
     }
 
+    const bool wordStartStage = SameText(stage, L"WORD_START");
+    const unsigned conversionTimeoutMs = wordStartStage
+        ? DOCX_CONVERSION_TIMEOUT_MS
+        : timeoutMs;
+    const unsigned wordStartTimeoutMs = wordStartStage
+        ? timeoutMs
+        : DOCX_WORD_START_TIMEOUT_MS;
+
     const std::set<DWORD> wordBefore = SnapshotWordProcessIds();
     const std::set<std::wstring> tempBefore = SnapshotCurrentProcessDocxDirectories();
     std::atomic_bool cancelRequested{false};
@@ -1400,8 +1451,9 @@ int RunDocxCancelSelfTestFromCommandLine()
             cancelRequested.store(true, std::memory_order_release);
         });
         DocxConversionSession session(L"Обработка_ШТ_2022", macroDoc);
-        result = session.Convert(ReadUtf16Text(inputPath), outputPath, timeoutMs,
-                                 &cancelRequested);
+        result = session.Convert(ReadUtf16Text(inputPath), outputPath,
+                                 conversionTimeoutMs, &cancelRequested,
+                                 wordStartTimeoutMs);
         cancelThread.join();
         session.Close();
     }
@@ -1430,6 +1482,14 @@ int RunDocxRestartSelfTestFromCommandLine()
         return 51;
     }
 
+    const bool wordStartStage = SameText(stage, L"WORD_START");
+    const unsigned conversionTimeoutMs = wordStartStage
+        ? DOCX_CONVERSION_TIMEOUT_MS
+        : timeoutMs;
+    const unsigned wordStartTimeoutMs = wordStartStage
+        ? timeoutMs
+        : DOCX_WORD_START_TIMEOUT_MS;
+
     const std::set<DWORD> wordBefore = SnapshotWordProcessIds();
     const std::set<std::wstring> tempBefore = SnapshotCurrentProcessDocxDirectories();
     DocxConversionResult firstResult;
@@ -1438,9 +1498,11 @@ int RunDocxRestartSelfTestFromCommandLine()
         ScopedDocxTestDelay delay(delayMs, stage);
         DocxConversionSession session(L"Обработка_ШТ_2022", macroDoc);
         firstResult = session.Convert(
-            ReadUtf16Text(inputPath), firstOutputPath, timeoutMs);
+            ReadUtf16Text(inputPath), firstOutputPath, conversionTimeoutMs,
+            nullptr, wordStartTimeoutMs);
         secondResult = session.Convert(
-            ReadUtf16Text(inputPath), secondOutputPath, timeoutMs);
+            ReadUtf16Text(inputPath), secondOutputPath, conversionTimeoutMs,
+            nullptr, wordStartTimeoutMs);
         session.Close();
     }
 

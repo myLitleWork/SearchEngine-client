@@ -80,8 +80,9 @@
 
 - Word Automation выполняется не в GUI-процессе, а в отдельном экземпляре
   `SearchClient_asio.exe --docx-worker`.
-- Worker заранее помещается в Job Object. Родитель контролирует отдельный
-  15-секундный дедлайн каждого документа и может завершить зависший worker.
+- Worker заранее помещается в Job Object. Родитель разделяет два дедлайна на
+  документ: до 60 с на cold start `Word.Application` (пока worker не перешёл в
+  `BUSY`) и 15 с на макрос/`SaveAs` после `BUSY`. Зависший worker завершается.
 - PID точного экземпляра Word определяется через `Word.Application.Hwnd` и
   `GetWindowThreadProcessId`. Перед принудительным завершением полный путь
   проверяется через `QueryFullProcessImageNameW` с правом
@@ -102,7 +103,14 @@
 Стадия `SAVE_DOCX` достигается уже после выполнения макроса и предназначена
 только для отдельной ручной проверки на disposable-файлах.
 
+Для `--docx-timeout-self-test` / `--docx-restart-self-test` аргумент timeout
+(5-й) задаёт бюджет проверяемой фазы: при стадии `WORD_START` это таймаут
+запуска Word, иначе — таймаут макроса/`SaveAs`. Стадия `WORD_START` должна
+задавать delay больше word-start timeout; остальные стадии — delay больше
+conversion timeout.
+
 ```powershell
+Win32\Debug\SearchClient_asio.exe --docx-timeout-self-test <input.txt> <sht.docm> <out.docx> 4000 10000 WORD_START
 Win32\Debug\SearchClient_asio.exe --docx-timeout-self-test <input.txt> <sht.docm> <out.docx> 4000 10000 WORD_READY
 Win32\Debug\SearchClient_asio.exe --docx-timeout-self-test <input.txt> <sht.docm> <out.docx> 5000 12000 RUN_MACRO
 Win32\Debug\SearchClient_asio.exe --docx-cancel-self-test <input.txt> <sht.docm> <out.docx> 15000 12000 4000 WORD_READY

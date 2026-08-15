@@ -28,7 +28,10 @@ struct DocxConversionResult
     unsigned elapsedMs = 0;
 };
 
+/// Макрос + SaveAs после того, как worker перешёл в BUSY.
 constexpr unsigned DOCX_CONVERSION_TIMEOUT_MS = 15000;
+/// Cold start Word.Application до первого BUSY (отдельно от макроса).
+constexpr unsigned DOCX_WORD_START_TIMEOUT_MS = 60000;
 
 void ProcessPlainText_WS(WordServer& ws,
                          const String& plainText,
@@ -56,7 +59,8 @@ public:
     DocxConversionResult Convert(const String& plainText,
                                  const String& outDocx,
                                  unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS,
-                                 const std::atomic_bool* cancelRequested = nullptr);
+                                 const std::atomic_bool* cancelRequested = nullptr,
+                                 unsigned wordStartTimeoutMs = DOCX_WORD_START_TIMEOUT_MS);
 
     void Close();
 
@@ -67,7 +71,8 @@ private:
     DocxConversionResult WaitForJobResponse(unsigned seq,
                                             const String& partialOutputPath,
                                             const String& outDocx,
-                                            unsigned timeoutMs,
+                                            unsigned conversionTimeoutMs,
+                                            unsigned wordStartTimeoutMs,
                                             ULONGLONG startedAt,
                                             const std::atomic_bool* cancelRequested);
 
@@ -86,7 +91,8 @@ DocxConversionResult ConvertPlainTextToDocxWithTimeout(
                          const String& outDocx,
                          const String& macroDoc,
                          unsigned timeoutMs = DOCX_CONVERSION_TIMEOUT_MS,
-                         const std::atomic_bool* cancelRequested = nullptr);
+                         const std::atomic_bool* cancelRequested = nullptr,
+                         unsigned wordStartTimeoutMs = DOCX_WORD_START_TIMEOUT_MS);
 
 String GetDocxDiagnosticLogPath();
 
