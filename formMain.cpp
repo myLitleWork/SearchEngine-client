@@ -2781,25 +2781,22 @@ void __fastcall TfMain::lstTemplatesClick(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TfMain::N2Click(TObject *Sender)
 {
-	 auto name  = lstTemplates->Items->Strings[lstTemplates->ItemIndex];
-	 String title = L"Удаление шаблона";
-	 String sub_title = L"Удалить шаблон '" + name + L"'?";
-	 const int result = MessageBoxW(NULL, sub_title.c_str(), title.c_str() ,  MB_OKCANCEL);
-
-	if(result == idCancel)
+	if (lstTemplates->ItemIndex == -1 || lstShGroups->ItemIndex == -1)
 		return;
 
-	if(lstTemplates->ItemIndex == -1 || lstShGroups->ItemIndex == -1)
-		return;
-
-
+	auto name = lstTemplates->Items->Strings[lstTemplates->ItemIndex];
 	auto group = lstShGroups->Items->Strings[lstShGroups->ItemIndex];
+
+	String title = L"Удаление шаблона";
+	String sub_title = L"Удалить шаблон '" + name + L"'?";
+	const int result = MessageBoxW(NULL, sub_title.c_str(), title.c_str(), MB_OKCANCEL);
+	if (result == idCancel)
+		return;
 
 	myRequest::removeTemplate(group, name);
 	SaveTemplatesToDisk();
 
 	lstTemplates->Items->Delete(lstTemplates->ItemIndex);
-
 }
 //---------------------------------------------------------------------------
 
