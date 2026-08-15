@@ -995,6 +995,22 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
         return;
 	}
 
+	int cmbMaxReqInt = 0;
+	if (isChkSQL) {
+		bool limitOk = false;
+		try {
+			cmbMaxReqInt = StrToInt(Trim(cmbMaxReq->Text));
+			limitOk = (cmbMaxReqInt > 0);
+		}
+		catch (...) {
+			limitOk = false;
+		}
+		if (!limitOk) {
+			ShowMessage(L"Укажите положительное целое число в поле лимита результатов.");
+			return;
+		}
+	}
+
 	ComboHistory.add(AnsiString{cmbReq->Text}.c_str());
 	clear();
 	searchFailures_async.clear();
@@ -1017,8 +1033,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 	String cmbFieldText = cmbField->Text;
     const int rgTypeTIndex = rgTypeT->ItemIndex;
-	int cmbMaxReqInt = 0;
-    try { cmbMaxReqInt = StrToInt(cmbMaxReq->Text); } catch (...) {}
 	std::string requestBody;
 	COMMAND searchCommand = COMMAND::GETSQLJSONANSWEAR;
 	AnsiString requestText = s;
