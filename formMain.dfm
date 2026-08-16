@@ -25,10 +25,69 @@ object fMain: TfMain
   OnShow = FormShow
   PixelsPerInch = 192
   TextHeight = 36
+  object pnStatusBar: TPanel
+    AlignWithMargins = True
+    Left = 6
+    Top = 1310
+    Width = 1932
+    Height = 56
+    Margins.Left = 6
+    Margins.Top = 0
+    Margins.Right = 6
+    Margins.Bottom = 6
+    Align = alBottom
+    BevelOuter = bvLowered
+    Caption = ''
+    ShowCaption = False
+    TabOrder = 2
+    object lbStatus: TLabel
+      AlignWithMargins = True
+      Left = 8
+      Top = 4
+      Width = 1400
+      Height = 48
+      Margins.Left = 8
+      Margins.Top = 4
+      Margins.Right = 8
+      Margins.Bottom = 4
+      Align = alClient
+      Alignment = taLeftJustify
+      Caption = #1057#1090#1072#1090#1091#1089':'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clBlack
+      Font.Height = -28
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      Layout = tlCenter
+      ParentFont = False
+    end
+    object lblUser: TLabel
+      AlignWithMargins = True
+      Left = 1424
+      Top = 4
+      Width = 500
+      Height = 48
+      Margins.Left = 8
+      Margins.Top = 4
+      Margins.Right = 8
+      Margins.Bottom = 4
+      Align = alRight
+      Alignment = taRightJustify
+      AutoSize = True
+      Caption = #1053#1077#1090' '#1072#1074#1090#1086#1088#1080#1079#1072#1094#1080#1080'!'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clMaroon
+      Font.Height = -28
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      Layout = tlCenter
+      ParentFont = False
+    end
+  end
   object ggSaveProgress: TGauge
     AlignWithMargins = True
     Left = 6
-    Top = 1300
+    Top = 1238
     Width = 1932
     Height = 66
     Margins.Left = 6
@@ -55,46 +114,6 @@ object fMain: TfMain
     Caption = 'Panel1'
     ShowCaption = False
     TabOrder = 0
-    object lbStatus: TLabel
-      AlignWithMargins = True
-      Left = 913
-      Top = 7
-      Width = 109
-      Height = 45
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
-      Align = alLeft
-      Alignment = taCenter
-      Caption = #1057#1090#1072#1090#1091#1089':'
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clBlack
-      Font.Height = -32
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      ParentFont = False
-    end
-    object lblUser: TLabel
-      AlignWithMargins = True
-      Left = 1034
-      Top = 7
-      Width = 280
-      Height = 45
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
-      Align = alLeft
-      Alignment = taCenter
-      Caption = #1053#1077#1090' '#1072#1074#1090#1086#1088#1080#1079#1072#1094#1080#1080'!'
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clMaroon
-      Font.Height = -32
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      ParentFont = False
-    end
     object Edit2: TEdit
       AlignWithMargins = True
       Left = 189
@@ -215,7 +234,7 @@ object fMain: TfMain
     Left = 6
     Top = 94
     Width = 1932
-    Height = 1194
+    Height = 1132
     Margins.Left = 6
     Margins.Top = 6
     Margins.Right = 6
