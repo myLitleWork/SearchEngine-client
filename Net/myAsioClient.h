@@ -50,6 +50,7 @@
 		ERROR_RESPONSE = 29,
 		// Zero-payload request; response payload is ProtocolCapabilitiesV1.
 		NEGOTIATE_PROTOCOL_V1 = 30,
+		AUTHENTICATE_V1 = 31,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -66,6 +67,7 @@ namespace search_protocol
 	inline constexpr std::uint32_t ERROR_RESPONSE_VERSION = 1;
 	inline constexpr std::uint32_t PROTOCOL_CAPABILITIES_VERSION = 1;
 	inline constexpr std::uint32_t CAPABILITY_TYPED_ERRORS_V1 = 1u << 0;
+	inline constexpr std::uint32_t CAPABILITY_CLIENT_AUTH_V1 = 1u << 1;
 
 	// Wire values mirror command_execution::ErrorCode on the server. Keep all
 	// numeric values explicit: client and server are independent repositories.
@@ -102,7 +104,10 @@ namespace search_protocol
 		MessageReadFailed = 29,
 		ResponseQueueFull = 30,
 		CommandExecutionFailed = 31,
-		InternalError = 32
+		InternalError = 32,
+		AuthFailed = 33,
+		AuthClientDisabled = 34,
+		AuthRequired = 35
 	};
 
 	struct ErrorResponseV1
@@ -161,6 +166,7 @@ static_assert(static_cast<std::uint64_t>(COMMAND::SERVER_BUSY_ERROR) == 27);
 static_assert(static_cast<std::uint64_t>(COMMAND::END_COMMAND) == 28);
 static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
 static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
+static_assert(static_cast<std::uint64_t>(COMMAND::AUTHENTICATE_V1) == 31);
 static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,

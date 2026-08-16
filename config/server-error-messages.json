@@ -32,6 +32,9 @@
     {"code": 29, "name": "MessageReadFailed", "message": "Сервер не смог прочитать сообщение."},
     {"code": 30, "name": "ResponseQueueFull", "message": "Сервер временно перегружен. Повторите попытку позже."},
     {"code": 31, "name": "CommandExecutionFailed", "message": "Сервер не смог выполнить операцию."},
-    {"code": 32, "name": "InternalError", "message": "На сервере произошла внутренняя ошибка."}
+    {"code": 32, "name": "InternalError", "message": "На сервере произошла внутренняя ошибка."},
+    {"code": 33, "name": "AuthFailed", "message": "Авторизация отклонена: данные клиента не совпали с записью на сервере."},
+    {"code": 34, "name": "AuthClientDisabled", "message": "Учётная запись клиента отключена на сервере."},
+    {"code": 35, "name": "AuthRequired", "message": "Для этой операции требуется авторизация на сервере."}
   ]
 }

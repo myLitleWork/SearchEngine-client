@@ -45,7 +45,7 @@ const ErrorMessages& loadedErrorMessages() noexcept
 {
 	static const ErrorMessages messages = [] {
 		ErrorMessages result;
-		static const char* const expectedNames[33] = { nullptr,
+		static const char* const expectedNames[36] = { nullptr,
 			"PayloadTooLarge", "InvalidCommand", "CommandNotRegistered", "ServerBusy",
 			"ServerStopping", "InvalidRequest", "InvalidJson", "InvalidBinaryPayload",
 			"FileNotFound", "FileMetadataFailed", "FileOpenFailed", "FileReadFailed",
@@ -54,7 +54,8 @@ const ErrorMessages& loadedErrorMessages() noexcept
 			"SerializationFailed", "IndexUnavailable", "IndexDataInconsistent",
 			"IndexUpdateInProgress", "IndexUpdateFailed", "OperatorNotRegistered",
 			"AttachmentNotFound", "MessageNotFound", "MessageSaveFailed", "MessageReadFailed",
-			"ResponseQueueFull", "CommandExecutionFailed", "InternalError" };
+			"ResponseQueueFull", "CommandExecutionFailed", "InternalError",
+			"AuthFailed", "AuthClientDisabled", "AuthRequired" };
 		try {
 			std::ifstream input(errorMessagesPath(), std::ios::binary);
 			if (!input) return result;
@@ -66,10 +67,10 @@ const ErrorMessages& loadedErrorMessages() noexcept
 				const auto code = item.at("code").get<std::uint32_t>();
 				const auto name = item.at("name").get<std::string>();
 				const auto message = item.at("message").get<std::string>();
-				if (code < 1 || code > 32 || name != expectedNames[code] ||
+				if (code < 1 || code > 35 || name != expectedNames[code] ||
 					message.empty() || !result.emplace(code, message).second) return ErrorMessages{};
 			}
-			if (result.size() != 32) return ErrorMessages{};
+			if (result.size() != 35) return ErrorMessages{};
 		} catch (...) { return ErrorMessages{}; }
 		return result;
 	}();

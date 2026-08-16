@@ -2,6 +2,8 @@
 
 #include "myAsioClient.h"
 
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <map>
 #include <memory>
@@ -54,6 +56,51 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		return client_.isConnected();
+	}
+
+	// New auth path (AUTHENTICATE_V1). Does not replace USER_REGISTRY / admin
+	// marker flow; call this when client_id + flash_serial are available.
+	bool authenticateV1(const std::string& clientName,
+						const std::string& clientId,
+						const std::string& flashSerial,
+						const std::string& signature = {},
+						std::string* errMsg = nullptr)
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		if (!ensureConnectedLocked(std::string{}, errMsg))
+			return false;
+
+		nlohmann::json body{
+			{"client_name", clientName},
+			{"client_id", clientId},
+			{"flash_serial", flashSerial},
+			{"signature", signature}};
+		std::string reply;
+		if (!client_.requestText(
+				body.dump(), COMMAND::AUTHENTICATE_V1, reply, nullptr, errMsg))
+		{
+			if (!client_.isConnected())
+				registeredUser_.clear();
+			return false;
+		}
+
+		try {
+			const auto parsed = nlohmann::json::parse(reply);
+			if (!parsed.is_object() || !parsed.value("ok", false)) {
+				if (errMsg)
+					*errMsg = "Сервер отклонил AUTHENTICATE_V1: " + reply;
+				return false;
+			}
+		} catch (const std::exception& ex) {
+			if (errMsg) {
+				*errMsg = std::string("Некорректный ответ AUTHENTICATE_V1: ") +
+					ex.what();
+			}
+			return false;
+		}
+
+		registeredUser_ = clientName;
+		return true;
 	}
 
 	bool requestText(const std::string& user,
@@ -279,6 +326,39 @@ public:
 	bool connectPrimary(std::string* errMsg = nullptr)
 	{
 		return connect(primaryServerId(), errMsg);
+	}
+
+	bool authenticateV1(const std::string& serverId,
+						const std::string& clientName,
+						const std::string& clientId,
+						const std::string& flashSerial,
+						const std::string& signature = {},
+						std::string* errMsg = nullptr)
+	{
+		auto session = findSession(serverId);
+		if (!session) return missingServer(serverId, errMsg);
+		const bool ok = session->authenticateV1(
+			clientName, clientId, flashSerial, signature, errMsg);
+		if (ok) {
+			std::lock_guard<std::mutex> lock(mutex_);
+			user_ = clientName;
+		}
+		return ok;
+	}
+
+	bool authenticatePrimaryV1(const std::string& clientName,
+							   const std::string& clientId,
+							   const std::string& flashSerial,
+							   const std::string& signature = {},
+							   std::string* errMsg = nullptr)
+	{
+		return authenticateV1(
+			primaryServerId(),
+			clientName,
+			clientId,
+			flashSerial,
+			signature,
+			errMsg);
 	}
 
 	bool reconnect(const std::string& serverId, std::string* errMsg = nullptr)
