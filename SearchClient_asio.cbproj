@@ -193,6 +193,9 @@
         <CppCompile Include="BinaryFileLoad\portable_binary_oarchive.cpp">
             <BuildOrder>22</BuildOrder>
         </CppCompile>
+        <None Include="ClientFilePublish.h">
+            <BuildOrder>36</BuildOrder>
+        </None>
         <CppCompile Include="Database\SqliteDb.cpp">
             <DependentOn>Database\SqliteDb.h</DependentOn>
             <BuildOrder>9</BuildOrder>
@@ -204,13 +207,13 @@
         <DelphiCompile Include="EhLibMTE.pas">
             <BuildOrder>5</BuildOrder>
         </DelphiCompile>
+        <CppCompile Include="FlashAuthSession.cpp">
+            <DependentOn>FlashAuthSession.h</DependentOn>
+            <BuildOrder>37</BuildOrder>
+        </CppCompile>
         <CppCompile Include="flashNum.cpp">
             <DependentOn>flashNum.h</DependentOn>
             <BuildOrder>10</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="UsbHardwareSerial.cpp">
-            <DependentOn>UsbHardwareSerial.h</DependentOn>
-            <BuildOrder>37</BuildOrder>
         </CppCompile>
         <CppCompile Include="formMain.cpp">
             <Form>fMain</Form>
@@ -328,11 +331,20 @@
             <DependentOn>SqlCondition.h</DependentOn>
             <BuildOrder>6</BuildOrder>
         </CppCompile>
+        <CppCompile Include="UsbAuthToken.cpp">
+            <DependentOn>UsbAuthToken.h</DependentOn>
+            <BuildOrder>38</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="UsbAuthWatcher.cpp">
+            <DependentOn>UsbAuthWatcher.h</DependentOn>
+            <BuildOrder>39</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="UsbHardwareSerial.cpp">
+            <DependentOn>UsbHardwareSerial.h</DependentOn>
+            <BuildOrder>40</BuildOrder>
+        </CppCompile>
         <None Include="UserFileReplace.h">
             <BuildOrder>35</BuildOrder>
-        </None>
-        <None Include="ClientFilePublish.h">
-            <BuildOrder>36</BuildOrder>
         </None>
         <CppCompile Include="utils.cpp">
             <DependentOn>utils.h</DependentOn>

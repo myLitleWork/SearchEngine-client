@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include <atomic>
+#include <optional>
 #include <thread>
 #include <cstdio>
 #include <algorithm>
@@ -1527,6 +1528,8 @@ void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 	}
 
 	shuttingDown_ = true;
+	if (flashAuth_)
+		flashAuth_->stop();
 	SaveMainWindowPlacement();
 	auto safeRelease = [this](auto* &fr) {
 
@@ -1606,7 +1609,20 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 
 		if(tryConnect() && auth_)
 		{
-			registryOnServer(user_);
+			if (auth_source_ == LocalAuthSource::Flash &&
+				!client_id_.empty() && !flash_serial_.empty())
+			{
+				std::string err;
+				if (!serverManager_.authenticatePrimaryV1(
+						user_, client_id_, flash_serial_, std::string{}, &err))
+				{
+					ShowMessage("Ошибка AUTHENTICATE_V1: " + String(err.c_str()));
+				}
+			}
+			else
+			{
+				registryOnServer(user_);
+			}
 		}
 	}
 	catch (const Exception& e) {
@@ -2177,6 +2193,10 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	bindFrameLife(myFrWay);
 	bindFrameLife(myFrPdtv);
 	ScheduleResponsiveLayout();
+
+	flashAuth_ = std::make_unique<FlashAuthSession>();
+	flashAuth_->setChangedCallback([this]() { queueApplyLocalAuthSources(); });
+	flashAuth_->start();
 }
 //--------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -3767,6 +3787,91 @@ void __fastcall TfMain::onSuccessfulAuthorization(const std::string& user_name, 
 	ScheduleResponsiveLayout();
 }
 
+void TfMain::queueApplyLocalAuthSources()
+{
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+	TThread::Queue(nullptr, [this, live, op]() {
+		if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+			return;
+		applyLocalAuthSources();
+	});
+}
+
+void TfMain::logoutUnauthorizedUi()
+{
+	clear();
+	tmLoginIn->Enabled = true;
+	pnShablons->Visible = false;
+	lblUser->Caption = "Нет авторизации!";
+	lblUser->Font->Color = clMaroon;
+	auth_ = false;
+	user_.clear();
+	client_id_.clear();
+	flash_serial_.clear();
+	token_dir_.clear();
+	auth_source_ = LocalAuthSource::None;
+	gCurrentPath.clear();
+	disconnectUiFull();
+	componentsEnable(false);
+	ScheduleResponsiveLayout();
+}
+
+void TfMain::applyLocalAuthSources()
+{
+	if (!uiIsLive() || shuttingDown_)
+		return;
+
+	std::optional<FlashAuthEntry> flash;
+	if (flashAuth_)
+		flash = flashAuth_->activeEntry();
+
+	if (flash.has_value())
+	{
+		const bool switched =
+			auth_source_ != LocalAuthSource::Flash ||
+			flash_serial_ != flash->serial ||
+			user_ != flash->clientName;
+		if (switched && auth_)
+		{
+			disconnectTransportOnly();
+			lbStatus->Caption = L"Статус: отключено от сервера";
+		}
+
+		onSuccessfulAuthorization(flash->clientName, flash->tokenPath);
+		client_id_ = flash->clientId;
+		flash_serial_ = flash->serial;
+		auth_source_ = LocalAuthSource::Flash;
+		gCurrentPath = flash->tokenPath;
+		return;
+	}
+
+	const std::wstring adminFile = auth_paths::fileBesideExecutable(L"admin984.bin");
+	if (auth_paths::isRegularFile(adminFile))
+	{
+		const std::string adminUtf8 = auth_paths::toUtf8(adminFile);
+		const bool switched =
+			auth_source_ != LocalAuthSource::Admin || user_ != "admin";
+		if (switched && auth_)
+		{
+			disconnectTransportOnly();
+			lbStatus->Caption = L"Статус: отключено от сервера";
+		}
+
+		onSuccessfulAuthorization("admin", adminUtf8);
+		client_id_.clear();
+		flash_serial_.clear();
+		auth_source_ = LocalAuthSource::Admin;
+		gCurrentPath = adminUtf8;
+		return;
+	}
+
+	if (!auth_ && auth_source_ == LocalAuthSource::None)
+		return;
+
+	logoutUnauthorizedUi();
+}
+
 
 
 // Отключаем критические окна ОС для текущего потока (RAII)
@@ -3842,28 +3947,27 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
     System::Threading::TTask::Run([this, guard_holder, live, op]() {
+		// Пока есть валидная флешка — admin не перекрывает.
+		if (flashAuth_ && flashAuth_->hasValidFlash())
+			return;
+
 		const std::wstring adminFile =
 			auth_paths::fileBesideExecutable(L"admin984.bin");
-		// Temporary simplified authorization: the marker must be a regular file
-		// located beside the running EXE. The path stays Unicode throughout.
-		if (!auth_ && user_ != "admin" && auth_paths::isRegularFile(adminFile)) {
-			const std::string adminFileUtf8 = auth_paths::toUtf8(adminFile);
-			TThread::Queue(nullptr, [this, adminFileUtf8, live, op]() {
-				if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
-					return;
-				onSuccessfulAuthorization("admin", adminFileUtf8);
-				// Auto-login must not pop a modal when years/ports are not
-				// configured yet; status bar already reports that from FormCreate.
-				if (cmbGod->Text.IsEmpty()) {
-					lbStatus->Caption = L"Статус: Не выбран год поиска";
-				}
-				else if (tryConnect()) {
-					registryOnServer("admin");
-				}
-				gCurrentPath = adminFileUtf8;
-			});
-			return; // guard_holder разрушится здесь -> флаг освободится
-		}
+		if (!auth_paths::isRegularFile(adminFile))
+			return;
+
+		// Локальный admin без авто-подключения к серверу (сервер — только по кнопке).
+		if (auth_ && auth_source_ == LocalAuthSource::Admin)
+			return;
+
+		TThread::Queue(nullptr, [this, live, op]() {
+			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+				return;
+			if (flashAuth_ && flashAuth_->hasValidFlash())
+				return;
+			applyLocalAuthSources();
+		});
+
 		// Signed removable/local tokens are temporarily disabled while the
 		// authorization design is being revisited. Keep this implementation for
 		// a possible return; do not delete it and do not generate RSA keys.
@@ -4551,8 +4655,22 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 	BusyGuardAtomic guard(gLogoutBusy);
 	if (!guard) return;
 
-	if (user_ == "admin")
+	if (auth_source_ == LocalAuthSource::Admin || user_ == "admin")
 		return;
+
+	// Flash: основной выход — WMI remove; таймер — safety-net.
+	if (auth_source_ == LocalAuthSource::Flash)
+	{
+		if (SafeExistsWin(toW(token_dir_)))
+			return;
+		if (!uiIsLive())
+			return;
+		if (flashAuth_)
+			flashAuth_->dropInvalidActive(flash_serial_, token_dir_);
+		else
+			queueApplyLocalAuthSources();
+		return;
+	}
 
 	// если токен (каталог/файл) «есть» — выходим (ничего не делаем)
 	// заменили std::filesystem::exists(token_dir_) на безопасную проверку
@@ -4573,16 +4691,7 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 		TThread::Queue(nullptr, [this, live, op]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
-			clear();
-			//tmLoginOut->Enabled = false;
-			tmLoginIn->Enabled = true;
-			pnShablons->Visible = false;
-			lblUser->Caption = "Нет авторизации!";
-			lblUser->Font->Color = clMaroon;
-			auth_ = false;
-			disconnectUiFull();
-			componentsEnable(false);
-			ScheduleResponsiveLayout();
+			logoutUnauthorizedUi();
 		});
 	});
 }

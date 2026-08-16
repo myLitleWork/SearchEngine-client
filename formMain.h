@@ -3,6 +3,7 @@
 #ifndef formMainH
 #define formMainH
 
+#include "FlashAuthSession.h"
 #include "WordBatchProcessor.h"
 #include "DataDriverEh.hpp"
 #include "DBAxisGridsEh.hpp"
@@ -175,6 +176,7 @@ __published:	// IDE-managed Components
 	TFDConnection *ConnectionSettings;
 	TPopupMenu *popDbg;
 	TPrintDBGridEh *dbp;
+	TPanel *pnStatusBar;
 	TLabel *lbStatus;
 	TComboBox *cmbGod;
 	TFDQuery *qrySettings;
@@ -569,6 +571,9 @@ public:		// User declarations
 	std::vector<uint8_t> loadFileToVector2(const std::string& filePath, const std::wstring& file_name,
 		bool showErrors = true);
 	void __fastcall onSuccessfulAuthorization(const std::string& user_name, const std::string& filePath);
+	void applyLocalAuthSources();
+	void queueApplyLocalAuthSources();
+	void logoutUnauthorizedUi();
 
 	void makeErrorWay(bool error);
 	void registryOnServer(const std::string& user_name);
@@ -578,6 +583,11 @@ public:		// User declarations
 	 std::string user_;
 	 bool auth_ = false;
 	 std::string token_dir_;
+	 std::string client_id_;
+	 std::string flash_serial_;
+	 enum class LocalAuthSource { None, Flash, Admin };
+	 LocalAuthSource auth_source_ = LocalAuthSource::None;
+	 std::unique_ptr<FlashAuthSession> flashAuth_;
 	 String last_loaded_num_;
 
 	 std::atomic_bool gLogInBusy{false};
