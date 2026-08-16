@@ -15,6 +15,7 @@
 #include <System.JSON.hpp>
 #include "stdint.h"
 #include "formMain.h"
+#include "formSelectServer.h"
 #include "AuthPaths.h"
 #include "UserFileReplace.h"
 #include "ClientFilePublish.h"
@@ -1050,11 +1051,10 @@ void TfMain::loadTextToEditFromServer()
 	}
 
 
-	auto reg = new TStringList();
+	auto reg = std::unique_ptr<TStringList>(new TStringList());
 	reg->Text = str.c_str();
-	my_utils::F_SL_OemToAnsi(reg);
+	my_utils::F_SL_OemToAnsi(reg.get());
 	applyRchEdtText(reg->Text, true);
-	delete reg;
 }
 //---------------------------------------------------------------------------
 std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table_name)
@@ -1576,6 +1576,10 @@ void TfMain::clear()
 
 void __fastcall TfMain::btnConnectClick(TObject *Sender)
 {
+	if (gSearchProcessing.load(std::memory_order_acquire)) {
+		ShowMessage("Дождитесь завершения поиска.");
+		return;
+	}
 	if (saveRunning.load(std::memory_order_acquire)) {
 		ShowMessage("Дождитесь завершения сохранения файлов.");
 		return;
@@ -1716,6 +1720,9 @@ void __fastcall TfMain::componentsEnable(bool b)
 		ListBox1->Enabled  = b;
 	  //	ggSaveProgress->Enabled = b;
 		btnSearch->Enabled = b;
+		btnConnect->Enabled = b;
+		btnDisconnect->Enabled = b;
+		cmbGod->Enabled = b;
 		cmbReq->Enabled = b;
 		Label1->Enabled = b;
 		Button3->Enabled = b;
@@ -1920,7 +1927,6 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
                 L"; лимит " + String(kResUiTextMaxChars) +
                 L" символов. Строка пропущена.");
             ggSaveProgress->AddProgress(1);
-            Application->ProcessMessages();
             continue;
         }
 
@@ -2009,7 +2015,6 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         }
 
         ggSaveProgress->AddProgress(1);
-        Application->ProcessMessages();
     }
 
     if (tranStarted)
@@ -2332,6 +2337,9 @@ void __fastcall TfMain::dbgEhDrawColumnCell(TObject *Sender, const TRect &Rect,
 //---------------------------------------------------------------------------
 void __fastcall TfMain::cmbGodChange(TObject *Sender)
 {
+	if (gSearchProcessing.load(std::memory_order_acquire))
+		return;
+
 	cmbGod->Enabled = false;
 
 	static String last_base;
@@ -2523,10 +2531,9 @@ int TfMain::SaveFileVh(const std::string& out_dir,
             OemToAnsi(raw.c_str(), raw.c_str());
             raw = raw.UpperCase();
 
-            TStringList* sl = new TStringList();
+            std::unique_ptr<TStringList> sl(new TStringList());
             sl->Text = raw;
             String text = sl->Text;
-			delete sl;
 
 			pushLog("DOCX: запуск обработки файла \"" + String(f.outputName.c_str()) + "\"");
 			DocxConversionResult conversion;
@@ -2774,15 +2781,34 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	std::string out_dir_async = out_dir;
 
     if (dbgEh->SelectedRows->Count > 1 && chkMakeDir->Checked) {
-        std::string dir_zapr = AnsiString(cmbReq->Text).c_str();
-        std::replace(dir_zapr.begin(), dir_zapr.end(), '/', '-');
-        out_dir_async = out_dir_async + "\\" + dir_zapr + "\\";
-        CreateDir(out_dir_async.c_str());
+		namespace fs = std::filesystem;
+		const fs::path baseDir(String(out_dir.c_str()).c_str());
+		String leaf = cmbReq->Text.Trim();
+		// Search text is only a display leaf under the chosen base — never a path.
+		const wchar_t forbidden[] = L"\\/:*?\"<>|";
+		for (int i = 1; i <= leaf.Length(); ++i) {
+			WideChar& ch = leaf[i];
+			if (wcschr(forbidden, ch) != nullptr || ch < 32)
+				ch = L'-';
+		}
+		while (leaf.Pos(L"--") > 0)
+			leaf = StringReplace(leaf, L"--", L"-", TReplaceFlags() << rfReplaceAll);
+		leaf = leaf.Trim();
+		fs::path subAbs;
+		std::wstring pathError;
+		if (!leaf.IsEmpty() && leaf != L"." && leaf != L".." &&
+			client_file_publish::ResolveUnderBase(
+				baseDir, fs::path(leaf.c_str()), subAbs, &pathError)) {
+			std::error_code ec;
+			fs::create_directories(subAbs, ec);
+			if (!ec || client_file_publish::IsDirectoryW(subAbs))
+				out_dir_async = AnsiString(String(subAbs.c_str())).c_str() + std::string("\\");
+		}
     }
 
     rchEdt->Lines->Clear();
 
-    TStringList* preLog = new TStringList(); // только для подготовки (UI поток)
+    std::unique_ptr<TStringList> preLog(new TStringList()); // только для подготовки (UI поток)
 
 	for (int i = 0; i < dbgEh->SelectedRows->Count; i++) {
         namespace fs = std::filesystem;
@@ -2858,7 +2884,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 		// подготовленные сообщения сразу в области журнала.
 		for (int i = 0; i < preLog->Count; ++i)
 			rchEdt->Lines->Add(preLog->Strings[i]);
-        delete preLog;
         return;
     }
 
@@ -2876,7 +2901,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
         for (int i = 0; i < preLog->Count; ++i)
 			pendingLog.push_back(preLog->Strings[i]);
     }
-	delete preLog;
 
 	tmSaveProgress->Enabled = true;
 
@@ -3046,20 +3070,51 @@ void __fastcall TfMain::chkSQLClick(TObject *Sender)
 void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 {
 	(void)Sender;
+	const auto endpoints = serverManager_.endpointsInOrder();
+	if (endpoints.empty()) {
+		ShowMessage(L"Нет доступных серверов для обновления базы.");
+		return;
+	}
+
+	std::string targetServerId = primaryServerId();
+	if (endpoints.size() > 1) {
+		std::unique_ptr<TfSelectServer> dialog(new TfSelectServer(this));
+		dialog->PopupParent = this;
+		dialog->SetServers(endpoints, targetServerId);
+		if (dialog->ShowModal() != mrOk)
+			return;
+		targetServerId = dialog->SelectedServerId();
+		if (targetServerId.empty()) {
+			ShowMessage(L"Сервер не выбран.");
+			return;
+		}
+	} else {
+		targetServerId = endpoints.front().id;
+	}
+
 	std::string err;
 	std::string str;
 	if (!serverManager_.requestText(
-			primaryServerId(), "START update!", COMMAND::START_UPDATE_BASE,
+			targetServerId, "START update!", COMMAND::START_UPDATE_BASE,
 			str, nullptr, &err)) {
 		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return;
 	}
 
 	const String reply = Trim(US(str));
-	if (!reply.IsEmpty())
-		ShowMessage(L"Команда обновления базы принята.\r\n" + reply);
-	else
-		ShowMessage(L"Команда обновления базы принята.");
+	String targetLabel = UTF8String(
+		serverManager_.displayName(targetServerId).c_str());
+	if (targetLabel.IsEmpty())
+		targetLabel = String(targetServerId.c_str());
+
+	if (!reply.IsEmpty()) {
+		ShowMessage(
+			L"Команда обновления базы принята.\r\nСервер: " + targetLabel +
+			L"\r\n" + reply);
+	} else {
+		ShowMessage(
+			L"Команда обновления базы принята.\r\nСервер: " + targetLabel);
+	}
 }
 //---------------------------------------------------------------------------
 
@@ -3475,6 +3530,16 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 	last_loaded_num_ = rowKey;
 	tmLoadText->Enabled = false;
+	struct TimerFinalizer {
+		TTimer* timer;
+		bool arm = true;
+		~TimerFinalizer()
+		{
+			if (arm && timer)
+				timer->Enabled = true;
+		}
+		void disarm() { arm = false; }
+	} timerFinalizer{tmLoadText};
 
 	// Удалённая строка: не оставляем текст предыдущей телеграммы и
 	// инвалидируем in-flight FILETEXT через last_loaded_num_.
@@ -3514,14 +3579,26 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 	std::string dir_str = AnsiString(dir).c_str();
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
+	timerFinalizer.disarm();
 
 System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op]() {
     std::lock_guard<std::mutex> lock(clickMutex);
 	std::string str;
 	std::string err;
 
-	if (live && !live->load(std::memory_order_acquire))
+	auto queueTimerEnable = [this, live, op]() {
+		TThread::Queue(nullptr, [this, live, op]() {
+			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+				return;
+			if (tmLoadText)
+				tmLoadText->Enabled = true;
+		});
+	};
+
+	if (live && !live->load(std::memory_order_acquire)) {
+		queueTimerEnable();
 		return;
+	}
 
 	// 1) отправка
 	if (!serverManager_.requestText(
@@ -3530,21 +3607,25 @@ System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op](
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
 			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+			if (tmLoadText)
+				tmLoadText->Enabled = true;
 		});
 		return;
 	}
 
-	TStringList* reg = new TStringList();
+	std::unique_ptr<TStringList> reg(new TStringList());
 	reg->Text = str.c_str();
-	my_utils::F_SL_OemToAnsi(reg);
+	my_utils::F_SL_OemToAnsi(reg.get());
 	String text = reg->Text;
-	delete reg;
 
     TThread::Queue(nullptr, [this, live, op, rowKey, text]() {
 		if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 			return;
-		if (last_loaded_num_ != rowKey)
+		if (last_loaded_num_ != rowKey) {
+			if (tmLoadText)
+				tmLoadText->Enabled = true;
             return;
+		}
 
         // --- Freeze: отключить перерисовку ---
         SendMessage(rchEdt->Handle, WM_SETREDRAW, FALSE, 0);
@@ -4168,32 +4249,80 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	auto save_byte = str[25];
 	normalizeByte(str, 25, 0x11);
 
-retry_save:
+	const auto save_path = createInnerDirectory(savePath);
+	std::set<std::string> savedKeys;
+	std::vector<String> savedDisplayNames;
 
-	try {
+	for (;;) {
 		try {
-			message_ = Message::deserializeFromBytes(str);
+			try {
+				message_ = Message::deserializeFromBytes(str);
+			} catch (...) {
+				str[25] = save_byte;
+				message_ = Message::deserializeFromBytes(str);
+			}
+		} catch (const std::exception& e) {
+			ShowMessage(String(L"Ошибка разбора пакета вложений:\n") + String(e.what()));
+			message_.attachments.clear();
+			return;
 		} catch (...) {
-			str[25] = save_byte;
-			message_ = Message::deserializeFromBytes(str);
+			ShowMessage(L"Ошибка разбора пакета вложений.");
+			message_.attachments.clear();
+			return;
 		}
 
-		auto save_path = createInnerDirectory(savePath);
-		message_.saveToDirectory(save_path);
+		const AttachmentSaveReport report =
+			message_.saveToDirectory(save_path, savedKeys);
 
-		ShowMessage("Сохранение завершено успешно!\n - " + AnsiString{save_path.string().c_str()});
-		message_.attachments.clear();
-	} catch (...) {
-		int retryResult = Application->MessageBox(
-			L"Произошла ошибка во время выполнения сохранения. Повторить попытку?",
+		for (const auto& item : report.saved) {
+			savedKeys.insert(item.key);
+			savedDisplayNames.push_back(String(item.writtenAs.c_str()));
+		}
+
+		if (report.allSucceeded()) {
+			String msg = L"Сохранение завершено успешно!\n - " +
+				String(save_path.wstring().c_str()) +
+				L"\nСохранено файлов: " + String(static_cast<int>(savedKeys.size()));
+			if (!savedDisplayNames.empty()) {
+				msg += L"\n";
+				for (const auto& name : savedDisplayNames)
+					msg += L"\n• " + name;
+			}
+			ShowMessage(msg);
+			message_.attachments.clear();
+			return;
+		}
+
+		String detail = L"Сохранено: " + String(static_cast<int>(savedKeys.size())) +
+			L", с ошибкой: " + String(static_cast<int>(report.failed.size())) + L".\n";
+		for (const auto& fail : report.failed)
+			detail += L"\n• " + String(fail.first.c_str()) + L" — " +
+				String(fail.second.c_str());
+		detail += L"\n\nПовторить только для файлов с ошибкой?";
+
+		const int retryResult = Application->MessageBox(
+			detail.c_str(),
 			L"Ошибка сохранения",
 			MB_YESNO | MB_ICONERROR
 		);
 
-		if (retryResult == IDYES) {
-			goto retry_save;  // Переход к метке для повторной попытки
-		} else {
-			message_.attachments.clear();  // Очистка сообщения
+		if (retryResult != IDYES) {
+			String summary = L"Сохранение завершено частично.\n - " +
+				String(save_path.wstring().c_str()) +
+				L"\nУспешно: " + String(static_cast<int>(savedKeys.size())) +
+				L", не сохранено: " + String(static_cast<int>(report.failed.size()));
+			if (!savedDisplayNames.empty()) {
+				summary += L"\n\nСохранено:";
+				for (const auto& name : savedDisplayNames)
+					summary += L"\n• " + name;
+			}
+			summary += L"\n\nНе сохранено:";
+			for (const auto& fail : report.failed)
+				summary += L"\n• " + String(fail.first.c_str()) + L" — " +
+					String(fail.second.c_str());
+			ShowMessage(summary);
+			message_.attachments.clear();
+			return;
 		}
 	}
 
@@ -4255,6 +4384,10 @@ void __fastcall TfMain::FormShow(TObject *Sender)
 
 void __fastcall TfMain::btnDisconnectClick(TObject *Sender)
 {
+	if (gSearchProcessing.load(std::memory_order_acquire)) {
+		ShowMessage("Дождитесь завершения поиска.");
+		return;
+	}
 	disconnectUiFull();
 }
 //---------------------------------------------------------------------------
@@ -4352,7 +4485,6 @@ void __fastcall TfMain::deleteFilesFromUI(const std::vector<String>& files)
         if (delInd != -1)
             lstFiles->Items->Delete(delInd);
     }
-	ggSaveProgress->AddProgress(1);
 	componentsEnable(true);
 }
 

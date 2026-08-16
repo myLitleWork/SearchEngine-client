@@ -114,13 +114,15 @@ public:
 						   MyAsioClient::FileProgressCallback onProgress = nullptr,
 						   std::uint64_t* receivedSize = nullptr,
 						   std::string* errMsg = nullptr,
-						   bool flushStreamToOs = false)
+						   bool flushStreamToOs = false,
+						   bool replaceAfterSuccess = false)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		if (!ensureConnectedLocked(user, errMsg))
 			return false;
 		const bool ok = client_.requestFileToPath(
-			request, command, outPath, onProgress, receivedSize, errMsg, flushStreamToOs);
+			request, command, outPath, onProgress, receivedSize, errMsg, flushStreamToOs,
+			replaceAfterSuccess);
 		if (!ok && !client_.isConnected())
 			registeredUser_.clear();
 		return ok;
@@ -248,6 +250,19 @@ public:
 		return order_;
 	}
 
+	std::vector<ServerEndpoint> endpointsInOrder() const
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		std::vector<ServerEndpoint> result;
+		result.reserve(order_.size());
+		for (const auto& id : order_) {
+			auto it = sessions_.find(id);
+			if (it != sessions_.end())
+				result.push_back(it->second->endpoint());
+		}
+		return result;
+	}
+
 	std::string displayName(const std::string& serverId) const
 	{
 		auto session = findSession(serverId);
@@ -337,13 +352,14 @@ public:
 						   MyAsioClient::FileProgressCallback onProgress = nullptr,
 						   std::uint64_t* receivedSize = nullptr,
 						   std::string* errMsg = nullptr,
-						   bool flushStreamToOs = false)
+						   bool flushStreamToOs = false,
+						   bool replaceAfterSuccess = false)
 	{
 		auto session = findSession(serverId);
 		if (!session) return missingServer(serverId, errMsg);
 		return session->requestFileToPath(
 			currentUser(), request, command, outPath, onProgress, receivedSize, errMsg,
-			flushStreamToOs);
+			flushStreamToOs, replaceAfterSuccess);
 	}
 
 private:

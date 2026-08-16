@@ -8,6 +8,7 @@
 #include "AuthPaths.h"
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
+USEFORM("formSelectServer.cpp", fSelectServer);
 //USEFORM("Frames\MyFrameDbg.cpp", FrameDbg); /* TFrame: File Type */
 //USEFORM("Frames\FramePdtv.cpp", frPdtv); /* TFrame: File Type */
 //USEFORM("Frames\FrameWay.cpp", frWay); /* TFrame: File Type */

@@ -5,6 +5,7 @@
 
 #include <map>
 #include <vector>
+#include <atomic>
 #include <System.Zip.hpp>
 #include <System.IOUtils.hpp>
 #include "ClientFilePublish.h"
@@ -61,9 +62,26 @@ inline client_file_publish::ZipExtractStats ExtZip(
 	try {
 		z->Open(zipFile, zmRead);
 
-		String tempDir = TPath::GetTempPath() + "ZipExtractTemp\\";
-		if (!TDirectory::Exists(tempDir))
+		String tempDir;
+		for (int attempt = 0; attempt < 256; ++attempt) {
+			static std::atomic<unsigned int> zipTempSeq{1};
+			const unsigned int sequence = zipTempSeq.fetch_add(1);
+			tempDir = TPath::GetTempPath() +
+				"ZipExtractTemp-" +
+				UIntToStr(static_cast<unsigned>(GetCurrentProcessId())) +
+				"-" + UIntToStr(sequence) + "\\";
+			if (TDirectory::Exists(tempDir))
+				continue;
 			TDirectory::CreateDirectory(tempDir);
+			if (TDirectory::Exists(tempDir))
+				break;
+			tempDir = "";
+		}
+		if (tempDir.IsEmpty()) {
+			stats.failed = stats.expected;
+			stats.errors.push_back(L"Failed to create unique ZIP extract directory");
+			z->Close();
+		} else {
 
 		const fs::path baseDir(targetDir.c_str());
 		const fs::path tempBase(tempDir.c_str());
@@ -145,6 +163,7 @@ inline client_file_publish::ZipExtractStats ExtZip(
 
 		TDirectory::Delete(tempDir, true);
 		z->Close();
+		} // unique tempDir created
 	}
 	__finally {
 		delete z;

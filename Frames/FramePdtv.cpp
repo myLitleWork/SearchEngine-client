@@ -8,6 +8,7 @@
 #include "myAsioClient.h"
 #include "myJson.h"
 #include <System.Threading.hpp>
+#include <memory>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma link "DBAxisGridsEh"
@@ -369,12 +370,11 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 // Ответ сервера находится в str.
 
 
-	TStringList* reg = new TStringList();
+	std::unique_ptr<TStringList> reg(new TStringList());
 	reg->Text = str.c_str();
-	my_utils::F_SL_OemToAnsi(reg);
+	my_utils::F_SL_OemToAnsi(reg.get());
 
 	memPdtv->Text = reg->Text;
-	delete reg;
 
 }
 //---------------------------------------------------------------------------

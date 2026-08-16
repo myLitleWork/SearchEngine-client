@@ -32,31 +32,48 @@ void Message::addAttachment(const std::filesystem::path& _file_dir)
     attachments[_file_dir.filename().string()] = data;
 }
 
-void Message::saveToDirectory(const std::filesystem::path& dirPath) const
+AttachmentSaveReport Message::saveToDirectory(
+	const std::filesystem::path& dirPath,
+	const std::set<std::string>& alreadySaved) const
 {
+	AttachmentSaveReport report;
 	std::filesystem::create_directory(dirPath);
 
-    for (const auto& [relative_path, data] : attachments) {
+	for (const auto& [relative_path, data] : attachments) {
+		const std::string key = relative_path.string();
+		if (alreadySaved.find(key) != alreadySaved.end())
+			continue;
+
 		std::filesystem::path absolutePath;
 		std::wstring pathError;
 		if (!client_file_publish::ResolveUnderBase(
 				dirPath, relative_path, absolutePath, &pathError)) {
-			throw std::runtime_error(
-				"Небезопасный путь вложения: " + relative_path.string() +
-				" (" + client_file_publish::Narrow(pathError) + ")");
+			report.failed.emplace_back(
+				key,
+				"Небезопасный путь вложения (" +
+					client_file_publish::Narrow(pathError) + ")");
+			continue;
 		}
 		if (!client_file_publish::EnsureUniqueFilePath(absolutePath)) {
-			throw std::runtime_error(
-				"Не удалось подобрать свободное имя для: " + relative_path.string());
+			report.failed.emplace_back(
+				key, "Не удалось подобрать свободное имя");
+			continue;
 		}
 		if (!client_file_publish::WriteNewFile(
 				absolutePath, data.data(), data.size(), &pathError)) {
-			throw std::runtime_error(
-				"Ошибка записи вложения: " + relative_path.string() +
-				" (" + client_file_publish::Narrow(pathError) + ")");
+			report.failed.emplace_back(
+				key,
+				"Ошибка записи (" + client_file_publish::Narrow(pathError) + ")");
+			continue;
 		}
-    }
 
+		AttachmentSaveItem item;
+		item.key = key;
+		item.writtenAs = absolutePath.filename().string();
+		report.saved.push_back(std::move(item));
+	}
+
+	return report;
 }
 
 Message Message::loadFromDirectory(const std::filesystem::path& dirPath)

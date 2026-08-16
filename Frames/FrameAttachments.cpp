@@ -197,17 +197,8 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
     if (!dlg->Execute())
         return; // пользователь отменил
 
-    // SaveDialog already confirmed overwrite when the path exists; remove it
-    // here so requestFileToPath can stay create-new / no-replace.
-    if (FileExists(dlg->FileName)) {
-        if (!DeleteFile(dlg->FileName)) {
-            ShowMessage(L"Не удалось заменить существующий файл:\n" + dlg->FileName);
-            return;
-        }
-    }
-
-    // Оба способа сохранения теперь используют одну транзакцию:
-    // запрос + заголовок + ровно объявленное число байт + временный .part.
+    // SaveDialog may confirm overwrite, but the existing target must stay
+    // intact until staging succeeds (replace-after-success inside transport).
     std::uint64_t receivedSize = 0;
     const std::string outPath = AnsiString(dlg->FileName).c_str();
 	if (!serverManager.requestFileToPath(
@@ -218,6 +209,7 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
             nullptr,
             &receivedSize,
             &err,
+            true,
             true)) {
         ShowMessage("Ошибка сохранения файла \"" + file_name + "\":\n" +
                     AnsiString(err.c_str()));

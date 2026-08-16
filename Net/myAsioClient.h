@@ -224,7 +224,8 @@ public:
 						  FileProgressCallback onProgress = nullptr,
 						  std::uint64_t* receivedSize = nullptr,
 						  std::string* errMsg = nullptr,
-						  bool flushStreamToOs = false);
+						  bool flushStreamToOs = false,
+						  bool replaceAfterSuccess = false);
 
 
     // уже есть у тебя:

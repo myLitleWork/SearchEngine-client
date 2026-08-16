@@ -12,18 +12,32 @@ class SqlCondition
 
 
 
+	static String sqlEscapeLiteral(const String& arg)
+	{
+		String out;
+		out.SetLength(0);
+		for (int i = 1; i <= arg.Length(); ++i) {
+			const WideChar c = arg[i];
+			if (c == L'\'')
+				out += L"''";
+			else
+				out += c;
+		}
+		return out;
+	}
+
 	static String getOrArgEq(const String& field, const String& arg)
 	{
-		auto upper_arg = arg.UpperCase();
-		auto lower_arg = arg.LowerCase();
+		auto upper_arg = sqlEscapeLiteral(arg.UpperCase());
+		auto lower_arg = sqlEscapeLiteral(arg.LowerCase());
 		auto res = "(" + field + " = '" + upper_arg + "' or " + field + " = '" + lower_arg + "')";
 		return res;
 	};
 
 	static String getOrArgLike(const String& field, const String& arg)
 	{
-		auto upper_arg = arg.UpperCase();
-		auto lower_arg = arg.LowerCase();
+		auto upper_arg = sqlEscapeLiteral(arg.UpperCase());
+		auto lower_arg = sqlEscapeLiteral(arg.LowerCase());
 		auto res = "(" + field + " LIKE ('%" + upper_arg + "%') or " + field + " LIKE ('%" + lower_arg + "%'))";
 		return res;
 	};

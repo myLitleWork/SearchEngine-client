@@ -4,6 +4,7 @@
 
 #include "myAsioClient.h"
 #include "ClientFilePublish.h"
+#include "UserFileReplace.h"
 #include <algorithm>
 #include <boost/asio/steady_timer.hpp>
 #include <atomic>
@@ -79,17 +80,52 @@ const ErrorMessages& loadedErrorMessages() noexcept
 
 std::string serverErrorUserMessage(std::uint32_t rawCode)
 {
+	// Keep these as explicit UTF-8 bytes. Ordinary Cyrillic literals may be
+	// compiled as CP1251 on this toolchain, while JSON messages are UTF-8.
+	static const char kInternal[] =
+		"\xD0\x9D\xD0\xB0\x20\xD1\x81\xD0\xB5\xD1\x80\xD0\xB2\xD0\xB5\xD1\x80\xD0\xB5\x20"
+		"\xD0\xBF\xD1\x80\xD0\xBE\xD0\xB8\xD0\xB7\xD0\xBE\xD1\x88\xD0\xBB\xD0\xB0\x20"
+		"\xD0\xB2\xD0\xBD\xD1\x83\xD1\x82\xD1\x80\xD0\xB5\xD0\xBD\xD0\xBD\xD1\x8F\xD1\x8F\x20"
+		"\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB0\x2E\x20"
+		"\xD0\x9A\xD0\xBE\xD0\xB4\x20\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB8\x3A\x20";
+	static const char kUnknown[] =
+		"\xD0\xA1\xD0\xB5\xD1\x80\xD0\xB2\xD0\xB5\xD1\x80\x20"
+		"\xD0\xB2\xD0\xB5\xD1\x80\xD0\xBD\xD1\x83\xD0\xBB\x20"
+		"\xD0\xBD\xD0\xB5\xD0\xB8\xD0\xB7\xD0\xB2\xD0\xB5\xD1\x81\xD1\x82\xD0\xBD\xD1\x83\xD1\x8E\x20"
+		"\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD1\x83\x2E\x20"
+		"\xD0\x9A\xD0\xBE\xD0\xB4\x20\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB8\x3A\x20";
+	static const char kCodeSuffix[] =
+		"\x20\xD0\x9A\xD0\xBE\xD0\xB4\x20\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB8\x3A\x20";
+
 	const auto& messages = loadedErrorMessages();
 	if (messages.empty())
-		return "На сервере произошла внутренняя ошибка. Код ошибки: " + std::to_string(rawCode) + ".";
+		return std::string(kInternal) + std::to_string(rawCode) + ".";
 	const auto it = messages.find(rawCode);
-	if (it == messages.end()) return "Сервер вернул неизвестную ошибку. Код ошибки: " + std::to_string(rawCode) + ".";
-	return it->second + " Код ошибки: " + std::to_string(rawCode) + ".";
+	if (it == messages.end())
+		return std::string(kUnknown) + std::to_string(rawCode) + ".";
+	return it->second + std::string(kCodeSuffix) + std::to_string(rawCode) + ".";
 }
 std::string legacyServerErrorUserMessage()
-{ return "Сервер сообщил о внутренней ошибке. Повторите попытку или обратитесь к администратору."; }
+{
+	return std::string(
+		"\xD0\xA1\xD0\xB5\xD1\x80\xD0\xB2\xD0\xB5\xD1\x80\x20"
+		"\xD1\x81\xD0\xBE\xD0\xBE\xD0\xB1\xD1\x89\xD0\xB8\xD0\xBB\x20"
+		"\xD0\xBE\x20\xD0\xB2\xD0\xBD\xD1\x83\xD1\x82\xD1\x80\xD0\xB5\xD0\xBD\xD0\xBD\xD0\xB5\xD0\xB9\x20"
+		"\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB5\x2E\x20"
+		"\xD0\x9F\xD0\xBE\xD0\xB2\xD1\x82\xD0\xBE\xD1\x80\xD0\xB8\xD1\x82\xD0\xB5\x20"
+		"\xD0\xBF\xD0\xBE\xD0\xBF\xD1\x8B\xD1\x82\xD0\xBA\xD1\x83\x20"
+		"\xD0\xB8\xD0\xBB\xD0\xB8\x20\xD0\xBE\xD0\xB1\xD1\x80\xD0\xB0\xD1\x82\xD0\xB8\xD1\x82\xD0\xB5\xD1\x81\xD1\x8C\x20"
+		"\xD0\xBA\x20\xD0\xB0\xD0\xB4\xD0\xBC\xD0\xB8\xD0\xBD\xD0\xB8\xD1\x81\xD1\x82\xD1\x80\xD0\xB0\xD1\x82\xD0\xBE\xD1\x80\xD1\x83\x2E");
+}
 std::string busyServerErrorUserMessage()
-{ return "Сервер занят. Повторите попытку позже."; }
+{
+	return std::string(
+		"\xD0\xA1\xD0\xB5\xD1\x80\xD0\xB2\xD0\xB5\xD1\x80\x20"
+		"\xD0\xB7\xD0\xB0\xD0\xBD\xD1\x8F\xD1\x82\x2E\x20"
+		"\xD0\x9F\xD0\xBE\xD0\xB2\xD1\x82\xD0\xBE\xD1\x80\xD0\xB8\xD1\x82\xD0\xB5\x20"
+		"\xD0\xBF\xD0\xBE\xD0\xBF\xD1\x8B\xD1\x82\xD0\xBA\xD1\x83\x20"
+		"\xD0\xBF\xD0\xBE\xD0\xB7\xD0\xB6\xD0\xB5\x2E");
+}
 
 namespace {
 
@@ -567,7 +603,8 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 									FileProgressCallback onProgress,
 									std::uint64_t* receivedSize,
 									std::string* errMsg,
-									bool flushStreamToOs)
+									bool flushStreamToOs,
+									bool replaceAfterSuccess)
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
 	namespace fs = std::filesystem;
@@ -578,11 +615,11 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		errMsg->clear();
 
 	const fs::path targetPath(outPath);
-	const fs::path partPath(outPath + ".part");
 
 	{
 		std::error_code existsEc;
-		if (fs::exists(targetPath, existsEc) && fs::is_regular_file(targetPath, existsEc)) {
+		if (!replaceAfterSuccess &&
+			fs::exists(targetPath, existsEc) && fs::is_regular_file(targetPath, existsEc)) {
 			if (errMsg)
 				*errMsg = "Файл уже существует; замена запрещена";
 			return false;
@@ -594,23 +631,6 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		}
 	}
 
-	std::error_code fsEc;
-	fs::remove(partPath, fsEc);
-
-	std::ofstream file(partPath, std::ios::binary | std::ios::trunc);
-	if (!file.is_open()) {
-		if (errMsg)
-			*errMsg = "Не удалось открыть временный файл для записи: " + partPath.string();
-		return false;
-	}
-
-	auto removePart = [&]() {
-		if (file.is_open())
-			file.close();
-		std::error_code ignored;
-		fs::remove(partPath, ignored);
-	};
-
 	auto invalidateTransport = [&]() {
 		if (socket_) {
 			boost::system::error_code ignored;
@@ -619,13 +639,57 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		}
 	};
 
-	try {
-		if (!socket_ || !socket_->is_open()) {
-			if (errMsg) *errMsg = "Нет подключения к серверу";
-			removePart();
+	if (!socket_ || !socket_->is_open()) {
+		if (errMsg) *errMsg = "Нет подключения к серверу";
+		return false;
+	}
+
+	const fs::path parent = targetPath.parent_path();
+	if (parent.empty()) {
+		if (errMsg) *errMsg = "Не удалось определить каталог назначения";
+		return false;
+	}
+
+	{
+		std::error_code ec;
+		fs::create_directories(parent, ec);
+		if (ec && !client_file_publish::IsDirectoryW(parent)) {
+			if (errMsg) *errMsg = "Не удалось создать каталог назначения";
 			return false;
 		}
+	}
 
+	std::wstring temporaryPath;
+	client_file_publish::HandleGuard ownedTemp;
+	std::wstring createError;
+	if (!client_file_publish::CreateUniqueTemporary(
+			parent, temporaryPath, ownedTemp.handle, &createError)) {
+		if (errMsg)
+			*errMsg = client_file_publish::Narrow(createError);
+		return false;
+	}
+
+	// Ownership is proven by CREATE_NEW; close the exclusive handle and stream
+	// into the same unique sibling. Only this path is deleted on failure.
+	CloseHandle(ownedTemp.Release());
+	client_file_publish::TemporaryFileGuard temporaryGuard;
+	temporaryGuard.path = temporaryPath;
+
+	const fs::path partPath(temporaryPath);
+	std::ofstream file(partPath, std::ios::binary | std::ios::trunc);
+	if (!file.is_open()) {
+		if (errMsg)
+			*errMsg = "Не удалось открыть временный файл для записи: " +
+				client_file_publish::Narrow(temporaryPath);
+		return false;
+	}
+
+	auto failCleanup = [&]() {
+		if (file.is_open())
+			file.close();
+	};
+
+	try {
 		header req{};
 		req.size = static_cast<uint_fast64_t>(request.size());
 		req.command = command;
@@ -637,13 +701,13 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		header resp{};
 		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg)) {
 			invalidateTransport();
-			removePart();
+			failCleanup();
 			return false;
 		}
 
 		if (consumeServerErrorResponse(
 				*socket_, resp, errMsg, "Сервер не нашёл запрошенный файл")) {
-			removePart();
+			failCleanup();
 			return false;
 		}
 
@@ -651,7 +715,7 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		last_total_.store(total, std::memory_order_relaxed);
 		if (total == 0) {
 			if (errMsg) *errMsg = "Сервер вернул пустой файл";
-			removePart();
+			failCleanup();
 			return false;
 		}
 
@@ -668,7 +732,7 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 
 			if (!read_exact_idle_timeout(*socket_, buffer.data(), chunk, errMsg)) {
 				invalidateTransport();
-				removePart();
+				failCleanup();
 				return false;
 			}
 
@@ -676,7 +740,7 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 			if (!file) {
 				if (errMsg) *errMsg = "Ошибка записи во временный файл";
 				invalidateTransport(); // остаток ответа нельзя оставлять в потоке протокола
-				removePart();
+				failCleanup();
 				return false;
 			}
 
@@ -691,7 +755,7 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 			file.flush();
 			if (!file) {
 				if (errMsg) *errMsg = "Ошибка сброса буфера временного файла";
-				removePart();
+				failCleanup();
 				return false;
 			}
 		}
@@ -699,32 +763,45 @@ bool MyAsioClient::requestFileToPath(const std::string& request,
 		file.close();
 		if (!file) {
 			if (errMsg) *errMsg = "Ошибка закрытия временного файла";
-			removePart();
+			failCleanup();
 			return false;
+		}
+
+		std::wstring publishError;
+		if (replaceAfterSuccess) {
+			// Target stays untouched until staging is complete; ReplaceFileW /
+			// create-new publish lives in user_file_replace.
+			temporaryGuard.Release();
+			if (!user_file_replace::PublishExistingTemporary(
+					temporaryPath, targetPath.wstring(), &publishError)) {
+				if (errMsg)
+					*errMsg = client_file_publish::Narrow(publishError);
+				return false;
+			}
+			return true;
 		}
 
 		// Create-new publish: never delete/replace an existing final path.
 		// If another process created the name after our early check, MoveNewFile
 		// fails closed instead of removing a foreign file.
-		std::wstring publishError;
 		if (!client_file_publish::MoveNewFile(partPath, targetPath, &publishError)) {
 			if (errMsg)
 				*errMsg = client_file_publish::Narrow(publishError);
-			removePart();
+			failCleanup();
 			return false;
 		}
-
+		temporaryGuard.Release();
 		return true;
 	}
 	catch (const std::exception& e) {
 		invalidateTransport();
-		removePart();
+		failCleanup();
 		if (errMsg) *errMsg = e.what();
 		return false;
 	}
 	catch (...) {
 		invalidateTransport();
-		removePart();
+		failCleanup();
 		if (errMsg) *errMsg = "Неизвестная ошибка передачи файла";
 		return false;
 	}

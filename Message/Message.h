@@ -19,6 +19,20 @@
 #define BYTE unsigned char
 
 
+struct AttachmentSaveItem
+{
+	std::string key;
+	std::string writtenAs;
+};
+
+struct AttachmentSaveReport
+{
+	std::vector<AttachmentSaveItem> saved;
+	std::vector<std::pair<std::string, std::string>> failed; // key, error
+
+	[[nodiscard]] bool allSucceeded() const { return failed.empty(); }
+};
+
 struct Message
 {
 
@@ -27,7 +41,11 @@ struct Message
 	void addAttachment(const std::filesystem::path& _file_dir);
 
 
-	void saveToDirectory(const std::filesystem::path& dirPath) const;
+	// Writes only attachments whose key is not in alreadySaved.
+	// Continues after per-item failures; caller retries only remaining keys.
+	AttachmentSaveReport saveToDirectory(
+		const std::filesystem::path& dirPath,
+		const std::set<std::string>& alreadySaved = {}) const;
 	Message() = default;
 
 
