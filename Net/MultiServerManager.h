@@ -34,6 +34,8 @@ struct ServerAuthAttempt
 	std::string displayName;
 	bool ok{false};
 	std::string error;
+	bool hasWireErrorCode{false};
+	std::uint32_t wireErrorCode{0};
 };
 
 class ServerSession
@@ -98,10 +100,13 @@ public:
 						const std::string& clientId,
 						const std::string& flashSerial,
 						const std::string& signature = {},
-						std::string* errMsg = nullptr)
+						std::string* errMsg = nullptr,
+						search_protocol::ServerErrorInfo* serverError = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		serverAuthorized_ = false;
+		if (serverError)
+			serverError->reset();
 		if (authPolicy_ != ServerAuthPolicy::AuthenticateV1) {
 			if (errMsg)
 				*errMsg = "AUTHENTICATE_V1 недоступен в режиме USER_REGISTRY";
@@ -118,9 +123,10 @@ public:
 			{"signature", signature}};
 		std::string reply;
 		if (!client_.requestText(
-				body.dump(), COMMAND::AUTHENTICATE_V1, reply, nullptr, errMsg))
+				body.dump(), COMMAND::AUTHENTICATE_V1, reply, nullptr, errMsg, serverError))
 		{
 			// Auth failure (or server close-after-error): drop local transport.
+			// Never fall back to USER_REGISTRY after AUTHENTICATE_V1 rejection.
 			client_.disConnect();
 			registeredUser_.clear();
 			serverAuthorized_ = false;
@@ -489,12 +495,13 @@ public:
 						const std::string& clientId,
 						const std::string& flashSerial,
 						const std::string& signature = {},
-						std::string* errMsg = nullptr)
+						std::string* errMsg = nullptr,
+						search_protocol::ServerErrorInfo* serverError = nullptr)
 	{
 		auto session = findSession(serverId);
 		if (!session) return missingServer(serverId, errMsg);
 		const bool ok = session->authenticateV1(
-			clientName, clientId, flashSerial, signature, errMsg);
+			clientName, clientId, flashSerial, signature, errMsg, serverError);
 		if (ok) {
 			std::lock_guard<std::mutex> lock(mutex_);
 			user_ = clientName;
@@ -531,8 +538,14 @@ public:
 			ServerAuthAttempt attempt;
 			attempt.serverId = id;
 			attempt.displayName = displayName(id);
+			search_protocol::ServerErrorInfo wireError;
 			attempt.ok = authenticateV1(
-				id, clientName, clientId, flashSerial, signature, &attempt.error);
+				id, clientName, clientId, flashSerial, signature,
+				&attempt.error, &wireError);
+			if (wireError.hasCode) {
+				attempt.hasWireErrorCode = true;
+				attempt.wireErrorCode = wireError.rawCode;
+			}
 			attempts.push_back(std::move(attempt));
 		}
 		return attempts;

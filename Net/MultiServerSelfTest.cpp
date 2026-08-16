@@ -8,6 +8,7 @@
 #include "MultiServerManager.h"
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <thread>
@@ -152,6 +153,132 @@ namespace
 		std::atomic_bool negotiated_{false};
 		std::atomic_bool legacyFallbackUsed_{false};
 	};
+
+	// Negotiates, then rejects AUTHENTICATE_V1 with a typed ErrorResponseV1.
+	// Any USER_REGISTRY / search request marks the fake as failed (no fallback).
+	class FakeAuthRejectServer
+	{
+	public:
+		explicit FakeAuthRejectServer(search_protocol::ErrorCode code)
+			: acceptor_(io_, tcp::endpoint(tcp::v4(), 0))
+			, code_(code)
+			, worker_([this]() { run(); })
+		{
+		}
+
+		~FakeAuthRejectServer()
+		{
+			boost::system::error_code ignored;
+			acceptor_.close(ignored);
+			if (socket_)
+				socket_->close(ignored);
+			if (worker_.joinable())
+				worker_.join();
+		}
+
+		unsigned short port() const { return acceptor_.local_endpoint().port(); }
+		bool authenticated() const { return authenticated_.load(std::memory_order_acquire); }
+		bool userRegistrySeen() const {
+			return userRegistrySeen_.load(std::memory_order_acquire);
+		}
+		bool searched() const { return searched_.load(std::memory_order_acquire); }
+		bool failed() const { return failed_.load(std::memory_order_acquire); }
+
+	private:
+		void send(tcp::socket& socket, COMMAND command, const std::string& body)
+		{
+			header response{};
+			response.command = command;
+			response.size = static_cast<uint_fast64_t>(body.size());
+			boost::asio::write(socket, boost::asio::buffer(&response, sizeof(response)));
+			if (!body.empty())
+				boost::asio::write(socket, boost::asio::buffer(body.data(), body.size()));
+		}
+
+		void readRequest(tcp::socket& socket, header& request, std::string& body)
+		{
+			boost::asio::read(socket, boost::asio::buffer(&request, sizeof(request)));
+			body.assign(static_cast<std::size_t>(request.size), '\0');
+			if (!body.empty())
+				boost::asio::read(socket, boost::asio::buffer(&body[0], body.size()));
+		}
+
+		void run()
+		{
+			try {
+				socket_ = std::make_unique<tcp::socket>(io_);
+				acceptor_.accept(*socket_);
+
+				header negotiationRequest{};
+				std::string negotiationBody;
+				readRequest(*socket_, negotiationRequest, negotiationBody);
+				if (negotiationRequest.command != COMMAND::NEGOTIATE_PROTOCOL_V1) {
+					failed_.store(true, std::memory_order_release);
+					return;
+				}
+				search_protocol::ProtocolCapabilitiesV1 capabilities{};
+				capabilities.capabilities =
+					search_protocol::CAPABILITY_TYPED_ERRORS_V1 |
+					search_protocol::CAPABILITY_CLIENT_AUTH_V1;
+				send(
+					*socket_,
+					COMMAND::NEGOTIATE_PROTOCOL_V1,
+					std::string(
+						reinterpret_cast<const char*>(&capabilities),
+						sizeof(capabilities)));
+
+				header authRequest{};
+				std::string authBody;
+				readRequest(*socket_, authRequest, authBody);
+				authenticated_.store(
+					authRequest.command == COMMAND::AUTHENTICATE_V1,
+					std::memory_order_release);
+				if (authRequest.command != COMMAND::AUTHENTICATE_V1) {
+					failed_.store(true, std::memory_order_release);
+					return;
+				}
+
+				search_protocol::ErrorResponseV1 errorPayload{};
+				errorPayload.errorCode = static_cast<std::uint32_t>(code_);
+				send(
+					*socket_,
+					COMMAND::ERROR_RESPONSE,
+					std::string(
+						reinterpret_cast<const char*>(&errorPayload),
+						sizeof(errorPayload)));
+				boost::system::error_code ignored;
+				socket_->shutdown(tcp::socket::shutdown_both, ignored);
+				socket_->close(ignored);
+				acceptor_.close(ignored);
+			}
+			catch (...) {
+				failed_.store(true, std::memory_order_release);
+			}
+		}
+
+		boost::asio::io_context io_;
+		tcp::acceptor acceptor_;
+		std::unique_ptr<tcp::socket> socket_;
+		search_protocol::ErrorCode code_;
+		std::thread worker_;
+		std::atomic_bool authenticated_{false};
+		std::atomic_bool userRegistrySeen_{false};
+		std::atomic_bool searched_{false};
+		std::atomic_bool failed_{false};
+	};
+
+	bool expectAuthMessage(search_protocol::ErrorCode code, const char* needleUtf8)
+	{
+		const auto message = serverErrorUserMessage(static_cast<std::uint32_t>(code));
+		if (message.find(needleUtf8) == std::string::npos)
+			return false;
+		if (message.find(std::to_string(static_cast<std::uint32_t>(code))) ==
+			std::string::npos)
+			return false;
+		if (serverErrorCodeName(static_cast<std::uint32_t>(code)).empty())
+			return false;
+		return isAuthRejectionErrorCode(static_cast<std::uint32_t>(code));
+	}
 }
 
 bool IsMultiServerSelfTestInvocation()
@@ -254,6 +381,98 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 51;
 	if (legacy.negotiated() || !legacy.legacyFallbackUsed())
 		return 52;
+
+	// --- AUTHENTICATE_V1 wire ErrorCode mapping (server table 33..43) ---
+	if (static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFailed) != 33u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientDisabled) != 34u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthRequired) != 35u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdMissing) != 36u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMissing) != 37u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMissing) != 38u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) != 39u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) != 40u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) != 41u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMismatch) != 42u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 43u)
+		return 60;
+
+	// UTF-8 substrings from config/server-error-messages.json (stable wire texts).
+	if (!expectAuthMessage(search_protocol::ErrorCode::AuthFailed,
+			"\xD0\xBD\xD0\xB5\xD0\xBE\xD0\xBF\xD1\x80\xD0\xB5\xD0\xB4\xD0\xB5\xD0\xBB") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthClientDisabled,
+			"\xD0\xBE\xD1\x82\xD0\xBA\xD0\xBB\xD1\x8E\xD1\x87") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthRequired,
+			"\xD1\x82\xD1\x80\xD0\xB5\xD0\xB1\xD1\x83\xD0\xB5\xD1\x82") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthClientIdMissing, "client_id") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthClientNameMissing, "client_name") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthFlashSerialMissing,
+			"\xD1\x81\xD0\xB5\xD1\x80\xD0\xB8\xD0\xB9\xD0\xBD") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthSignatureMissing,
+			"\xD0\xBF\xD0\xBE\xD0\xB4\xD0\xBF\xD0\xB8\xD1\x81") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthClientIdNotFound,
+			"\xD0\xBD\xD0\xB5\x20\xD0\xB7\xD0\xB0\xD1\x80\xD0\xB5\xD0\xB3\xD0\xB8\xD1\x81\xD1\x82") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthClientNameMismatch,
+			"\xD0\xB8\xD0\xBC\xD1\x8F") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthFlashSerialMismatch,
+			"\xD1\x81\xD0\xB5\xD1\x80\xD0\xB8\xD0\xB9\xD0\xBD") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthSignatureInvalid,
+			"\xD0\xBD\xD0\xB5\xD0\xB4\xD0\xB5\xD0\xB9\xD1\x81\xD1\x82\xD0\xB2"))
+		return 61;
+
+	const auto unknownMsg = serverErrorUserMessage(999u);
+	if (unknownMsg.find("999") == std::string::npos)
+		return 62;
+	if (serverErrorCodeName(999u) != "UnknownErrorCode")
+		return 63;
+	if (isAuthRejectionErrorCode(999u))
+		return 64;
+
+	FakeAuthRejectServer authReject(search_protocol::ErrorCode::AuthClientIdNotFound);
+	FakeAuthRejectServer authSig(search_protocol::ErrorCode::AuthSignatureInvalid);
+	MultiServerManager authManager;
+	authManager.configure({
+		{"auth-a", "Auth A", "127.0.0.1", std::to_string(authReject.port()), true},
+		{"auth-b", "Auth B", "127.0.0.1", std::to_string(authSig.port()), true}
+	}, "auth-a");
+	authManager.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
+
+	const auto authAttempts = authManager.authenticateAllV1(
+		"desk", "missing-client", "flash-1", "sig");
+	if (authAttempts.size() != 2)
+		return 65;
+	if (authAttempts[0].ok || authAttempts[1].ok)
+		return 66;
+	if (!authAttempts[0].hasWireErrorCode ||
+		authAttempts[0].wireErrorCode !=
+			static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound))
+		return 67;
+	if (!authAttempts[1].hasWireErrorCode ||
+		authAttempts[1].wireErrorCode !=
+			static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid))
+		return 68;
+	if (authAttempts[0].error.find("40") == std::string::npos ||
+		authAttempts[1].error.find("43") == std::string::npos)
+		return 69;
+	if (authManager.isServerAuthorized("auth-a") ||
+		authManager.isServerAuthorized("auth-b"))
+		return 70;
+	if (authManager.isConnected("auth-a") || authManager.isConnected("auth-b"))
+		return 71;
+
+	std::string searchOut;
+	std::string searchErr;
+	if (authManager.requestText(
+			"auth-a", "needle", COMMAND::GETSQLJSONANSWEAR, searchOut, nullptr, &searchErr))
+		return 72;
+
+	// Give the fake a moment; client must not reconnect for USER_REGISTRY/search.
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	if (!authReject.authenticated() || !authSig.authenticated())
+		return 73;
+	if (authReject.failed() || authSig.failed())
+		return 74;
+
+	authManager.disconnectAll();
 	return 0;
 }
 

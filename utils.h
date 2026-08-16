@@ -36,7 +36,7 @@ inline UnicodeString Utf8ToVcl(const std::string& s)
 		return UnicodeString();
 	const int len = static_cast<int>(s.size());
 	UINT codePage = CP_UTF8;
-	DWORD flags = WC_ERR_INVALID_CHARS;
+	DWORD flags = MB_ERR_INVALID_CHARS;
 	int n = MultiByteToWideChar(codePage, flags, s.data(), len, nullptr, 0);
 	if (n <= 0) {
 		codePage = CP_ACP;

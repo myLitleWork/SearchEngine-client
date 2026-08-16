@@ -1688,17 +1688,26 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 			const int total = static_cast<int>(attempts.size());
 
 			if (okCount <= 0) {
-				std::string err = attempts.empty()
-					? std::string("Нет серверов для AUTHENTICATE_V1")
-					: attempts.front().error;
+				disconnectUiFull();
+				std::unique_ptr<TStringList> failures(new TStringList());
+				failures->Add(L"Авторизация на серверах не выполнена.");
 				for (const auto& attempt : attempts) {
-					if (!attempt.ok && !attempt.error.empty()) {
-						err = attempt.error;
-						break;
+					failures->Add(
+						L"• " + US(attempt.displayName) + L": " + US(attempt.error));
+					if (attempt.hasWireErrorCode) {
+						pushLog(
+							L"Server authentication failed: server=" +
+							US(attempt.serverId) +
+							L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
+							L" wire_code=" + String(attempt.wireErrorCode));
+					}
+					else if (!attempt.error.empty()) {
+						pushLog(
+							L"Server authentication failed: server=" +
+							US(attempt.serverId) + L" " + US(attempt.error));
 					}
 				}
-				disconnectUiFull();
-				ShowMessage(US(err));
+				ShowMessage(failures->Text);
 				return;
 			}
 
@@ -1715,6 +1724,13 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 					partial->Add(
 						L"• " + US(attempt.displayName) + L": " +
 						US(attempt.error));
+					if (attempt.hasWireErrorCode) {
+						pushLog(
+							L"Server authentication failed: server=" +
+							US(attempt.serverId) +
+							L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
+							L" wire_code=" + String(attempt.wireErrorCode));
+					}
 				}
 				ShowMessage(partial->Text);
 			}

@@ -107,7 +107,15 @@ namespace search_protocol
 		InternalError = 32,
 		AuthFailed = 33,
 		AuthClientDisabled = 34,
-		AuthRequired = 35
+		AuthRequired = 35,
+		AuthClientIdMissing = 36,
+		AuthClientNameMissing = 37,
+		AuthFlashSerialMissing = 38,
+		AuthSignatureMissing = 39,
+		AuthClientIdNotFound = 40,
+		AuthClientNameMismatch = 41,
+		AuthFlashSerialMismatch = 42,
+		AuthSignatureInvalid = 43
 	};
 
 	struct ErrorResponseV1
@@ -156,8 +164,10 @@ namespace search_protocol
 }
 
 std::string serverErrorUserMessage(std::uint32_t rawCode);
+std::string serverErrorCodeName(std::uint32_t rawCode);
 std::string legacyServerErrorUserMessage();
 std::string busyServerErrorUserMessage();
+bool isAuthRejectionErrorCode(std::uint32_t rawCode) noexcept;
 
 static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
 static_assert(static_cast<std::uint64_t>(COMMAND::SOMEERROR) == 0);
@@ -171,6 +181,17 @@ static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,
 	"Protocol capabilities v1 payload must remain 8 bytes");
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFailed) == 33u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientDisabled) == 34u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthRequired) == 35u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdMissing) == 36u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMissing) == 37u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMissing) == 38u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) == 39u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) == 40u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) == 41u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMismatch) == 42u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) == 43u);
 
 using boost::asio::ip::tcp;
 
@@ -215,7 +236,8 @@ public:
 					 COMMAND command,
 					 std::string& out,
 					 std::atomic_uint64_t* progress = nullptr,
-					 std::string* errMsg = nullptr);
+					 std::string* errMsg = nullptr,
+					 search_protocol::ServerErrorInfo* serverError = nullptr);
 
 	bool requestBinary(const std::vector<uint8_t>& request,
 					   COMMAND command,

@@ -33,8 +33,16 @@
     {"code": 30, "name": "ResponseQueueFull", "message": "Сервер временно перегружен. Повторите попытку позже."},
     {"code": 31, "name": "CommandExecutionFailed", "message": "Сервер не смог выполнить операцию."},
     {"code": 32, "name": "InternalError", "message": "На сервере произошла внутренняя ошибка."},
-    {"code": 33, "name": "AuthFailed", "message": "Авторизация отклонена: данные клиента не совпали с записью на сервере."},
-    {"code": 34, "name": "AuthClientDisabled", "message": "Учётная запись клиента отключена на сервере."},
-    {"code": 35, "name": "AuthRequired", "message": "Для этой операции требуется авторизация на сервере."}
+    {"code": 33, "name": "AuthFailed", "message": "Сервер отклонил авторизацию по неопределённой/общей причине."},
+    {"code": 34, "name": "AuthClientDisabled", "message": "Доступ этого клиента отключён на сервере."},
+    {"code": 35, "name": "AuthRequired", "message": "Сервер требует авторизацию перед выполнением этой команды."},
+    {"code": 36, "name": "AuthClientIdMissing", "message": "Сервер отклонил авторизацию: не передан идентификатор клиента (client_id)."},
+    {"code": 37, "name": "AuthClientNameMissing", "message": "Сервер отклонил авторизацию: не передано имя клиента (client_name)."},
+    {"code": 38, "name": "AuthFlashSerialMissing", "message": "Сервер отклонил авторизацию: не передан серийный номер носителя."},
+    {"code": 39, "name": "AuthSignatureMissing", "message": "Сервер отклонил авторизацию: отсутствует подпись авторизационных данных."},
+    {"code": 40, "name": "AuthClientIdNotFound", "message": "Клиент не зарегистрирован на сервере: client_id отсутствует в серверной базе авторизации."},
+    {"code": 41, "name": "AuthClientNameMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другое имя клиента."},
+    {"code": 42, "name": "AuthFlashSerialMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой серийный номер носителя."},
+    {"code": 43, "name": "AuthSignatureInvalid", "message": "Сервер отклонил авторизацию: подпись авторизационных данных недействительна."}
   ]
 }

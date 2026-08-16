@@ -59,7 +59,7 @@ const ErrorMessages& loadedErrorMessages() noexcept
 {
 	static const ErrorMessages messages = [] {
 		ErrorMessages result;
-		static const char* const expectedNames[36] = { nullptr,
+		static const char* const expectedNames[44] = { nullptr,
 			"PayloadTooLarge", "InvalidCommand", "CommandNotRegistered", "ServerBusy",
 			"ServerStopping", "InvalidRequest", "InvalidJson", "InvalidBinaryPayload",
 			"FileNotFound", "FileMetadataFailed", "FileOpenFailed", "FileReadFailed",
@@ -69,7 +69,10 @@ const ErrorMessages& loadedErrorMessages() noexcept
 			"IndexUpdateInProgress", "IndexUpdateFailed", "OperatorNotRegistered",
 			"AttachmentNotFound", "MessageNotFound", "MessageSaveFailed", "MessageReadFailed",
 			"ResponseQueueFull", "CommandExecutionFailed", "InternalError",
-			"AuthFailed", "AuthClientDisabled", "AuthRequired" };
+			"AuthFailed", "AuthClientDisabled", "AuthRequired",
+			"AuthClientIdMissing", "AuthClientNameMissing", "AuthFlashSerialMissing",
+			"AuthSignatureMissing", "AuthClientIdNotFound", "AuthClientNameMismatch",
+			"AuthFlashSerialMismatch", "AuthSignatureInvalid" };
 		try {
 			std::ifstream input(errorMessagesPath(), std::ios::binary);
 			if (!input) return result;
@@ -81,10 +84,10 @@ const ErrorMessages& loadedErrorMessages() noexcept
 				const auto code = item.at("code").get<std::uint32_t>();
 				const auto name = item.at("name").get<std::string>();
 				const auto message = item.at("message").get<std::string>();
-				if (code < 1 || code > 35 || name != expectedNames[code] ||
+				if (code < 1 || code > 43 || name != expectedNames[code] ||
 					message.empty() || !result.emplace(code, message).second) return ErrorMessages{};
 			}
-			if (result.size() != 35) return ErrorMessages{};
+			if (result.size() != 43) return ErrorMessages{};
 		} catch (...) { return ErrorMessages{}; }
 		return result;
 	}();
@@ -119,6 +122,68 @@ std::string serverErrorUserMessage(std::uint32_t rawCode)
 	if (it == messages.end())
 		return std::string(kUnknown) + std::to_string(rawCode) + ".";
 	return it->second + std::string(kCodeSuffix) + std::to_string(rawCode) + ".";
+}
+
+std::string serverErrorCodeName(std::uint32_t rawCode)
+{
+	using search_protocol::ErrorCode;
+	if (rawCode < 1 ||
+		rawCode > static_cast<std::uint32_t>(ErrorCode::AuthSignatureInvalid))
+		return "UnknownErrorCode";
+
+	switch (static_cast<ErrorCode>(rawCode)) {
+	case ErrorCode::PayloadTooLarge: return "PayloadTooLarge";
+	case ErrorCode::InvalidCommand: return "InvalidCommand";
+	case ErrorCode::CommandNotRegistered: return "CommandNotRegistered";
+	case ErrorCode::ServerBusy: return "ServerBusy";
+	case ErrorCode::ServerStopping: return "ServerStopping";
+	case ErrorCode::InvalidRequest: return "InvalidRequest";
+	case ErrorCode::InvalidJson: return "InvalidJson";
+	case ErrorCode::InvalidBinaryPayload: return "InvalidBinaryPayload";
+	case ErrorCode::FileNotFound: return "FileNotFound";
+	case ErrorCode::FileMetadataFailed: return "FileMetadataFailed";
+	case ErrorCode::FileOpenFailed: return "FileOpenFailed";
+	case ErrorCode::FileReadFailed: return "FileReadFailed";
+	case ErrorCode::FileWriteFailed: return "FileWriteFailed";
+	case ErrorCode::DirectoryCreateFailed: return "DirectoryCreateFailed";
+	case ErrorCode::ConfigurationError: return "ConfigurationError";
+	case ErrorCode::DatabaseOpenFailed: return "DatabaseOpenFailed";
+	case ErrorCode::DatabaseBusy: return "DatabaseBusy";
+	case ErrorCode::DatabaseQueryFailed: return "DatabaseQueryFailed";
+	case ErrorCode::DatabaseSchemaFailed: return "DatabaseSchemaFailed";
+	case ErrorCode::SerializationFailed: return "SerializationFailed";
+	case ErrorCode::IndexUnavailable: return "IndexUnavailable";
+	case ErrorCode::IndexDataInconsistent: return "IndexDataInconsistent";
+	case ErrorCode::IndexUpdateInProgress: return "IndexUpdateInProgress";
+	case ErrorCode::IndexUpdateFailed: return "IndexUpdateFailed";
+	case ErrorCode::OperatorNotRegistered: return "OperatorNotRegistered";
+	case ErrorCode::AttachmentNotFound: return "AttachmentNotFound";
+	case ErrorCode::MessageNotFound: return "MessageNotFound";
+	case ErrorCode::MessageSaveFailed: return "MessageSaveFailed";
+	case ErrorCode::MessageReadFailed: return "MessageReadFailed";
+	case ErrorCode::ResponseQueueFull: return "ResponseQueueFull";
+	case ErrorCode::CommandExecutionFailed: return "CommandExecutionFailed";
+	case ErrorCode::InternalError: return "InternalError";
+	case ErrorCode::AuthFailed: return "AuthFailed";
+	case ErrorCode::AuthClientDisabled: return "AuthClientDisabled";
+	case ErrorCode::AuthRequired: return "AuthRequired";
+	case ErrorCode::AuthClientIdMissing: return "AuthClientIdMissing";
+	case ErrorCode::AuthClientNameMissing: return "AuthClientNameMissing";
+	case ErrorCode::AuthFlashSerialMissing: return "AuthFlashSerialMissing";
+	case ErrorCode::AuthSignatureMissing: return "AuthSignatureMissing";
+	case ErrorCode::AuthClientIdNotFound: return "AuthClientIdNotFound";
+	case ErrorCode::AuthClientNameMismatch: return "AuthClientNameMismatch";
+	case ErrorCode::AuthFlashSerialMismatch: return "AuthFlashSerialMismatch";
+	case ErrorCode::AuthSignatureInvalid: return "AuthSignatureInvalid";
+	}
+	return "UnknownErrorCode";
+}
+
+bool isAuthRejectionErrorCode(std::uint32_t rawCode) noexcept
+{
+	using search_protocol::ErrorCode;
+	return rawCode >= static_cast<std::uint32_t>(ErrorCode::AuthFailed) &&
+		rawCode <= static_cast<std::uint32_t>(ErrorCode::AuthSignatureInvalid);
 }
 std::string legacyServerErrorUserMessage()
 {
@@ -538,10 +603,13 @@ bool MyAsioClient::requestText(const std::string& request,
 							   COMMAND command,
 							   std::string& out,
 							   std::atomic_uint64_t* progress,
-							   std::string* errMsg)
+							   std::string* errMsg,
+							   search_protocol::ServerErrorInfo* serverError)
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
 	out.clear();
+	if (serverError)
+		serverError->reset();
 
 	try {
 		if (!socket_ || !socket_->is_open()) {
@@ -562,7 +630,8 @@ bool MyAsioClient::requestText(const std::string& request,
 			socket_->close(ignored);
 			return false;
 		}
-		if (consumeServerErrorResponse(*socket_, resp, errMsg)) {
+		if (consumeServerErrorResponse(
+				*socket_, resp, errMsg, "Сервер вернул ошибку", serverError)) {
 			return false;
 		}
 
