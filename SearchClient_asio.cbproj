@@ -208,6 +208,10 @@
             <DependentOn>flashNum.h</DependentOn>
             <BuildOrder>10</BuildOrder>
         </CppCompile>
+        <CppCompile Include="UsbHardwareSerial.cpp">
+            <DependentOn>UsbHardwareSerial.h</DependentOn>
+            <BuildOrder>37</BuildOrder>
+        </CppCompile>
         <CppCompile Include="formMain.cpp">
             <Form>fMain</Form>
             <FormType>dfm</FormType>
