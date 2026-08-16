@@ -89,12 +89,7 @@ String GetSearchClientProductVersion()
 #include "DbUtilsEh.hpp"
 #include "SqlCondition.h"
 
-// JSON/Net diagnostics from the server are UTF-8. Converting those bytes through
-// String/AnsiString treats them as ANSI (CP1251) and produces mojibake in VCL UI.
-inline UnicodeString US(const std::string& s)
-{
-	return UTF8String(s.c_str());
-}
+
 
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -1052,7 +1047,7 @@ void TfMain::loadTextToEditFromServer()
 	if (!serverManager_.requestText(
 			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
 			COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		ShowMessage("Ошибка запроса: " + String(err.c_str()));
 		return;
 	}
 
@@ -1188,11 +1183,22 @@ bool TfMain::configureServersForCurrentYear(String* errorMessage)
 	if (endpoints.empty()) {
 		if (errorMessage)
 			*errorMessage = L"Для " + cmbGod->Text + L" года не настроено ни одного сервера";
+		updateServerEndpointsLabel();
 		return false;
 	}
 	serverManager_.configure(endpoints, endpoints.front().id);
 	serverManager_.setUser(user_);
 	Edit2->Text = String(endpoints.front().host.c_str());
+
+	String labelText;
+	for (std::size_t i = 0; i < endpoints.size(); ++i) {
+		if (i > 0)
+			labelText += L", ";
+		labelText += String(endpoints[i].host.c_str()) + L":" +
+			String(endpoints[i].port.c_str());
+	}
+	if (lblServerEndpoints)
+		lblServerEndpoints->Caption = labelText;
 	return true;
 }
 std::string TfMain::primaryServerId() const
@@ -1238,7 +1244,7 @@ void TfMain::registryOnServer(const std::string& user_name)
 		serverManager_.setUser(user_name);
 		std::string err;
 		if (!serverManager_.connectPrimary(&err))
-			ShowMessage("Ошибка регистрации на сервере: " + US(err));
+			ShowMessage("Ошибка регистрации на сервере: " + String(err.c_str()));
     }
     catch (const std::exception& e) {
         ShowMessage("Ошибка регистрации: " + String(e.what()));
@@ -1261,7 +1267,7 @@ void __fastcall TfMain::finishSearch()
 		}
 		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount);
 		ShowMessage(message->Text);
-		btnSearch->Enabled = true;
+		btnSearch->Enabled = auth_;
         return;
     }
 	telegi = telegi_async;
@@ -1291,7 +1297,7 @@ void __fastcall TfMain::finishSearch()
 			searchSaveReport_ = searchSaveReport_ + L"\r\n\r\n" + openErr;
 		applyRchEdtText(L"", false);
 		lbStatus->Caption = L"Ошибка отображения результатов";
-		btnSearch->Enabled = true;
+		btnSearch->Enabled = auth_;
 		return;
 	}
 
@@ -1355,6 +1361,11 @@ void __fastcall TfMain::finishSearch()
 
 void __fastcall TfMain::btnSearchClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Поиск недоступен.");
+		componentsEnable(false);
+		return;
+	}
 
 	auto tok = std::make_shared<ComponentsGuard>(gSearchProcessing, this);
 	if (!*tok) return;
@@ -1614,6 +1625,11 @@ void TfMain::clear()
 
 void __fastcall TfMain::btnConnectClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Подключение недоступно.");
+		componentsEnable(false);
+		return;
+	}
 	if (gSearchProcessing.load(std::memory_order_acquire)) {
 		ShowMessage("Дождитесь завершения поиска.");
 		return;
@@ -1651,7 +1667,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 				if (!serverManager_.authenticatePrimaryV1(
 						user_, client_id_, flash_serial_, std::string{}, &err))
 				{
-					ShowMessage("Ошибка AUTHENTICATE_V1: " + US(err));
+					ShowMessage("Ошибка AUTHENTICATE_V1: " + String(err.c_str()));
 				}
 			}
 			else
@@ -1695,7 +1711,7 @@ bool TfMain::reconnectTransport(const std::string& requestedServerId)
 	const std::string serverId = requestedServerId.empty() ? primaryServerId() : requestedServerId;
 	std::string err;
 	if (!serverManager_.reconnect(serverId, &err)) {
-		pushLog("Авто-реконнект не выполнен: " + US(err));
+		pushLog("Авто-реконнект не выполнен: " + String(err.c_str()));
 		return false;
 	}
 	pushLog("Авто-реконнект выполнен: " + String(serverId.c_str()));
@@ -1766,38 +1782,70 @@ void __fastcall TfMain::tmFilterEnableAlarmTimer(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TfMain::componentsEnable(bool b)
 {
-	   tmLoadText->Enabled = b;
+		// Without local auth (flash/admin) nothing may talk to the server:
+		// Connect, Search, Download tab, Update — all stay off.
+		const bool uiOn = b && auth_;
+
+		tmLoadText->Enabled = uiOn;
 	   //	rchEdt->Enabled = b;
-		ListBox1->Enabled  = b;
+		ListBox1->Enabled  = uiOn;
 	  //	ggSaveProgress->Enabled = b;
-		btnSearch->Enabled = b;
-		btnConnect->Enabled = b;
-		btnDisconnect->Enabled = b;
-		cmbGod->Enabled = b;
-		cmbReq->Enabled = b;
-		Label1->Enabled = b;
-		Button3->Enabled = b;
-		Button1->Enabled = b;
-		btnSave->Enabled = b;
-		btnCancelSave->Enabled = !b && saveRunning.load(std::memory_order_acquire);
-		btnUpdate->Enabled = b;
-		btnAddFilesLoad->Enabled = b;
-		btnLoadOnServerFiles->Enabled = b;
-		btnSaveOpisBase->Enabled = b;
-		btnAttachSave->Enabled = b;
-		btnLoadRazn->Enabled = b;
-		lstShGroups->Enabled = b;
-		lstTemplates->Enabled = b;
-		btnLoadRazn->Enabled = b;
-		btnAttachSave->Enabled = b;
-		btnSaveOpisBase->Enabled = b;
-		btnAddFilesLoad->Enabled = b;
-		btnLoadOnServerFiles->Enabled = b;
-		dbgEh->Enabled = b;
+		btnSearch->Enabled = uiOn;
+		cmbReq->Enabled = uiOn;
+		Label1->Enabled = uiOn;
+		Button3->Enabled = uiOn;
+		Button1->Enabled = uiOn;
+		btnSave->Enabled = uiOn;
+		btnCancelSave->Enabled = !uiOn && saveRunning.load(std::memory_order_acquire);
+		btnUpdate->Enabled = uiOn;
+		btnAddFilesLoad->Enabled = uiOn;
+		btnLoadOnServerFiles->Enabled = uiOn;
+		btnSaveOpisBase->Enabled = uiOn;
+		btnAttachSave->Enabled = uiOn;
+		btnLoadRazn->Enabled = uiOn;
+		lstShGroups->Enabled = uiOn;
+		lstTemplates->Enabled = uiOn;
+		dbgEh->Enabled = uiOn;
 
+		// Connect/Disconnect/year follow auth + transport, not the session busy flag alone.
+		// Otherwise disconnectUiFull()/failed tryConnect() permanently disable Connect.
+		const std::string primaryId = primaryServerId();
+		const bool connected = !primaryId.empty() &&
+			serverManager_.isConnected(primaryId);
 
+		if (!auth_) {
+			btnConnect->Enabled = false;
+			btnDisconnect->Enabled = false;
+			cmbGod->Enabled = false;
+		}
+		else if (!b && connected) {
+			// Busy while still online (search/save/load): block reconnect/year change.
+			btnConnect->Enabled = false;
+			btnDisconnect->Enabled = false;
+			cmbGod->Enabled = false;
+		}
+		else if (!connected) {
+			// Authorized but offline (after disconnect or failed connect).
+			btnConnect->Enabled = true;
+			btnDisconnect->Enabled = false;
+			cmbGod->Enabled = true;
+		}
+		else {
+			// Authorized, online, session UI enabled.
+			btnConnect->Enabled = true;
+			btnDisconnect->Enabled = true;
+			cmbGod->Enabled = true;
+		}
 }
 
+
+// JSON received from the server stores text as UTF-8.  Converting these bytes
+// through AnsiString makes FireDAC persist mojibake (for example, "Р..." in
+// place of Cyrillic text) because its string parameters are Unicode.
+inline UnicodeString US(const std::string& s)
+{
+	return UTF8String(s.c_str());
+}
 
 // Match persistent TWideStringField.Size on qryTelegi/memTbl (formMain.dfm).
 // Values longer than this are skipped at insert so FireDAC Open does not abort
@@ -2224,6 +2272,9 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	flashAuth_ = std::make_unique<FlashAuthSession>();
 	flashAuth_->setChangedCallback([this]() { queueApplyLocalAuthSources(); });
 	flashAuth_->start();
+	// Lock Connect/Search/Download until flash/admin auth succeeds.
+	componentsEnable(false);
+	applyLocalAuthSources();
 }
 //--------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -2269,7 +2320,7 @@ void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Ha
 	if (!serverManager_.requestText(
 			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
 			COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		Handled = true;
 		return;
     }
@@ -2386,6 +2437,11 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 {
 	if (gSearchProcessing.load(std::memory_order_acquire))
 		return;
+	if (!auth_) {
+		updateServerEndpointsLabel();
+		cmbGod->Enabled = false;
+		return;
+	}
 
 	updateServerEndpointsLabel();
 	cmbGod->Enabled = false;
@@ -2402,7 +2458,10 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 	}
 	catch(...){};
 
-	cmbGod->Enabled = true;
+	const bool busy =
+		gSearchProcessing.load(std::memory_order_acquire) ||
+		saveRunning.load(std::memory_order_acquire);
+	componentsEnable(!busy);
 }
 
 
@@ -2467,7 +2526,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		break;
 	}
 	pushLog("Ошибка сохранения файла \"" + String(f.outputName.c_str()) + "\": " +
-		US(err));
+		String(err.c_str()));
 	// После неполной сетевой передачи поток протокола больше нельзя продолжать.
 	// requestFileToPath закрывает такой сокет; восстанавливаем транспорт для
 	// следующих файлов пакета и для последующих действий пользователя.
@@ -2532,7 +2591,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	{
 		pushLog(
 			"Файл \"" + String(f.remotePath.c_str()) +
-			"\" не получен: " + US(err)
+			"\" не получен: " + String(err.c_str())
 		);
 		if (!serverManager_.isConnected(f.serverId))
 			reconnectTransport(f.serverId);
@@ -2696,7 +2755,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& 
 		pushLog(
 			"Файл \"" + zip_dir +
 			"\" не получен. Ошибка: " +
-			US(err)
+			String(err.c_str())
 		);
 		if (!serverManager_.isConnected(f.serverId))
 			reconnectTransport(f.serverId);
@@ -3118,6 +3177,11 @@ void __fastcall TfMain::chkSQLClick(TObject *Sender)
 void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 {
 	(void)Sender;
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Обновление недоступно.");
+		componentsEnable(false);
+		return;
+	}
 	const auto endpoints = serverManager_.endpointsInOrder();
 	if (endpoints.empty()) {
 		ShowMessage(L"Нет доступных серверов для обновления базы.");
@@ -3145,7 +3209,7 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 	if (!serverManager_.requestText(
 			targetServerId, "START update!", COMMAND::START_UPDATE_BASE,
 			str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 		return;
 	}
 
@@ -3654,7 +3718,7 @@ System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op](
 		TThread::Queue(nullptr, [this, live, op, err]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
-			ShowMessage("Ошибка запроса: " + US(err));
+			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
 			if (tmLoadText)
 				tmLoadText->Enabled = true;
 		});
@@ -3804,12 +3868,13 @@ void __fastcall TfMain::actShowRowPanelExecute(TObject *Sender)
 #include <Windows.h>
 
 void __fastcall TfMain::onSuccessfulAuthorization(const std::string& user_name, const std::string& filePath) {
-	componentsEnable(true);
-	lblUser->Caption = "Авторизация : " + AnsiString(user_name.c_str());
+	// auth_ must be set before componentsEnable(): Connect/year depend on it.
 	user_ = user_name;
 	auth_ = true;
-	lblUser->Font->Color = clGreen;
 	token_dir_ = filePath;
+	lblUser->Caption = "Авторизация : " + AnsiString(user_name.c_str());
+	lblUser->Font->Color = clGreen;
+	componentsEnable(true);
 	//tmLoginIn->Enabled = false;
 	tmLoginOut->Enabled = true;
 	ScheduleResponsiveLayout();
@@ -3829,6 +3894,8 @@ void TfMain::queueApplyLocalAuthSources()
 void TfMain::logoutUnauthorizedUi()
 {
 	clear();
+	message_.attachments.clear();
+	tmLoginOut->Enabled = false;
 	tmLoginIn->Enabled = true;
 	pnShablons->Visible = false;
 	lblUser->Caption = "Нет авторизации!";
@@ -3842,6 +3909,7 @@ void TfMain::logoutUnauthorizedUi()
 	gCurrentPath.clear();
 	disconnectUiFull();
 	componentsEnable(false);
+	lbStatus->Caption = L"Статус: нет авторизации";
 	ScheduleResponsiveLayout();
 }
 
@@ -3862,6 +3930,8 @@ void TfMain::applyLocalAuthSources()
 			user_ != flash->clientName;
 		if (switched && auth_)
 		{
+			clear();
+			message_.attachments.clear();
 			disconnectTransportOnly();
 			lbStatus->Caption = L"Статус: отключено от сервера";
 		}
@@ -3874,14 +3944,26 @@ void TfMain::applyLocalAuthSources()
 		return;
 	}
 
+	const bool lostFlash = (auth_source_ == LocalAuthSource::Flash);
+	if (lostFlash)
+	{
+		// Flash removed: wipe results immediately, even if admin fallback follows.
+		clear();
+		message_.attachments.clear();
+		disconnectTransportOnly();
+		lbStatus->Caption = L"Статус: отключено от сервера";
+	}
+
 	const std::wstring adminFile = auth_paths::fileBesideExecutable(L"admin984.bin");
 	if (auth_paths::isRegularFile(adminFile))
 	{
 		const std::string adminUtf8 = auth_paths::toUtf8(adminFile);
 		const bool switched =
 			auth_source_ != LocalAuthSource::Admin || user_ != "admin";
-		if (switched && auth_)
+		if (switched && auth_ && !lostFlash)
 		{
+			clear();
+			message_.attachments.clear();
 			disconnectTransportOnly();
 			lbStatus->Caption = L"Статус: отключено от сервера";
 		}
@@ -4080,6 +4162,11 @@ void __fastcall TfMain::updateFileLoadUI(const String& filePath, bool ok)
 
 void __fastcall TfMain::btnAddFilesLoadClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Загрузка недоступна.");
+		componentsEnable(false);
+		return;
+	}
 	std::set<String> set_files;
 
 
@@ -4124,6 +4211,11 @@ void __fastcall TfMain::tbLoadShow(TObject *Sender)
 
 void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Загрузка недоступна.");
+		componentsEnable(false);
+		return;
+	}
 	const String yearText = Trim(cmbGod->Text);
 	bool yearOk = !yearText.IsEmpty();
 	for (int i = 1; yearOk && i <= yearText.Length(); ++i) {
@@ -4197,6 +4289,11 @@ void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 
 void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Загрузка недоступна.");
+		componentsEnable(false);
+		return;
+	}
 	memLogLoad->Lines->Clear();
 
 	for(const auto& filePath:SelectFiles())
@@ -4211,7 +4308,7 @@ void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 			std::vector<uint8_t> str;
 			if (!serverManager_.requestBinary(
 					primaryServerId(), file, COMMAND::LOAD_RAZN, str, nullptr, &err)) {
-				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + US(err));
+				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + AnsiString(err.c_str()));
 				continue;
 			}
 
@@ -4271,12 +4368,17 @@ static String getAttachmentsRequestErrorMessage(
 	}
 
 	if (!serverError.hasCode)
-		return US(legacyServerErrorUserMessage());
-	return US(fallback);
+		return String(AnsiString(legacyServerErrorUserMessage().c_str()));
+	return String(AnsiString(fallback.c_str()));
 }
 //---------------------------------------------------------------------------------------------
 void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Загрузка недоступна.");
+		componentsEnable(false);
+		return;
+	}
 	static auto createInnerDirectory = [](const std::filesystem::path& baseDir) {
 		auto now = std::chrono::system_clock::now();
 		auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -4307,7 +4409,7 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	int size = str.size();
 	if (size < 33) {
 		std::string s{str.begin(), str.end()};
-		ShowMessage("Ошибка данных: " + US(s));
+		ShowMessage(("Ошибка данных: " + s).c_str());
 		return;
 	}
 
@@ -4540,6 +4642,11 @@ void __fastcall TfMain::Button2Click(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TfMain::btnLoadOnServerFilesClick(TObject *Sender)
 {
+	if (!auth_) {
+		ShowMessage(L"Нет авторизации. Загрузка недоступна.");
+		componentsEnable(false);
+		return;
+	}
 	if (!uiIsLive())
 		return;
 
@@ -4682,51 +4789,50 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 	// не запускаем второй выход, пока предыдущий не завершён
 	BusyGuardAtomic guard(gLogoutBusy);
 	if (!guard) return;
-
-	if (auth_source_ == LocalAuthSource::Admin || user_ == "admin")
+	if (!auth_ || !uiIsLive())
 		return;
 
-	// Flash: основной выход — WMI remove; таймер — safety-net.
+	// Admin: continuously require admin984.bin beside the EXE.
+	if (auth_source_ == LocalAuthSource::Admin || user_ == "admin")
+	{
+		const std::wstring adminFile =
+			auth_paths::fileBesideExecutable(L"admin984.bin");
+		if (auth_paths::isRegularFile(adminFile))
+			return;
+		logoutUnauthorizedUi();
+		return;
+	}
+
+	// Flash: WMI remove is primary; timer is a safety-net for deleted token.
 	if (auth_source_ == LocalAuthSource::Flash)
 	{
-		if (SafeExistsWin(toW(token_dir_)))
-			return;
-		if (!uiIsLive())
+		const bool tokenPresent = !token_dir_.empty() &&
+			SafeExistsWin(toW(token_dir_));
+		const bool flashValid = flashAuth_ && flashAuth_->hasValidFlash();
+		if (tokenPresent && flashValid)
 			return;
 		if (flashAuth_)
 			flashAuth_->dropInvalidActive(flash_serial_, token_dir_);
 		else
-			queueApplyLocalAuthSources();
+			logoutUnauthorizedUi();
 		return;
 	}
 
-	// если токен (каталог/файл) «есть» — выходим (ничего не делаем)
-	// заменили std::filesystem::exists(token_dir_) на безопасную проверку
-	if (SafeExistsWin(toW(token_dir_)))
+	// Legacy signed-token path (currently disabled in tmLoginIn).
+	if (!token_dir_.empty() && SafeExistsWin(toW(token_dir_)))
 		return;
 
-	if (!uiIsLive())
-		return;
-
-	auto live = uiLive_;
-	auto op = trackBackgroundOp();
-	// Очищаем данные в фоне (если вдруг очистка attachments может быть долгой)
-	System::Threading::TTask::Run([this, live, op]() {
-		message_.attachments.clear();
-		user_.clear();
-
-		// Возврат в главный поток для UI и остальных операций
-		TThread::Queue(nullptr, [this, live, op]() {
-			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
-				return;
-			logoutUnauthorizedUi();
-		});
-	});
+	logoutUnauthorizedUi();
 }
 
 
 bool TfMain::tryConnect()
 {
+	if (!auth_) {
+		lbStatus->Caption = L"Статус: нет авторизации";
+		componentsEnable(false);
+		return false;
+	}
     try {
 		// Edit2 remains the compatibility editor for the primary host.
 		qrySettings->Close();
@@ -4744,7 +4850,7 @@ bool TfMain::tryConnect()
 		}
 		std::string err;
 		if (!serverManager_.connectPrimary(&err)) {
-			ShowMessage("Ошибка подключения: " + US(err));
+			ShowMessage("Ошибка подключения: " + String(err.c_str()));
 			lbStatus->Caption = "Статус: нет подключения";
 			componentsEnable(false);
 			return false;

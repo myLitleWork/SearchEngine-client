@@ -150,6 +150,7 @@ object fMain: TfMain
       Margins.Bottom = 8
       Align = alRight
       Caption = #1055#1086#1076#1082#1083#1102#1095#1077#1085#1080#1077
+      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = 32
@@ -172,6 +173,7 @@ object fMain: TfMain
       Margins.Bottom = 0
       Align = alLeft
       Style = csOwnerDrawFixed
+      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -38
@@ -195,6 +197,7 @@ object fMain: TfMain
       Margins.Bottom = 6
       Align = alLeft
       Caption = #1054#1073#1085#1086#1074#1083#1077#1085#1080#1077'!'
+      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -24
@@ -217,6 +220,7 @@ object fMain: TfMain
       Margins.Bottom = 8
       Align = alRight
       Caption = #1054#1090#1082#1083#1102#1095#1077#1085#1080#1077
+      Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = 32
