@@ -21,6 +21,21 @@ struct ServerEndpoint
 	bool enabled{true};
 };
 
+// Local flash uses AUTHENTICATE_V1; admin984.bin stays on USER_REGISTRY.
+enum class ServerAuthPolicy
+{
+	LegacyUserRegistry = 0,
+	AuthenticateV1 = 1
+};
+
+struct ServerAuthAttempt
+{
+	std::string serverId;
+	std::string displayName;
+	bool ok{false};
+	std::string error;
+};
+
 class ServerSession
 {
 public:
@@ -30,6 +45,24 @@ public:
 	}
 
 	const ServerEndpoint& endpoint() const noexcept { return endpoint_; }
+
+	void setAuthPolicy(ServerAuthPolicy policy)
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		authPolicy_ = policy;
+	}
+
+	ServerAuthPolicy authPolicy() const
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		return authPolicy_;
+	}
+
+	bool isServerAuthorized() const
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		return serverAuthorized_;
+	}
 
 	bool connect(const std::string& user, std::string* errMsg = nullptr)
 	{
@@ -42,6 +75,7 @@ public:
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		client_.disConnect();
 		registeredUser_.clear();
+		serverAuthorized_ = false;
 		return ensureConnectedLocked(user, errMsg);
 	}
 
@@ -50,6 +84,7 @@ public:
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		client_.disConnect();
 		registeredUser_.clear();
+		serverAuthorized_ = false;
 	}
 
 	bool isConnected()
@@ -58,8 +93,7 @@ public:
 		return client_.isConnected();
 	}
 
-	// New auth path (AUTHENTICATE_V1). Does not replace USER_REGISTRY / admin
-	// marker flow; call this when client_id + flash_serial are available.
+	// Flash path only. Never call for admin984.bin / LegacyUserRegistry.
 	bool authenticateV1(const std::string& clientName,
 						const std::string& clientId,
 						const std::string& flashSerial,
@@ -67,6 +101,13 @@ public:
 						std::string* errMsg = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
+		serverAuthorized_ = false;
+		if (authPolicy_ != ServerAuthPolicy::AuthenticateV1) {
+			if (errMsg)
+				*errMsg = "AUTHENTICATE_V1 недоступен в режиме USER_REGISTRY";
+			return false;
+		}
+		// Transport only: empty user must not trigger USER_REGISTRY.
 		if (!ensureConnectedLocked(std::string{}, errMsg))
 			return false;
 
@@ -79,19 +120,27 @@ public:
 		if (!client_.requestText(
 				body.dump(), COMMAND::AUTHENTICATE_V1, reply, nullptr, errMsg))
 		{
-			if (!client_.isConnected())
-				registeredUser_.clear();
+			// Auth failure (or server close-after-error): drop local transport.
+			client_.disConnect();
+			registeredUser_.clear();
+			serverAuthorized_ = false;
 			return false;
 		}
 
 		try {
 			const auto parsed = nlohmann::json::parse(reply);
 			if (!parsed.is_object() || !parsed.value("ok", false)) {
+				client_.disConnect();
+				registeredUser_.clear();
+				serverAuthorized_ = false;
 				if (errMsg)
 					*errMsg = "Сервер отклонил AUTHENTICATE_V1: " + reply;
 				return false;
 			}
 		} catch (const std::exception& ex) {
+			client_.disConnect();
+			registeredUser_.clear();
+			serverAuthorized_ = false;
 			if (errMsg) {
 				*errMsg = std::string("Некорректный ответ AUTHENTICATE_V1: ") +
 					ex.what();
@@ -100,6 +149,7 @@ public:
 		}
 
 		registeredUser_ = clientName;
+		serverAuthorized_ = true;
 		return true;
 	}
 
@@ -111,11 +161,13 @@ public:
 					 std::string* errMsg = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
-		if (!ensureConnectedLocked(user, errMsg))
+		if (!ensureAuthorizedForRequestLocked(user, errMsg))
 			return false;
 		const bool ok = client_.requestText(request, command, out, progress, errMsg);
-		if (!ok && !client_.isConnected())
+		if (!ok && !client_.isConnected()) {
 			registeredUser_.clear();
+			serverAuthorized_ = false;
+		}
 		return ok;
 	}
 
@@ -130,12 +182,14 @@ public:
 		std::lock_guard<std::mutex> lock(requestMutex_);
 		if (serverError)
 			serverError->reset();
-		if (!ensureConnectedLocked(user, errMsg))
+		if (!ensureAuthorizedForRequestLocked(user, errMsg))
 			return false;
 		const bool ok = client_.requestBinary(
 			request, command, out, progress, errMsg, serverError);
-		if (!ok && !client_.isConnected())
+		if (!ok && !client_.isConnected()) {
 			registeredUser_.clear();
+			serverAuthorized_ = false;
+		}
 		return ok;
 	}
 
@@ -146,11 +200,13 @@ public:
 						std::string* errMsg = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
-		if (!ensureConnectedLocked(user, errMsg))
+		if (!ensureAuthorizedForRequestLocked(user, errMsg))
 			return false;
 		const bool ok = client_.requestBinFile(path, out, progress, errMsg);
-		if (!ok && !client_.isConnected())
+		if (!ok && !client_.isConnected()) {
 			registeredUser_.clear();
+			serverAuthorized_ = false;
+		}
 		return ok;
 	}
 
@@ -165,13 +221,15 @@ public:
 						   bool replaceAfterSuccess = false)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
-		if (!ensureConnectedLocked(user, errMsg))
+		if (!ensureAuthorizedForRequestLocked(user, errMsg))
 			return false;
 		const bool ok = client_.requestFileToPath(
 			request, command, outPath, onProgress, receivedSize, errMsg, flushStreamToOs,
 			replaceAfterSuccess);
-		if (!ok && !client_.isConnected())
+		if (!ok && !client_.isConnected()) {
 			registeredUser_.clear();
+			serverAuthorized_ = false;
+		}
 		return ok;
 	}
 
@@ -183,15 +241,41 @@ private:
 		TypedErrorsV1
 	};
 
+	bool requireServerAuthorizedLocked(std::string* errMsg) const
+	{
+		if (serverAuthorized_)
+			return true;
+		if (errMsg) {
+			*errMsg = serverErrorUserMessage(static_cast<std::uint32_t>(
+				search_protocol::ErrorCode::AuthRequired));
+		}
+		return false;
+	}
+
+	bool ensureAuthorizedForRequestLocked(const std::string& user, std::string* errMsg)
+	{
+		if (authPolicy_ == ServerAuthPolicy::AuthenticateV1) {
+			// Flash: never invent server-auth via USER_REGISTRY.
+			if (!ensureConnectedLocked(std::string{}, errMsg))
+				return false;
+			return requireServerAuthorizedLocked(errMsg);
+		}
+		if (!ensureConnectedLocked(user, errMsg))
+			return false;
+		return requireServerAuthorizedLocked(errMsg);
+	}
+
 	bool ensureConnectedLocked(const std::string& user, std::string* errMsg)
 	{
 		if (!client_.isConnected()) {
 			std::string connectError;
 			if (!client_.tryConnect(endpoint_.host, endpoint_.port, connectError)) {
 				if (errMsg) *errMsg = connectError;
+				serverAuthorized_ = false;
 				return false;
 			}
 			registeredUser_.clear();
+			serverAuthorized_ = false;
 
 			if (protocolSupport_ != ProtocolSupport::Legacy) {
 				std::string negotiationError;
@@ -220,6 +304,7 @@ private:
 					}
 					protocolSupport_ = ProtocolSupport::Legacy;
 					registeredUser_.clear();
+					serverAuthorized_ = false;
 				}
 				else {
 					client_.disConnect();
@@ -233,26 +318,39 @@ private:
 			}
 		}
 
+		if (authPolicy_ == ServerAuthPolicy::AuthenticateV1) {
+			// Flash sessions are authorized only by authenticateV1().
+			return true;
+		}
+
 		if (!user.empty() && registeredUser_ != user) {
 			std::string reply;
 			std::string registryError;
 			if (!client_.requestText(user, COMMAND::USER_REGISTRY, reply, nullptr, &registryError)) {
 				if (errMsg) *errMsg = registryError;
+				serverAuthorized_ = false;
 				return false;
 			}
 			if (reply != "OK") {
 				if (errMsg) *errMsg = "Сервер отклонил регистрацию пользователя: " + reply;
+				serverAuthorized_ = false;
 				return false;
 			}
 			registeredUser_ = user;
+			serverAuthorized_ = true;
+		}
+		else if (!user.empty() && registeredUser_ == user) {
+			serverAuthorized_ = true;
 		}
 		return true;
 	}
 
 	ServerEndpoint endpoint_;
 	MyAsioClient client_;
-	std::mutex requestMutex_;
+	mutable std::mutex requestMutex_;
 	std::string registeredUser_;
+	bool serverAuthorized_{false};
+	ServerAuthPolicy authPolicy_{ServerAuthPolicy::LegacyUserRegistry};
 	ProtocolSupport protocolSupport_{ProtocolSupport::Unknown};
 };
 
@@ -267,7 +365,9 @@ public:
 		for (const auto& endpoint : endpoints) {
 			if (!endpoint.enabled || endpoint.id.empty())
 				continue;
-			sessions[endpoint.id] = std::make_shared<ServerSession>(endpoint);
+			auto session = std::make_shared<ServerSession>(endpoint);
+			session->setAuthPolicy(authPolicy_);
+			sessions[endpoint.id] = std::move(session);
 			order.push_back(endpoint.id);
 		}
 
@@ -277,6 +377,25 @@ public:
 		primaryServerId_ = primaryServerId;
 		if (sessions_.find(primaryServerId_) == sessions_.end())
 			primaryServerId_ = order_.empty() ? std::string{} : order_.front();
+	}
+
+	void setAuthPolicy(ServerAuthPolicy policy)
+	{
+		std::vector<std::shared_ptr<ServerSession>> sessions;
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			authPolicy_ = policy;
+			for (const auto& item : sessions_)
+				sessions.push_back(item.second);
+		}
+		for (const auto& session : sessions)
+			session->setAuthPolicy(policy);
+	}
+
+	ServerAuthPolicy authPolicy() const
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return authPolicy_;
 	}
 
 	void setUser(const std::string& user)
@@ -295,6 +414,43 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		return order_;
+	}
+
+	std::size_t serverCount() const
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return order_.size();
+	}
+
+	std::size_t authorizedServerCount() const
+	{
+		std::size_t count = 0;
+		for (const auto& id : serverIds()) {
+			if (isServerAuthorized(id))
+				++count;
+		}
+		return count;
+	}
+
+	bool hasAnyServerAuthorized() const
+	{
+		return authorizedServerCount() > 0;
+	}
+
+	bool isServerAuthorized(const std::string& serverId) const
+	{
+		auto session = findSession(serverId);
+		return session && session->isServerAuthorized();
+	}
+
+	std::vector<std::string> authorizedServerIds() const
+	{
+		std::vector<std::string> result;
+		for (const auto& id : serverIds()) {
+			if (isServerAuthorized(id))
+				result.push_back(id);
+		}
+		return result;
 	}
 
 	std::vector<ServerEndpoint> endpointsInOrder() const
@@ -361,10 +517,38 @@ public:
 			errMsg);
 	}
 
+	// Flash Connect: AUTHENTICATE_V1 on every enabled server for the year.
+	std::vector<ServerAuthAttempt> authenticateAllV1(
+		const std::string& clientName,
+		const std::string& clientId,
+		const std::string& flashSerial,
+		const std::string& signature = {})
+	{
+		std::vector<ServerAuthAttempt> attempts;
+		const auto ids = serverIds();
+		attempts.reserve(ids.size());
+		for (const auto& id : ids) {
+			ServerAuthAttempt attempt;
+			attempt.serverId = id;
+			attempt.displayName = displayName(id);
+			attempt.ok = authenticateV1(
+				id, clientName, clientId, flashSerial, signature, &attempt.error);
+			attempts.push_back(std::move(attempt));
+		}
+		return attempts;
+	}
+
 	bool reconnect(const std::string& serverId, std::string* errMsg = nullptr)
 	{
 		auto session = findSession(serverId);
 		if (!session) return missingServer(serverId, errMsg);
+		if (authPolicy() == ServerAuthPolicy::AuthenticateV1) {
+			if (errMsg) {
+				*errMsg = "Для flash-сессии нужен повторный AUTHENTICATE_V1, "
+					"а не USER_REGISTRY";
+			}
+			return false;
+		}
 		return session->reconnect(currentUser(), errMsg);
 	}
 
@@ -467,4 +651,5 @@ private:
 	std::vector<std::string> order_;
 	std::string primaryServerId_;
 	std::string user_;
+	ServerAuthPolicy authPolicy_{ServerAuthPolicy::LegacyUserRegistry};
 };

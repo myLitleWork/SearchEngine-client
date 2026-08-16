@@ -68,7 +68,9 @@ bool TryLoadUsbAuthToken(const std::string& tokenPathUtf8,
 		return false;
 	if (j.value("format", std::string()) != "searchclient-auth-token")
 		return false;
-	if (j.value("format_version", 0) != 1)
+
+	const int formatVersion = j.value("format_version", 0);
+	if (formatVersion != 1 && formatVersion != 2)
 		return false;
 
 	const std::string clientName = TrimCopy(j.value("client_name", std::string()));
@@ -80,15 +82,29 @@ bool TryLoadUsbAuthToken(const std::string& tokenPathUtf8,
 	if (flashSerial != actual)
 		return false;
 
+	std::string signatureValue;
 	if (j.contains("signature") && j["signature"].is_object()) {
 		const std::string alg = j["signature"].value("alg", std::string());
-		if (!alg.empty() && alg != "none")
-			return false;
+		if (formatVersion == 1) {
+			if (!alg.empty() && alg != "none")
+				return false;
+		} else {
+			// v2: accept RS256 (server verifies). No local crypto check.
+			if (alg != "RS256")
+				return false;
+			signatureValue = j["signature"].value("value", std::string());
+			if (signatureValue.empty())
+				return false;
+		}
+	} else if (formatVersion == 2) {
+		return false;
 	}
 
 	out.clientId = TrimCopy(j.value("client_id", std::string()));
 	out.clientName = clientName;
 	out.flashSerial = flashSerial;
 	out.tokenPath = tokenPathUtf8;
+	out.signatureValue = signatureValue;
+	out.formatVersion = formatVersion;
 	return true;
 }

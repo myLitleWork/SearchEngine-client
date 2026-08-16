@@ -38,7 +38,21 @@ std::filesystem::path errorMessagesPath()
 	wchar_t exe[MAX_PATH]{};
 	const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
 	if (n == 0 || n >= MAX_PATH) return {};
-	return std::filesystem::path(exe).parent_path() / L"config" / L"server-error-messages.json";
+	const auto exeDir = std::filesystem::path(exe).parent_path();
+	const std::filesystem::path candidates[] = {
+		exeDir / L"config" / L"server-error-messages.json",
+		// IDE Debug/Release under Win32\<Config>\ — project config two levels up.
+		exeDir / L".." / L".." / L"config" / L"server-error-messages.json",
+		exeDir / L".." / L"config" / L"server-error-messages.json",
+	};
+	for (const auto& candidate : candidates) {
+		std::error_code ec;
+		const auto canonical = std::filesystem::weakly_canonical(candidate, ec);
+		if (ec) continue;
+		if (std::filesystem::is_regular_file(canonical, ec) && !ec)
+			return canonical;
+	}
+	return exeDir / L"config" / L"server-error-messages.json";
 }
 
 const ErrorMessages& loadedErrorMessages() noexcept

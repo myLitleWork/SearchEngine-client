@@ -563,6 +563,8 @@ public:		// User declarations
 	void disconnectUiFull();
 	bool reconnectTransport(const std::string& serverId = std::string{});
 	bool tryConnect();
+	bool hasServerAuthorization() const;
+	void applyServerAuthUiStatus();
 
 	std::mutex clickMutex;
 	std::mutex soketMutex;
@@ -583,10 +585,11 @@ public:		// User declarations
 
 	 Message message_;
 	 std::string user_;
-	 bool auth_ = false;
+	 bool auth_ = false; // local flash/admin UI only
 	 std::string token_dir_;
 	 std::string client_id_;
 	 std::string flash_serial_;
+	 std::string auth_signature_;
 	 enum class LocalAuthSource { None, Flash, Admin };
 	 LocalAuthSource auth_source_ = LocalAuthSource::None;
 	 std::unique_ptr<FlashAuthSession> flashAuth_;

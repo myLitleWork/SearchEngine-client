@@ -161,6 +161,7 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 				stack_[i].tokenPath = token.tokenPath;
 				stack_[i].clientName = token.clientName;
 				stack_[i].clientId = token.clientId;
+				stack_[i].signatureValue = token.signatureValue;
 				stack_[i].tick = ++tick_;
 				return true;
 			}
@@ -172,6 +173,7 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 		e.tokenPath = token.tokenPath;
 		e.clientName = token.clientName;
 		e.clientId = token.clientId;
+		e.signatureValue = token.signatureValue;
 		e.tick = ++tick_;
 		stack_.push_back(e);
 	}
@@ -230,6 +232,7 @@ void FlashAuthSession::scanConnectedDisks()
 			e.clientName = token.clientName;
 			e.clientId = token.clientId;
 			e.tokenPath = token.tokenPath;
+			e.signatureValue = token.signatureValue;
 			kept.push_back(e);
 		}
 		if (kept.size() != stack_.size())

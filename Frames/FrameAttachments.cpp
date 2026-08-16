@@ -70,7 +70,7 @@ void TfrAttachments::FillDbg()
 		// 1) отправка
 		if (!serverManager.requestText(
 				SourceServerId(), str_command, cmd, jsonStr, nullptr, &err)) {
-			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+			ShowMessage("Ошибка запроса: " + String(UTF8String(err.c_str())));
 			return;
 		}
 
@@ -212,7 +212,7 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
             true,
             true)) {
         ShowMessage("Ошибка сохранения файла \"" + file_name + "\":\n" +
-                    AnsiString(err.c_str()));
+                    String(UTF8String(err.c_str())));
         return;
     }
 

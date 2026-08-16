@@ -19,6 +19,7 @@ struct FlashAuthEntry
 	std::string tokenPath;
 	std::string clientName;
 	std::string clientId;
+	std::string signatureValue;
 	std::uint64_t tick = 0;
 };
 
