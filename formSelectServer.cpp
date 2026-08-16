@@ -4,6 +4,7 @@
 #pragma hdrstop
 
 #include "formSelectServer.h"
+#include "utils.h"
 #include <algorithm>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -14,9 +15,7 @@ TfSelectServer *fSelectServer;
 namespace {
 String Utf8Caption(const std::string& text)
 {
-	if (text.empty())
-		return String();
-	return String(UTF8String(text.c_str()));
+	return Utf8ToVcl(text);
 }
 }
 

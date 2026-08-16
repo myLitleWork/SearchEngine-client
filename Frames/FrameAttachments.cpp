@@ -4,6 +4,7 @@
 #pragma hdrstop
 
 #include "FrameAttachments.h"
+#include "utils.h"
 #include "myJson.h"
 #include <map>
 //---------------------------------------------------------------------------
@@ -70,7 +71,7 @@ void TfrAttachments::FillDbg()
 		// 1) отправка
 		if (!serverManager.requestText(
 				SourceServerId(), str_command, cmd, jsonStr, nullptr, &err)) {
-			ShowMessage("Ошибка запроса: " + String(UTF8String(err.c_str())));
+			ShowMessage("Ошибка запроса: " + Utf8ToVcl(err));
 			return;
 		}
 
@@ -126,7 +127,7 @@ void TfrAttachments::FillDbg()
 			} catch (...) { sz = 0; }
 
 			// Конвертация имени файла в VCL String (UTF-8 → UTF-16)
-			String file = UTF8String(name.c_str());
+			String file = Utf8ToVcl(name);
 
 			appendRow(IntToStr(i++), file, exist, formatSize(sz));
 		}
@@ -212,7 +213,7 @@ void __fastcall TfrAttachments::dbgAttachmentsColumns2CellButtons0Click(TObject 
             true,
             true)) {
         ShowMessage("Ошибка сохранения файла \"" + file_name + "\":\n" +
-                    String(UTF8String(err.c_str())));
+                    Utf8ToVcl(err));
         return;
     }
 

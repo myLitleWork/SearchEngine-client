@@ -34,6 +34,7 @@
 #include "flashNum.h"
 #include "FileData.h"
 #include "mySomeFunc.h"
+#include "utils.h"
 #include <System.Threading.hpp>
 #pragma comment(lib, "version.lib")
 namespace {
@@ -89,11 +90,11 @@ String GetSearchClientProductVersion()
 #include "DbUtilsEh.hpp"
 #include "SqlCondition.h"
 
-// JSON/Net diagnostics from the server are UTF-8. Converting those bytes through
-// String/AnsiString treats them as ANSI (CP1251) and produces mojibake in VCL UI.
+// JSON/Net diagnostics from the server are UTF-8. Prefer Utf8ToVcl (utils.h):
+// UTF8String(c_str()) still treats bytes as ANSI and leaves mojibake in ShowMessage.
 inline UnicodeString US(const std::string& s)
 {
-	return UTF8String(s.c_str());
+	return Utf8ToVcl(s);
 }
 
 //---------------------------------------------------------------------------
@@ -1267,8 +1268,7 @@ void __fastcall TfMain::finishSearch()
 		std::unique_ptr<TStringList> message(new TStringList());
 		message->Add(String(searchError.c_str()));
 		for (const auto& failure : searchFailures_async) {
-			const String name = UTF8String(failure.displayName.c_str());
-			message->Add(L"• " + name + L": " + US(failure.error));
+			message->Add(L"• " + US(failure.displayName) + L": " + US(failure.error));
 		}
 		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount);
 		ShowMessage(message->Text);
@@ -1330,8 +1330,7 @@ void __fastcall TfMain::finishSearch()
 			L"Получены ответы от " + String(searchServerSuccessCount) + L" из " +
 			String(searchServerTotalCount) + L" серверов.");
 		for (const auto& failure : searchFailures_async) {
-			const String name = UTF8String(failure.displayName.c_str());
-			failures->Add(L"• " + name + L": " + US(failure.error));
+			failures->Add(L"• " + US(failure.displayName) + L": " + US(failure.error));
 		}
 		if (savePartial) {
 			failures->Add(L"");
@@ -1714,7 +1713,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 					if (attempt.ok)
 						continue;
 					partial->Add(
-						L"• " + UTF8String(attempt.displayName.c_str()) + L": " +
+						L"• " + US(attempt.displayName) + L": " +
 						US(attempt.error));
 				}
 				ShowMessage(partial->Text);
@@ -1774,7 +1773,7 @@ bool TfMain::reconnectTransport(const std::string& requestedServerId)
 	{
 		// Flash must re-run AUTHENTICATE_V1; never fall back to USER_REGISTRY.
 		if (!serverManager_.authenticateV1(
-				serverId, user_, client_id_, flash_serial_, std::string{}, &err)) {
+				serverId, user_, client_id_, flash_serial_, auth_signature_, &err)) {
 			pushLog("Авто-реконнект (AUTHENTICATE_V1) не выполнен: " + US(err));
 			return false;
 		}
@@ -3301,8 +3300,7 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 	}
 
 	const String reply = Trim(US(str));
-	String targetLabel = UTF8String(
-		serverManager_.displayName(targetServerId).c_str());
+	String targetLabel = US(serverManager_.displayName(targetServerId));
 	if (targetLabel.IsEmpty())
 		targetLabel = String(targetServerId.c_str());
 

@@ -97,7 +97,7 @@ void TfrPdtv::FillDbg()
 				if (ok && !serverManager.requestText(
 						serverId, number, cmd, jsonStr, nullptr, &err)) {
 					ok = false;
-					safeShow(L"Ошибка запроса: " + String(UTF8String(err.c_str())));
+					safeShow(L"Ошибка запроса: " + Utf8ToVcl(err));
 				}
 
 
@@ -363,7 +363,7 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 	std::string str;
 	if (!serverManager.requestText(
 			SourceServerId(), dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + String(UTF8String(err.c_str())));
+		ShowMessage("Ошибка запроса: " + Utf8ToVcl(err));
 		return;
 	}
 

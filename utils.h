@@ -3,12 +3,13 @@
 
 #include <Data.DB.hpp>
 #include <string>
-#include <Winapi.Windows.hpp>   // OemToAnsi
+#include <Winapi.Windows.hpp>   // OemToAnsi, MultiByteToWideChar
 #include <codecvt>
 #include <vector>
 #include <locale>
 #include <Vcl.StdCtrls.hpp>
 #include <System.AnsiStrings.hpp>
+#include <System.hpp>
 
 namespace conv
 {
@@ -24,6 +25,29 @@ namespace conv
         std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
         return conv.from_bytes(str);
     }
+}
+
+// Net/JSON diagnostics are UTF-8 in std::string. UTF8String(c_str()) / String(c_str())
+// treat those bytes as the system ANSI code page (CP1251) and produce mojibake in VCL.
+// Some older client-side err literals are still CP1251 — fall back to CP_ACP if UTF-8 fails.
+inline UnicodeString Utf8ToVcl(const std::string& s)
+{
+	if (s.empty())
+		return UnicodeString();
+	const int len = static_cast<int>(s.size());
+	UINT codePage = CP_UTF8;
+	DWORD flags = WC_ERR_INVALID_CHARS;
+	int n = MultiByteToWideChar(codePage, flags, s.data(), len, nullptr, 0);
+	if (n <= 0) {
+		codePage = CP_ACP;
+		flags = 0;
+		n = MultiByteToWideChar(codePage, flags, s.data(), len, nullptr, 0);
+		if (n <= 0)
+			return UnicodeString();
+	}
+	std::wstring wide(static_cast<size_t>(n), L'\0');
+	MultiByteToWideChar(codePage, flags, s.data(), len, &wide[0], n);
+	return UnicodeString(wide.c_str());
 }
 
 inline const wchar_t* deletedFileMessage()
