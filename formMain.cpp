@@ -89,7 +89,12 @@ String GetSearchClientProductVersion()
 #include "DbUtilsEh.hpp"
 #include "SqlCondition.h"
 
-
+// JSON/Net diagnostics from the server are UTF-8. Converting those bytes through
+// String/AnsiString treats them as ANSI (CP1251) and produces mojibake in VCL UI.
+inline UnicodeString US(const std::string& s)
+{
+	return UTF8String(s.c_str());
+}
 
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -1047,7 +1052,7 @@ void TfMain::loadTextToEditFromServer()
 	if (!serverManager_.requestText(
 			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
 			COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + String(err.c_str()));
+		ShowMessage("Ошибка запроса: " + US(err));
 		return;
 	}
 
@@ -1124,11 +1129,41 @@ void TfMain::reloadAvailableYears()
 	__finally {
 		cmbGod->Items->EndUpdate();
 	}
+	updateServerEndpointsLabel();
+}
+void TfMain::updateServerEndpointsLabel()
+{
+	if (!lblServerEndpoints)
+		return;
+
+	String text;
+	if (!cmbGod->Text.IsEmpty()) {
+		qrySettings->Close();
+		qrySettings->SQL->Text =
+			L"SELECT s.host, p.port "
+			L"FROM servers s JOIN server_ports p ON p.server_id = s.server_id "
+			L"WHERE s.enabled <> 0 AND p.enabled <> 0 AND p.god = :god "
+			L"ORDER BY s.sort_order, s.display_name, s.server_id";
+		qrySettings->ParamByName(L"god")->AsString = cmbGod->Text;
+		qrySettings->Open();
+		while (!qrySettings->Eof) {
+			const String host = Trim(qrySettings->FieldByName(L"host")->AsString);
+			const String port = Trim(qrySettings->FieldByName(L"port")->AsString);
+			if (!host.IsEmpty() && !port.IsEmpty()) {
+				if (!text.IsEmpty())
+					text += L", ";
+				text += host + L":" + port;
+			}
+			qrySettings->Next();
+		}
+	}
+	lblServerEndpoints->Caption = text;
 }
 bool TfMain::configureServersForCurrentYear(String* errorMessage)
 {
 	if (cmbGod->Text.IsEmpty()) {
 		if (errorMessage) *errorMessage = L"Не выбран год поиска";
+		updateServerEndpointsLabel();
 		return false;
 	}
 	std::vector<ServerEndpoint> endpoints;
@@ -1203,7 +1238,7 @@ void TfMain::registryOnServer(const std::string& user_name)
 		serverManager_.setUser(user_name);
 		std::string err;
 		if (!serverManager_.connectPrimary(&err))
-			ShowMessage("Ошибка регистрации на сервере: " + String(err.c_str()));
+			ShowMessage("Ошибка регистрации на сервере: " + US(err));
     }
     catch (const std::exception& e) {
         ShowMessage("Ошибка регистрации: " + String(e.what()));
@@ -1616,7 +1651,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 				if (!serverManager_.authenticatePrimaryV1(
 						user_, client_id_, flash_serial_, std::string{}, &err))
 				{
-					ShowMessage("Ошибка AUTHENTICATE_V1: " + String(err.c_str()));
+					ShowMessage("Ошибка AUTHENTICATE_V1: " + US(err));
 				}
 			}
 			else
@@ -1660,7 +1695,7 @@ bool TfMain::reconnectTransport(const std::string& requestedServerId)
 	const std::string serverId = requestedServerId.empty() ? primaryServerId() : requestedServerId;
 	std::string err;
 	if (!serverManager_.reconnect(serverId, &err)) {
-		pushLog("Авто-реконнект не выполнен: " + String(err.c_str()));
+		pushLog("Авто-реконнект не выполнен: " + US(err));
 		return false;
 	}
 	pushLog("Авто-реконнект выполнен: " + String(serverId.c_str()));
@@ -1763,14 +1798,6 @@ void __fastcall TfMain::componentsEnable(bool b)
 
 }
 
-
-// JSON received from the server stores text as UTF-8.  Converting these bytes
-// through AnsiString makes FireDAC persist mojibake (for example, "Р..." in
-// place of Cyrillic text) because its string parameters are Unicode.
-inline UnicodeString US(const std::string& s)
-{
-	return UTF8String(s.c_str());
-}
 
 // Match persistent TWideStringField.Size on qryTelegi/memTbl (formMain.dfm).
 // Values longer than this are skipped at insert so FireDAC Open does not abort
@@ -2242,7 +2269,7 @@ void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Ha
 	if (!serverManager_.requestText(
 			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
 			COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+		ShowMessage("Ошибка запроса: " + US(err));
 		Handled = true;
 		return;
     }
@@ -2360,6 +2387,7 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 	if (gSearchProcessing.load(std::memory_order_acquire))
 		return;
 
+	updateServerEndpointsLabel();
 	cmbGod->Enabled = false;
 
 	static String last_base;
@@ -2439,7 +2467,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		break;
 	}
 	pushLog("Ошибка сохранения файла \"" + String(f.outputName.c_str()) + "\": " +
-		String(err.c_str()));
+		US(err));
 	// После неполной сетевой передачи поток протокола больше нельзя продолжать.
 	// requestFileToPath закрывает такой сокет; восстанавливаем транспорт для
 	// следующих файлов пакета и для последующих действий пользователя.
@@ -2504,7 +2532,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	{
 		pushLog(
 			"Файл \"" + String(f.remotePath.c_str()) +
-			"\" не получен: " + String(err.c_str())
+			"\" не получен: " + US(err)
 		);
 		if (!serverManager_.isConnected(f.serverId))
 			reconnectTransport(f.serverId);
@@ -2668,7 +2696,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& 
 		pushLog(
 			"Файл \"" + zip_dir +
 			"\" не получен. Ошибка: " +
-			String(err.c_str())
+			US(err)
 		);
 		if (!serverManager_.isConnected(f.serverId))
 			reconnectTransport(f.serverId);
@@ -3117,7 +3145,7 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 	if (!serverManager_.requestText(
 			targetServerId, "START update!", COMMAND::START_UPDATE_BASE,
 			str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+		ShowMessage("Ошибка запроса: " + US(err));
 		return;
 	}
 
@@ -3626,7 +3654,7 @@ System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op](
 		TThread::Queue(nullptr, [this, live, op, err]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
-			ShowMessage("Ошибка запроса: " + AnsiString(err.c_str()));
+			ShowMessage("Ошибка запроса: " + US(err));
 			if (tmLoadText)
 				tmLoadText->Enabled = true;
 		});
@@ -4183,7 +4211,7 @@ void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 			std::vector<uint8_t> str;
 			if (!serverManager_.requestBinary(
 					primaryServerId(), file, COMMAND::LOAD_RAZN, str, nullptr, &err)) {
-				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + AnsiString(err.c_str()));
+				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + US(err));
 				continue;
 			}
 
@@ -4243,8 +4271,8 @@ static String getAttachmentsRequestErrorMessage(
 	}
 
 	if (!serverError.hasCode)
-		return String(AnsiString(legacyServerErrorUserMessage().c_str()));
-	return String(AnsiString(fallback.c_str()));
+		return US(legacyServerErrorUserMessage());
+	return US(fallback);
 }
 //---------------------------------------------------------------------------------------------
 void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
@@ -4279,7 +4307,7 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	int size = str.size();
 	if (size < 33) {
 		std::string s{str.begin(), str.end()};
-		ShowMessage(("Ошибка данных: " + s).c_str());
+		ShowMessage("Ошибка данных: " + US(s));
 		return;
 	}
 
@@ -4716,7 +4744,7 @@ bool TfMain::tryConnect()
 		}
 		std::string err;
 		if (!serverManager_.connectPrimary(&err)) {
-			ShowMessage("Ошибка подключения: " + String(err.c_str()));
+			ShowMessage("Ошибка подключения: " + US(err));
 			lbStatus->Caption = "Статус: нет подключения";
 			componentsEnable(false);
 			return false;

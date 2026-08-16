@@ -125,7 +125,6 @@ object fMain: TfMain
       Margins.Right = 6
       Margins.Bottom = 6
       TabStop = False
-      Align = alLeft
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -48
@@ -136,6 +135,7 @@ object fMain: TfMain
       TabOrder = 0
       Text = 'localhost'
       TextHint = 'Ip (192.168.10.10)'
+      Visible = False
       StyleName = 'Windows'
     end
     object btnConnect: TButton
@@ -162,7 +162,7 @@ object fMain: TfMain
       OnClick = btnConnectClick
     end
     object cmbGod: TComboBox
-      Left = 663
+      Left = 183
       Top = 1
       Width = 244
       Height = 62
@@ -227,6 +227,29 @@ object fMain: TfMain
       TabStop = False
       StyleName = 'Windows'
       OnClick = btnDisconnectClick
+    end
+    object lblServerEndpoints: TLabel
+      AlignWithMargins = True
+      Left = 433
+      Top = 7
+      Width = 1010
+      Height = 62
+      Margins.Left = 6
+      Margins.Top = 6
+      Margins.Right = 6
+      Margins.Bottom = 6
+      Align = alClient
+      Alignment = taLeftJustify
+      Caption = ''
+      EllipsisPosition = epEndEllipsis
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -28
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      Layout = tlCenter
+      ParentFont = False
+      ShowAccelChar = False
     end
   end
   object PageControl1: TPageControl

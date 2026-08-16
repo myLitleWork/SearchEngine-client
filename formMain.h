@@ -158,6 +158,7 @@ __published:	// IDE-managed Components
 	TFileOpenDialog *FileOpenDialog1;
 	TPanel *Panel1;
 	TEdit *Edit2;
+	TLabel *lblServerEndpoints;
 	TButton *btnConnect;
 	TDataSource *srcSearch;
 	TFDQuery *qryTelegi;
@@ -452,6 +453,7 @@ private:	// User declarations
 	TObject* lastSender = nullptr;
 	void ensureServerCatalogSeeded(const String& fallbackHost);
 	void reloadAvailableYears();
+	void updateServerEndpointsLabel();
 	bool configureServersForCurrentYear(String* errorMessage = nullptr);
 	std::string currentSourceServerId() const;
 	std::string primaryServerId() const;
