@@ -371,6 +371,122 @@ bool WriteMainWindowPlacement(const RECT& normalRect, bool maximized) noexcept
 	RegCloseKey(key);
 	return written;
 }
+
+const int DBG_EH_COLUMNS_LAYOUT_VERSION = 1;
+
+int DbgEhWidthToDesignPpi(int width, int currentPpi)
+{
+	const int ppi = currentPpi > 0 ? currentPpi : MAIN_FORM_DESIGN_PPI;
+	return std::max(1, MulDiv(width, MAIN_FORM_DESIGN_PPI, ppi));
+}
+
+int DbgEhWidthFromDesignPpi(int widthAtDesignPpi, int currentPpi)
+{
+	const int ppi = currentPpi > 0 ? currentPpi : MAIN_FORM_DESIGN_PPI;
+	return std::max(1, MulDiv(widthAtDesignPpi, ppi, MAIN_FORM_DESIGN_PPI));
+}
+
+std::wstring DbgEhColumnsLayoutPath()
+{
+	return auth_paths::fileBesideExecutable(L"DbgEhColumns.ini");
+}
+
+std::string BuildDbgEhLayoutFileText(
+	const std::vector<DbgEhColumnLayoutItem>& items,
+	bool autoFit)
+{
+	std::ostringstream out;
+	out << "version=" << DBG_EH_COLUMNS_LAYOUT_VERSION << "\n";
+	out << "autofit=" << (autoFit ? 1 : 0) << "\n";
+	for (const auto& item : items) {
+		if (item.fieldName.IsEmpty())
+			continue;
+		const std::string field = AnsiString(item.fieldName).c_str();
+		if (field.empty())
+			continue;
+		out << field << '='
+			<< item.widthAtDesignPpi << ':'
+			<< (item.visible ? 1 : 0) << ':'
+			<< (item.autoFitColWidth ? 1 : 0) << '\n';
+	}
+	return out.str();
+}
+
+bool ParseDbgEhLayoutFileText(
+	const std::string& text,
+	std::vector<DbgEhColumnLayoutItem>& items,
+	bool& autoFit)
+{
+	items.clear();
+	autoFit = false;
+	int version = 0;
+	bool haveVersion = false;
+	bool haveAutoFit = false;
+
+	std::istringstream in(text);
+	std::string line;
+	while (std::getline(in, line)) {
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+		if (line.empty() || line[0] == '#' || line[0] == ';')
+			continue;
+
+		const auto eq = line.find('=');
+		if (eq == std::string::npos || eq == 0)
+			continue;
+		const std::string key = line.substr(0, eq);
+		const std::string value = line.substr(eq + 1);
+
+		if (key == "version") {
+			try {
+				version = std::stoi(value);
+				haveVersion = true;
+			} catch (...) {
+				return false;
+			}
+			continue;
+		}
+		if (key == "autofit") {
+			autoFit = value != "0";
+			haveAutoFit = true;
+			continue;
+		}
+
+		const auto c1 = value.find(':');
+		if (c1 == std::string::npos)
+			continue;
+		const auto c2 = value.find(':', c1 + 1);
+		std::string widthText = value.substr(0, c1);
+		std::string visibleText = (c2 == std::string::npos)
+			? value.substr(c1 + 1)
+			: value.substr(c1 + 1, c2 - c1 - 1);
+		std::string autoFitText = (c2 == std::string::npos)
+			? "0"
+			: value.substr(c2 + 1);
+
+		int width = 0;
+		try {
+			width = std::stoi(widthText);
+		} catch (...) {
+			continue;
+		}
+		if (width < 1 || width > 100000)
+			continue;
+
+		DbgEhColumnLayoutItem item;
+		item.fieldName = String(key.c_str());
+		item.widthAtDesignPpi = width;
+		item.visible = visibleText != "0";
+		item.autoFitColWidth = autoFitText != "0";
+		items.push_back(item);
+	}
+
+	return haveVersion
+		&& version == DBG_EH_COLUMNS_LAYOUT_VERSION
+		&& haveAutoFit
+		&& !items.empty();
+}
+
 void KeepNormalWindowReachable(HWND window, int currentPpi) noexcept
 {
 	RECT rect = {};
@@ -539,27 +655,237 @@ std::vector<String> TfMain::SelectFiles()
 	return filePaths;
 }
 void TfMain::FillPopUpMenuWithGridColumns(TPopupMenu *popDbg, TDBGridEh *grid) {
-    popDbg->Items->Clear();
-    for (int i = 0; i < grid->Columns->Count; ++i) {
-        TMenuItem *mi = new TMenuItem(popDbg);
-        mi->Caption = grid->Columns->Items[i]->Title->Caption;
-        mi->Checked = grid->Columns->Items[i]->Visible;
-        mi->Tag = i; // Сохраняем индекс колонки
-        mi->OnClick = GridColumnMenuClick; // Обработчик, см. ниже
-        popDbg->Items->Add(mi);
-    }
+	popDbg->Items->Clear();
+	for (int i = 0; i < grid->Columns->Count; ++i) {
+		TMenuItem *mi = new TMenuItem(popDbg);
+		mi->Caption = grid->Columns->Items[i]->Title->Caption;
+		mi->Checked = grid->Columns->Items[i]->Visible;
+		mi->Tag = i;
+		mi->OnClick = GridColumnMenuClick;
+		popDbg->Items->Add(mi);
+	}
+
+	TMenuItem *sep = new TMenuItem(popDbg);
+	sep->Caption = L"-";
+	popDbg->Items->Add(sep);
+
+	TMenuItem *save = new TMenuItem(popDbg);
+	save->Caption = L"Сохранить";
+	save->OnClick = SaveDbgEhColumnLayoutClick;
+	popDbg->Items->Add(save);
+
+	TMenuItem *reset = new TMenuItem(popDbg);
+	reset->Caption = L"Сбросить ширину колонок";
+	reset->OnClick = ResetDbgEhColumnWidthsClick;
+	popDbg->Items->Add(reset);
+}
+
+static void ForceMouseCursorVisible()
+{
+	if (::GetCapture() != nullptr)
+		::ReleaseCapture();
+
+	Screen->Cursor = crDefault;
+	::SetCursor(Screen->Cursors[crDefault]);
+
+	int showCount = 0;
+	do {
+		showCount = ::ShowCursor(TRUE);
+	} while (showCount < 0);
+}
+
+void __fastcall TfMain::popDbgPopup(TObject *Sender)
+{
+	(void)Sender;
+	ForceMouseCursorVisible();
+	FillPopUpMenuWithGridColumns(popDbg, dbgEh);
+}
+
+void __fastcall TfMain::btnEditColumnsClick(TObject *Sender)
+{
+	(void)Sender;
+	if (!dbgEh || !popDbg || !btnEditColumns)
+		return;
+
+	ForceMouseCursorVisible();
+	FillPopUpMenuWithGridColumns(popDbg, dbgEh);
+	const TPoint screenPt =
+		btnEditColumns->ClientToScreen(TPoint(0, btnEditColumns->Height));
+	popDbg->Popup(screenPt.X, screenPt.Y);
+}
+
+void TfMain::CollectDbgEhColumnLayout(
+	std::vector<DbgEhColumnLayoutItem>& items,
+	bool& autoFit) const
+{
+	items.clear();
+	autoFit = dbgEh && dbgEh->AutoFitColWidths;
+	if (!dbgEh)
+		return;
+
+	const int ppi = dbgEh->CurrentPPI;
+	for (int i = 0; i < dbgEh->Columns->Count; ++i) {
+		TColumnEh* column = dbgEh->Columns->Items[i];
+		if (!column || column->FieldName.IsEmpty())
+			continue;
+		DbgEhColumnLayoutItem item;
+		item.fieldName = column->FieldName;
+		item.widthAtDesignPpi = DbgEhWidthToDesignPpi(column->Width, ppi);
+		item.visible = column->Visible;
+		item.autoFitColWidth = column->AutoFitColWidth;
+		items.push_back(item);
+	}
+}
+
+void TfMain::CaptureDbgEhDefaultColumnLayout()
+{
+	CollectDbgEhColumnLayout(dbgEhDefaultColumns_, dbgEhDefaultAutoFit_);
+}
+
+void TfMain::ApplyDbgEhColumnLayout(
+	const std::vector<DbgEhColumnLayoutItem>& items,
+	bool autoFit,
+	bool applyVisibility)
+{
+	if (!dbgEh || items.empty())
+		return;
+
+	dbgEhLayoutBusy_ = true;
+	try {
+		dbgEh->AutoFitColWidths = false;
+		const int ppi = dbgEh->CurrentPPI;
+		for (const auto& item : items) {
+			TColumnEh* column = nullptr;
+			for (int i = 0; i < dbgEh->Columns->Count; ++i) {
+				TColumnEh* candidate = dbgEh->Columns->Items[i];
+				if (candidate && candidate->FieldName == item.fieldName) {
+					column = candidate;
+					break;
+				}
+			}
+			if (!column)
+				continue;
+			column->AutoFitColWidth = item.autoFitColWidth;
+			column->Width = DbgEhWidthFromDesignPpi(item.widthAtDesignPpi, ppi);
+			if (applyVisibility)
+				column->Visible = item.visible;
+		}
+		dbgEh->AutoFitColWidths = autoFit;
+		if (autoFit)
+			dbgEh->Columns->FixupAutoFitColWidths(dbgEh->ClientWidth);
+	} catch (...) {
+		dbgEhLayoutBusy_ = false;
+		throw;
+	}
+	dbgEhLayoutBusy_ = false;
+}
+
+void TfMain::SaveDbgEhColumnLayout() noexcept
+{
+	if (!dbgEh || dbgEhLayoutBusy_)
+		return;
+
+	std::vector<DbgEhColumnLayoutItem> items;
+	bool autoFit = false;
+	try {
+		CollectDbgEhColumnLayout(items, autoFit);
+	} catch (...) {
+		return;
+	}
+	if (items.empty())
+		return;
+
+	const std::wstring path = DbgEhColumnsLayoutPath();
+	if (path.empty())
+		return;
+
+	try {
+		const std::string text = BuildDbgEhLayoutFileText(items, autoFit);
+		user_file_replace::WriteReplacing(path, text.data(), text.size());
+	} catch (...) {
+	}
+}
+
+void TfMain::RestoreDbgEhColumnLayout()
+{
+	if (!dbgEh)
+		return;
+
+	const std::wstring path = DbgEhColumnsLayoutPath();
+	if (path.empty() || !auth_paths::isRegularFile(path))
+		return;
+
+	std::string bytes;
+	if (!user_file_replace::ReadAll(path, bytes))
+		return;
+
+	std::vector<DbgEhColumnLayoutItem> items;
+	bool autoFit = false;
+	if (!ParseDbgEhLayoutFileText(bytes, items, autoFit))
+		return;
+
+	ApplyDbgEhColumnLayout(items, autoFit, true);
+}
+
+void TfMain::ResetDbgEhColumnWidths()
+{
+	if (dbgEhDefaultColumns_.empty())
+		CaptureDbgEhDefaultColumnLayout();
+	if (dbgEhDefaultColumns_.empty())
+		return;
+
+	std::vector<DbgEhColumnLayoutItem> items = dbgEhDefaultColumns_;
+	bool ignoredAutoFit = false;
+	std::vector<DbgEhColumnLayoutItem> current;
+	CollectDbgEhColumnLayout(current, ignoredAutoFit);
+	for (auto& item : items) {
+		for (const auto& cur : current) {
+			if (cur.fieldName == item.fieldName) {
+				item.visible = cur.visible;
+				break;
+			}
+		}
+	}
+	ApplyDbgEhColumnLayout(items, dbgEhDefaultAutoFit_, false);
+}
+
+void __fastcall TfMain::SaveDbgEhColumnLayoutClick(TObject *Sender)
+{
+	(void)Sender;
+	SaveDbgEhColumnLayout();
+}
+
+void __fastcall TfMain::ResetDbgEhColumnWidthsClick(TObject *Sender)
+{
+	(void)Sender;
+	ResetDbgEhColumnWidths();
+}
+
+void __fastcall TfMain::dbgEhColWidthsChanged(TObject *Sender)
+{
+	(void)Sender;
+	if (!dbgEh || dbgEhLayoutBusy_ || shuttingDown_ || !dbgEhLayoutReady_)
+		return;
+
+	// После ручного ресайза фиксируем ширины в сессии; на диск — только через «Сохранить».
+	if (dbgEh->AutoFitColWidths) {
+		dbgEhLayoutBusy_ = true;
+		dbgEh->AutoFitColWidths = false;
+		for (int i = 0; i < dbgEh->Columns->Count; ++i)
+			dbgEh->Columns->Items[i]->AutoFitColWidth = false;
+		dbgEhLayoutBusy_ = false;
+	}
 }
 
 void __fastcall TfMain::GridColumnMenuClick(TObject *Sender)
 {
-    TMenuItem *mi = dynamic_cast<TMenuItem*>(Sender);
-    if (!mi) return;
+	TMenuItem *mi = dynamic_cast<TMenuItem*>(Sender);
+	if (!mi) return;
 
-    int idx = mi->Tag;
+	int idx = mi->Tag;
 	if (idx < 0 || idx >= dbgEh->Columns->Count)
-        return;
+		return;
 
-    // Переключаем видимость
 	dbgEh->Columns->Items[idx]->Visible = !dbgEh->Columns->Items[idx]->Visible;
 	mi->Checked = dbgEh->Columns->Items[idx]->Visible;
 }
@@ -1754,6 +2080,7 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	const HWND mainWindowHandle = Handle;
 	(void)mainWindowHandle;
 	RestoreMainWindowPlacement();
+	CaptureDbgEhDefaultColumnLayout();
 	CreateResponsiveScrollHost();
 	responsiveLayoutTimer_ = new TTimer(this);
 	responsiveLayoutTimer_->Enabled = false;
@@ -3919,6 +4246,8 @@ void __fastcall TfMain::chkTextClick(TObject *Sender)
 void __fastcall TfMain::FormShow(TObject *Sender)
 {
 	(void)Sender;
+	RestoreDbgEhColumnLayout();
+	dbgEhLayoutReady_ = true;
 	UpdateResponsiveLayout();
 	ScheduleResponsiveLayout();
 }

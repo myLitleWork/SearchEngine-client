@@ -1,10 +1,7 @@
 object fMain: TfMain
-  AlignWithMargins = False
   Left = 429
   Top = 166
-  Align = alNone
   AlphaBlend = True
-  AutoSize = False
   BiDiMode = bdLeftToRight
   BorderWidth = 1
   Caption = 'SearchClient_asio'
@@ -13,7 +10,6 @@ object fMain: TfMain
   Color = clMoneyGreen
   DefaultMonitor = dmDesktop
   DoubleBuffered = True
-  DragMode = dmManual
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -26
@@ -21,7 +17,6 @@ object fMain: TfMain
   Font.Style = []
   ParentBiDiMode = False
   Position = poDesigned
-  WindowState = wsNormal
   StyleName = 'Windows'
   OnAfterMonitorDpiChanged = FormAfterMonitorDpiChanged
   OnClose = FormClose
@@ -65,7 +60,7 @@ object fMain: TfMain
       Left = 913
       Top = 7
       Width = 109
-      Height = 62
+      Height = 45
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -79,14 +74,13 @@ object fMain: TfMain
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
-      ExplicitHeight = 45
     end
     object lblUser: TLabel
       AlignWithMargins = True
       Left = 1034
       Top = 7
       Width = 280
-      Height = 62
+      Height = 45
       Margins.Left = 6
       Margins.Top = 6
       Margins.Right = 6
@@ -100,7 +94,6 @@ object fMain: TfMain
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
-      ExplicitHeight = 45
     end
     object Edit2: TEdit
       AlignWithMargins = True
@@ -350,7 +343,6 @@ object fMain: TfMain
           OptionsEh = [dghFixed3D, dghFrozen3D, dghData3D, dghResizeWholeRightPart, dghHighlightFocus, dghClearSelection, dghAutoSortMarking, dghMultiSortMarking, dghEnterAsTab, dghDialogFind, dghShowRecNo, dghColumnResize, dghColumnMove, dghExtendVertLines]
           ParentFont = False
           ParentShowHint = False
-          PopupMenu = popDbg
           ReadOnly = True
           RowDetailPanel.Active = True
           RowDetailPanel.Height = 400
@@ -374,6 +366,7 @@ object fMain: TfMain
           TitleParams.SecondColor = clSkyBlue
           TitleParams.SortMarkerStyle = smstDefaultEh
           OnCellClick = dbgEhCellClick
+          OnColWidthsChanged = dbgEhColWidthsChanged
           OnDrawColumnCell = dbgEhDrawColumnCell
           OnKeyPress = dbgEhKeyPress
           OnRowDetailPanelShow = dbgEhRowDetailPanelShow
@@ -966,9 +959,28 @@ object fMain: TfMain
             TabOrder = 2
             OnClick = Button2Click
           end
+          object btnEditColumns: TButton
+            Left = 589
+            Top = 99
+            Width = 182
+            Height = 42
+            Margins.Left = 6
+            Margins.Top = 6
+            Margins.Right = 6
+            Margins.Bottom = 6
+            Caption = #1053#1072#1073#1086#1088' '#1082#1086#1083#1086#1085#1086#1082
+            Font.Charset = DEFAULT_CHARSET
+            Font.Color = clWindowText
+            Font.Height = -16
+            Font.Name = 'Segoe UI'
+            Font.Style = [fsBold]
+            ParentFont = False
+            TabOrder = 4
+            OnClick = btnEditColumnsClick
+          end
           object edtLatency: TEdit
             Left = 589
-            Top = 105
+            Top = 145
             Width = 81
             Height = 29
             Margins.Left = 6
@@ -1359,7 +1371,7 @@ object fMain: TfMain
             AlignWithMargins = True
             Left = 7
             Top = 7
-            Width = 254
+            Width = 232
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1367,13 +1379,12 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1043#1088#1091#1087#1087#1072' '#1096#1072#1073#1083#1086#1085#1086#1074':'
-            ExplicitWidth = 232
           end
           object Label6: TLabel
             AlignWithMargins = True
             Left = 7
             Top = 589
-            Width = 254
+            Width = 132
             Height = 36
             Margins.Left = 6
             Margins.Top = 6
@@ -1381,7 +1392,6 @@ object fMain: TfMain
             Margins.Bottom = 6
             Align = alTop
             Caption = #1064#1072#1073#1083#1086#1085#1099':'
-            ExplicitWidth = 132
           end
           object lstShGroups: TListBox
             AlignWithMargins = True
@@ -2064,6 +2074,7 @@ object fMain: TfMain
     Top = 990
   end
   object popDbg: TPopupMenu
+    OnPopup = popDbgPopup
     Left = 1041
     Top = 644
   end

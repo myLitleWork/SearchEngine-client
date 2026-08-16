@@ -141,6 +141,14 @@
 using boost::asio::ip::tcp;
 class FlashPodpis;
 
+struct DbgEhColumnLayoutItem
+{
+	String fieldName;
+	int widthAtDesignPpi = 0;
+	bool visible = true;
+	bool autoFitColWidth = true;
+};
+
 //---------------------------------------------------------------------------
 class TfMain : public TForm
 {
@@ -287,6 +295,7 @@ __published:	// IDE-managed Components
 	TWideStringField *qryTelegisource_server_id;
 	TWideStringField *memTblsource_server_id;
 	TButton *Button2;
+	TButton *btnEditColumns;
 	TEdit *edtLatency;
 	TDBGridEh *dbgMenu;
 	TPopupMenu *popExportButton;
@@ -360,6 +369,9 @@ __published:	// IDE-managed Components
 	void __fastcall dbgMenuRowDetailPanelHide(TCustomDBGridEh *Sender, bool &CanHide);
 	void __fastcall excel1Click(TObject *Sender);
 	void __fastcall tmSaveProgressTimer(TObject *Sender);
+	void __fastcall popDbgPopup(TObject *Sender);
+	void __fastcall dbgEhColWidthsChanged(TObject *Sender);
+	void __fastcall btnEditColumnsClick(TObject *Sender);
 
 
 
@@ -373,10 +385,22 @@ private:	// User declarations
 		PDTV,
 		ATTACHMENTS
 	};
-	
 
 	void __fastcall GridColumnMenuClick(TObject *Sender);
+	void __fastcall SaveDbgEhColumnLayoutClick(TObject *Sender);
+	void __fastcall ResetDbgEhColumnWidthsClick(TObject *Sender);
 	void FillPopUpMenuWithGridColumns(TPopupMenu *popDbg, TDBGridEh *grid);
+	void CaptureDbgEhDefaultColumnLayout();
+	void ApplyDbgEhColumnLayout(
+		const std::vector<DbgEhColumnLayoutItem>& items,
+		bool autoFit,
+		bool applyVisibility);
+	void CollectDbgEhColumnLayout(
+		std::vector<DbgEhColumnLayoutItem>& items,
+		bool& autoFit) const;
+	void SaveDbgEhColumnLayout() noexcept;
+	void RestoreDbgEhColumnLayout();
+	void ResetDbgEhColumnWidths();
 	void __fastcall updateFileLoadUI(const String& filePath, bool ok);
 	void __fastcall deleteFilesFromUI(const std::vector<String>& files);
 	bool uiIsLive() const;
@@ -397,6 +421,10 @@ private:	// User declarations
 	void UpdateResponsiveLayout();
 	void RestoreMainWindowPlacement();
 	void SaveMainWindowPlacement() noexcept;
+	std::vector<DbgEhColumnLayoutItem> dbgEhDefaultColumns_;
+	bool dbgEhDefaultAutoFit_ = true;
+	bool dbgEhLayoutBusy_ = false;
+	bool dbgEhLayoutReady_ = false;
 	TTimer* responsiveLayoutTimer_ = nullptr;
 	TScrollBox* responsiveScrollHost_ = nullptr;
 	int responsiveLayoutPassesRemaining_ = 0;
