@@ -409,7 +409,9 @@ int RunMultiServerSelfTestFromCommandLine()
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) != 42u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceTypeMismatch) != 43u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMismatch) != 44u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 45u)
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 45u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceDisabled) != 46u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceUnavailable) != 47u)
 		return 60;
 
 	// UTF-8 substrings from config/server-error-messages.json (stable wire texts).
@@ -444,6 +446,22 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 63;
 	if (isAuthRejectionErrorCode(999u))
 		return 64;
+
+	const auto dsDisabledMsg = serverErrorUserMessage(
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceDisabled));
+	if (dsDisabledMsg.find("46") == std::string::npos ||
+		dsDisabledMsg.find("AutoPad") == std::string::npos ||
+		serverErrorCodeName(static_cast<std::uint32_t>(
+			search_protocol::ErrorCode::DataSourceDisabled)) != "DataSourceDisabled")
+		return 76;
+
+	const auto dsUnavailableMsg = serverErrorUserMessage(
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceUnavailable));
+	if (dsUnavailableMsg.find("47") == std::string::npos ||
+		dsUnavailableMsg.find("AutoPad") == std::string::npos ||
+		serverErrorCodeName(static_cast<std::uint32_t>(
+			search_protocol::ErrorCode::DataSourceUnavailable)) != "DataSourceUnavailable")
+		return 77;
 
 	FakeAuthRejectServer authReject(search_protocol::ErrorCode::AuthClientIdNotFound);
 	FakeAuthRejectServer authSig(search_protocol::ErrorCode::AuthSignatureInvalid);

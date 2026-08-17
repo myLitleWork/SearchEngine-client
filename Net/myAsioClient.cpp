@@ -59,7 +59,7 @@ const ErrorMessages& loadedErrorMessages() noexcept
 {
 	static const ErrorMessages messages = [] {
 		ErrorMessages result;
-		static const char* const expectedNames[46] = { nullptr,
+		static const char* const expectedNames[48] = { nullptr,
 			"PayloadTooLarge", "InvalidCommand", "CommandNotRegistered", "ServerBusy",
 			"ServerStopping", "InvalidRequest", "InvalidJson", "InvalidBinaryPayload",
 			"FileNotFound", "FileMetadataFailed", "FileOpenFailed", "FileReadFailed",
@@ -73,7 +73,7 @@ const ErrorMessages& loadedErrorMessages() noexcept
 			"AuthClientIdMissing", "AuthClientNameMissing", "AuthDeviceTypeMissing",
 			"AuthDeviceIdMissing", "AuthSignatureMissing", "AuthClientIdNotFound",
 			"AuthClientNameMismatch", "AuthDeviceTypeMismatch", "AuthDeviceIdMismatch",
-			"AuthSignatureInvalid" };
+			"AuthSignatureInvalid", "DataSourceDisabled", "DataSourceUnavailable" };
 		try {
 			std::ifstream input(errorMessagesPath(), std::ios::binary);
 			if (!input) return result;
@@ -85,10 +85,10 @@ const ErrorMessages& loadedErrorMessages() noexcept
 				const auto code = item.at("code").get<std::uint32_t>();
 				const auto name = item.at("name").get<std::string>();
 				const auto message = item.at("message").get<std::string>();
-				if (code < 1 || code > 45 || name != expectedNames[code] ||
+				if (code < 1 || code > 47 || name != expectedNames[code] ||
 					message.empty() || !result.emplace(code, message).second) return ErrorMessages{};
 			}
-			if (result.size() != 45) return ErrorMessages{};
+			if (result.size() != 47) return ErrorMessages{};
 		} catch (...) { return ErrorMessages{}; }
 		return result;
 	}();
@@ -129,7 +129,7 @@ std::string serverErrorCodeName(std::uint32_t rawCode)
 {
 	using search_protocol::ErrorCode;
 	if (rawCode < 1 ||
-		rawCode > static_cast<std::uint32_t>(ErrorCode::AuthSignatureInvalid))
+		rawCode > static_cast<std::uint32_t>(ErrorCode::DataSourceUnavailable))
 		return "UnknownErrorCode";
 
 	switch (static_cast<ErrorCode>(rawCode)) {
@@ -178,6 +178,8 @@ std::string serverErrorCodeName(std::uint32_t rawCode)
 	case ErrorCode::AuthDeviceTypeMismatch: return "AuthDeviceTypeMismatch";
 	case ErrorCode::AuthDeviceIdMismatch: return "AuthDeviceIdMismatch";
 	case ErrorCode::AuthSignatureInvalid: return "AuthSignatureInvalid";
+	case ErrorCode::DataSourceDisabled: return "DataSourceDisabled";
+	case ErrorCode::DataSourceUnavailable: return "DataSourceUnavailable";
 	}
 	return "UnknownErrorCode";
 }

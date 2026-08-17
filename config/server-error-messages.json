@@ -45,6 +45,8 @@
     {"code": 42, "name": "AuthClientNameMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другое имя клиента."},
     {"code": 43, "name": "AuthDeviceTypeMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой тип устройства."},
     {"code": 44, "name": "AuthDeviceIdMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой идентификатор устройства (device_id)."},
-    {"code": 45, "name": "AuthSignatureInvalid", "message": "Сервер отклонил авторизацию: подпись авторизационных данных недействительна."}
+    {"code": 45, "name": "AuthSignatureInvalid", "message": "Сервер отклонил авторизацию: подпись авторизационных данных недействительна."},
+    {"code": 46, "name": "DataSourceDisabled", "message": "Источник данных AutoPad отключён на сервере (каталог PRM/PRD не настроен)."},
+    {"code": 47, "name": "DataSourceUnavailable", "message": "Источник данных AutoPad недоступен на сервере (каталог PRM/PRD отсутствует или недоступен)."}
   ]
 }
