@@ -4,6 +4,7 @@
 #define formMainH
 
 #include "FlashAuthSession.h"
+#include "DeviceAuthSelect.h"
 #include "WordBatchProcessor.h"
 #include "DataDriverEh.hpp"
 #include "DBAxisGridsEh.hpp"
@@ -578,6 +579,10 @@ public:		// User declarations
 	void applyLocalAuthSources();
 	void queueApplyLocalAuthSources();
 	void logoutUnauthorizedUi();
+	std::optional<DeviceAuthIdentity> resolveLiveDeviceIdentity();
+	DeviceAuthIdentity currentDeviceIdentity() const;
+	void applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity);
+	bool isDeviceAuthSource() const;
 
 	void makeErrorWay(bool error);
 	void registryOnServer(const std::string& user_name);
@@ -588,9 +593,10 @@ public:		// User declarations
 	 bool auth_ = false; // local flash/admin UI only
 	 std::string token_dir_;
 	 std::string client_id_;
-	 std::string flash_serial_;
+	 std::string device_type_;
+	 std::string device_id_;
 	 std::string auth_signature_;
-	 enum class LocalAuthSource { None, Flash, Admin };
+	 enum class LocalAuthSource { None, Usb, Computer, Admin };
 	 LocalAuthSource auth_source_ = LocalAuthSource::None;
 	 std::unique_ptr<FlashAuthSession> flashAuth_;
 	 String last_loaded_num_;

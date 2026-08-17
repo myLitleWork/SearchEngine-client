@@ -18,6 +18,10 @@
 #include "formMain.h"
 #include "formSelectServer.h"
 #include "AuthPaths.h"
+#include "ComputerIdentity.h"
+#include "DeviceAuthSelect.h"
+#include "DeviceIdentity.h"
+#include "UsbHardwareSerial.h"
 #include "UserFileReplace.h"
 #include "ClientFilePublish.h"
 #include "Database\ResDbMigration.h"
@@ -1669,14 +1673,17 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		clear();
 		disconnectTransportOnly();
 
-		const bool flashMode =
-			auth_source_ == LocalAuthSource::Flash &&
-			!client_id_.empty() && !flash_serial_.empty();
+		const auto identity = resolveLiveDeviceIdentity();
+		const bool deviceMode = identity.has_value();
 		const bool adminMode =
-			auth_source_ == LocalAuthSource::Admin || user_ == "admin";
+			!deviceMode &&
+			(auth_source_ == LocalAuthSource::Admin || user_ == "admin" ||
+			 auth_paths::isRegularFile(auth_paths::fileBesideExecutable(L"admin984.bin")));
 
-		if (flashMode)
+		if (deviceMode) {
+			applyResolvedDeviceIdentity(*identity);
 			serverManager_.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
+		}
 		else if (adminMode)
 			serverManager_.setAuthPolicy(ServerAuthPolicy::LegacyUserRegistry);
 		else {
@@ -1688,9 +1695,24 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		if (!tryConnect() || !auth_)
 			return;
 
-		const auto attempts = flashMode
+		std::optional<DeviceAuthIdentity> liveIdentity = identity;
+		if (deviceMode) {
+			liveIdentity = resolveLiveDeviceIdentity();
+			if (!liveIdentity) {
+				disconnectUiFull();
+				ShowMessage(L"Недостаточно данных локальной авторизации для подключения.");
+				return;
+			}
+			applyResolvedDeviceIdentity(*liveIdentity);
+		}
+
+		const auto attempts = deviceMode
 			? serverManager_.authenticateAllV1(
-				user_, client_id_, flash_serial_, auth_signature_)
+				liveIdentity->clientName,
+				liveIdentity->clientId,
+				liveIdentity->deviceType,
+				liveIdentity->deviceId,
+				liveIdentity->signature)
 			: serverManager_.authenticateAllLegacy(user_);
 		const int okCount = static_cast<int>(std::count_if(
 			attempts.begin(), attempts.end(),
@@ -1781,12 +1803,19 @@ bool TfMain::reconnectTransport(const std::string& requestedServerId)
 {
 	const std::string serverId = requestedServerId.empty() ? primaryServerId() : requestedServerId;
 	std::string err;
-	if (auth_source_ == LocalAuthSource::Flash &&
-		!client_id_.empty() && !flash_serial_.empty())
+	const auto identity = resolveLiveDeviceIdentity();
+	if (identity)
 	{
-		// Flash must re-run AUTHENTICATE_V1; never fall back to USER_REGISTRY.
+		applyResolvedDeviceIdentity(*identity);
+		serverManager_.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
 		if (!serverManager_.authenticateV1(
-				serverId, user_, client_id_, flash_serial_, auth_signature_, &err)) {
+				serverId,
+				identity->clientName,
+				identity->clientId,
+				identity->deviceType,
+				identity->deviceId,
+				identity->signature,
+				&err)) {
 			pushLog("Авто-реконнект (AUTHENTICATE_V1) не выполнен: " + US(err));
 			return false;
 		}
@@ -3995,7 +4024,8 @@ void TfMain::logoutUnauthorizedUi()
 	auth_ = false;
 	user_.clear();
 	client_id_.clear();
-	flash_serial_.clear();
+	device_type_.clear();
+	device_id_.clear();
 	auth_signature_.clear();
 	token_dir_.clear();
 	auth_source_ = LocalAuthSource::None;
@@ -4011,37 +4041,16 @@ void TfMain::applyLocalAuthSources()
 	if (!uiIsLive() || shuttingDown_)
 		return;
 
-	std::optional<FlashAuthEntry> flash;
-	if (flashAuth_)
-		flash = flashAuth_->activeEntry();
-
-	if (flash.has_value())
+	const auto identity = resolveLiveDeviceIdentity();
+	if (identity)
 	{
-		const bool switched =
-			auth_source_ != LocalAuthSource::Flash ||
-			flash_serial_ != flash->serial ||
-			user_ != flash->clientName;
-		if (switched && auth_)
-		{
-			clear();
-			message_.attachments.clear();
-			disconnectTransportOnly();
-			lbStatus->Caption = L"Статус: отключено от сервера";
-		}
-
-		onSuccessfulAuthorization(flash->clientName, flash->tokenPath);
-		client_id_ = flash->clientId;
-		flash_serial_ = flash->serial;
-		auth_signature_ = flash->signatureValue;
-		auth_source_ = LocalAuthSource::Flash;
-		gCurrentPath = flash->tokenPath;
+		applyResolvedDeviceIdentity(*identity);
 		return;
 	}
 
-	const bool lostFlash = (auth_source_ == LocalAuthSource::Flash);
-	if (lostFlash)
+	const bool lostDevice = isDeviceAuthSource();
+	if (lostDevice)
 	{
-		// Flash removed: wipe results immediately, even if admin fallback follows.
 		clear();
 		message_.attachments.clear();
 		disconnectTransportOnly();
@@ -4054,7 +4063,7 @@ void TfMain::applyLocalAuthSources()
 		const std::string adminUtf8 = auth_paths::toUtf8(adminFile);
 		const bool switched =
 			auth_source_ != LocalAuthSource::Admin || user_ != "admin";
-		if (switched && auth_ && !lostFlash)
+		if (switched && auth_ && !lostDevice)
 		{
 			clear();
 			message_.attachments.clear();
@@ -4064,7 +4073,8 @@ void TfMain::applyLocalAuthSources()
 
 		onSuccessfulAuthorization("admin", adminUtf8);
 		client_id_.clear();
-		flash_serial_.clear();
+		device_type_.clear();
+		device_id_.clear();
 		auth_signature_.clear();
 		auth_source_ = LocalAuthSource::Admin;
 		gCurrentPath = adminUtf8;
@@ -4075,6 +4085,85 @@ void TfMain::applyLocalAuthSources()
 		return;
 
 	logoutUnauthorizedUi();
+}
+
+DeviceAuthIdentity TfMain::currentDeviceIdentity() const
+{
+	DeviceAuthIdentity identity;
+	identity.clientId = client_id_;
+	identity.clientName = user_;
+	identity.deviceType = device_type_;
+	identity.deviceId = device_id_;
+	identity.signature = auth_signature_;
+	identity.tokenPath = token_dir_;
+	return identity;
+}
+
+bool TfMain::isDeviceAuthSource() const
+{
+	return auth_source_ == LocalAuthSource::Usb ||
+		auth_source_ == LocalAuthSource::Computer;
+}
+
+std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
+{
+	std::optional<UsbAuthProbe> probe;
+	if (flashAuth_)
+	{
+		const auto entry = flashAuth_->activeEntry();
+		if (entry)
+		{
+			UsbAuthProbe usb;
+			usb.tokenPath = entry->tokenPath;
+			usb.driveLetter = entry->driveLetter;
+			usb.claimedDeviceId = entry->serial;
+			usb.liveHardwareSerial =
+				UsbHardwareSerial::GetSerialForDriveLetter(entry->driveLetter);
+			probe = usb;
+		}
+	}
+
+	const std::string programData =
+		auth_paths::toUtf8(auth_paths::programDataAuthTokenPath());
+	const std::string exeToken =
+		auth_paths::toUtf8(auth_paths::exeAuthTokenPath());
+	std::string uuid;
+	if (const auto liveUuid = QueryComputerSystemProductUuid())
+		uuid = *liveUuid;
+
+	const auto selected = SelectDeviceAuthIdentity(
+		probe, programData, exeToken, uuid);
+
+	const bool usbSelected =
+		selected && selected->deviceType == device_identity::kDeviceTypeUsb;
+	if (probe && !usbSelected && flashAuth_)
+		flashAuth_->dropInvalidActive(probe->claimedDeviceId, probe->tokenPath);
+	return selected;
+}
+
+void TfMain::applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity)
+{
+	const bool invalidate =
+		(auth_ || hasServerAuthorization()) &&
+		ShouldInvalidateServerAuth(currentDeviceIdentity(), identity);
+	if (invalidate)
+	{
+		clear();
+		message_.attachments.clear();
+		disconnectTransportOnly();
+		lbStatus->Caption = L"Статус: отключено от сервера";
+	}
+
+	onSuccessfulAuthorization(identity.clientName, identity.tokenPath);
+	client_id_ = identity.clientId;
+	device_type_ = identity.deviceType;
+	device_id_ = identity.deviceId;
+	auth_signature_ = identity.signature;
+	token_dir_ = identity.tokenPath;
+	auth_source_ = (identity.deviceType == device_identity::kDeviceTypeUsb)
+		? LocalAuthSource::Usb
+		: LocalAuthSource::Computer;
+	gCurrentPath = identity.tokenPath;
 }
 
 
@@ -4152,17 +4241,8 @@ void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
     System::Threading::TTask::Run([this, guard_holder, live, op]() {
-		// Пока есть валидная флешка — admin не перекрывает.
+		// USB has priority; skip the timer while a live USB token is present.
 		if (flashAuth_ && flashAuth_->hasValidFlash())
-			return;
-
-		const std::wstring adminFile =
-			auth_paths::fileBesideExecutable(L"admin984.bin");
-		if (!auth_paths::isRegularFile(adminFile))
-			return;
-
-		// Локальный admin без авто-подключения к серверу (сервер — только по кнопке).
-		if (auth_ && auth_source_ == LocalAuthSource::Admin)
 			return;
 
 		TThread::Queue(nullptr, [this, live, op]() {
@@ -4913,18 +4993,25 @@ void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 		return;
 	}
 
-	// Flash: WMI remove is primary; timer is a safety-net for deleted token.
-	if (auth_source_ == LocalAuthSource::Flash)
+	// USB: WMI remove is primary; timer re-checks live hardware before keeping USB.
+	if (auth_source_ == LocalAuthSource::Usb)
 	{
-		const bool tokenPresent = !token_dir_.empty() &&
-			SafeExistsWin(toW(token_dir_));
-		const bool flashValid = flashAuth_ && flashAuth_->hasValidFlash();
-		if (tokenPresent && flashValid)
+		const auto identity = resolveLiveDeviceIdentity();
+		if (identity &&
+			identity->deviceType == device_identity::kDeviceTypeUsb &&
+			!ShouldInvalidateServerAuth(currentDeviceIdentity(), identity))
 			return;
-		if (flashAuth_)
-			flashAuth_->dropInvalidActive(flash_serial_, token_dir_);
-		else
-			logoutUnauthorizedUi();
+		applyLocalAuthSources();
+		return;
+	}
+
+	if (auth_source_ == LocalAuthSource::Computer)
+	{
+		const auto identity = resolveLiveDeviceIdentity();
+		if (identity &&
+			!ShouldInvalidateServerAuth(currentDeviceIdentity(), identity))
+			return;
+		applyLocalAuthSources();
 		return;
 	}
 
@@ -4959,17 +5046,16 @@ bool TfMain::tryConnect()
 			return false;
 		}
 		// Re-apply policy after configure() recreates sessions.
-		const bool flashMode =
-			auth_source_ == LocalAuthSource::Flash &&
-			!client_id_.empty() && !flash_serial_.empty();
-		if (flashMode)
+		const bool deviceMode = isDeviceAuthSource() &&
+			!client_id_.empty() && !device_type_.empty() && !device_id_.empty();
+		if (deviceMode)
 			serverManager_.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
 		else
 			serverManager_.setAuthPolicy(ServerAuthPolicy::LegacyUserRegistry);
 
-		// Flash keeps the existing primary transport probe. Admin must not
+		// Device auth keeps the existing primary transport probe. Admin must not
 		// authorize only primary here: btnConnectClick runs authenticateAllLegacy.
-		if (flashMode) {
+		if (deviceMode) {
 			std::string err;
 			if (!serverManager_.connectPrimary(&err)) {
 				ShowMessage("Ошибка подключения: " + US(err));

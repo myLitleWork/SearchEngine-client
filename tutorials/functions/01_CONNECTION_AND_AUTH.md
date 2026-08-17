@@ -29,8 +29,9 @@ server-auth хотя бы на одном сервере.
 
 ### Что нужно подготовить
 
-1. Либо USB-токен `searchclient-auth-token.json` на флешке, либо `admin984.bin`
-   рядом с EXE (приоритет: флешка важнее admin).
+1. Либо USB-токен `searchclient-auth-token.json` на флешке, либо PC-токен
+   (`%ProgramData%\SearchEngine\searchclient-auth-token.json`, иначе рядом с EXE),
+   либо `admin984.bin` рядом с EXE (приоритет: USB, затем PC, затем admin).
 2. Настроенные год и серверы (`servers` / `server_ports`).
 3. Доступность серверов по сети.
 4. В portable/run layout — `config/server-error-messages.json` рядом с EXE
@@ -76,7 +77,8 @@ server-auth хотя бы на одном сервере.
 |---|---|---|
 | IP / host | Адрес основного/единственного сервера | Значение от администратора |
 | Год | Выбор портов и баз | Год нужного документа |
-| USB-токен | Локальный flash-вход + `AUTHENTICATE_V1` | Приоритет над admin |
+| USB-токен | Локальный USB-вход + `AUTHENTICATE_V1` | Приоритет над PC и admin |
+| PC-токен | Локальный computer-вход + `AUTHENTICATE_V1` | `%ProgramData%\SearchEngine\`, иначе рядом с EXE |
 | `admin984.bin` | Локальный admin + legacy `USER_REGISTRY` | Без `AUTHENTICATE_V1` |
 | Каталог серверов | Многосерверный режим | См. настройки `servers` |
 
@@ -91,12 +93,18 @@ server-auth хотя бы на одном сервере.
 3. Нажимаете **Подключение** → статус «основной подключён».
 4. Поиск работает; в трафике нет `AUTHENTICATE_V1`.
 
-**Flash**
+**USB**
 
 1. Вставлена флешка с токеном; в auth DB сервера есть запись.
 2. Видите `Авторизация : Иванов` (это ещё только локальный вход).
-3. Нажимаете **Подключение** → `AUTHENTICATE_V1` на каждом включённом сервере года.
+3. Нажимаете **Подключение** → `AUTHENTICATE_V1` с `device_type=usb` и `device_id` (hardware serial).
 4. Статус `авторизовано серверов K/N`; поиск только по авторизованным.
+
+**PC**
+
+1. USB нет; есть валидный `searchclient-auth-token.json` в `%ProgramData%\SearchEngine\` или рядом с EXE.
+2. Видите `Авторизация : Иванов`.
+3. **Подключение** шлёт `AUTHENTICATE_V1` с `device_type=computer` и SMBIOS UUID. `flash_serial` не используется.
 
 ### Что происходит после «Подключение»
 
@@ -109,7 +117,8 @@ server-auth хотя бы на одном сервере.
 | Локальный вход | Server-auth | Поведение |
 |---|---|---|
 | `admin984.bin` | `USER_REGISTRY` (legacy) | Как раньше: основной при Connect, остальные при поиске |
-| Flash-токен | `AUTHENTICATE_V1` на **каждый** enabled server | Без тихого `USER_REGISTRY`; провал V1 = сервер не авторизован |
+| USB-токен | `AUTHENTICATE_V1` на **каждый** enabled server | Без тихого `USER_REGISTRY`; провал V1 = сервер не авторизован |
+| PC-токен | тот же `AUTHENTICATE_V1` | Если USB нет или USB-token не подходит текущему носителю |
 
 4. UI поиска/загрузки включается только если есть хотя бы один server-authorized endpoint.
 5. Локальная таблица результатов очищается.
@@ -150,7 +159,7 @@ server-auth хотя бы на одном сервере.
 ### Важные замечания и ограничения
 
 - Пароль в окне не вводится.
-- Flash и admin **не смешивают** wire-пути: flash → только `AUTHENTICATE_V1`,
+- Flash и admin **не смешивают** wire-пути: USB/PC → только `AUTHENTICATE_V1`,
   admin → только `USER_REGISTRY`.
 - После `AuthFailed` локальный зелёный `lblUser` допустим, но Search/Load не
   обходят server-auth gate.
@@ -169,7 +178,7 @@ server-auth хотя бы на одном сервере.
 
 - Адреса серверов в `servers` (`SERVER_IP.INI` поддерживается только для совместимости)
 - `servers`, `server_ports`, `ports`
-- `admin984.bin`, USB-токен `searchclient-auth-token.json`
+- `admin984.bin`, USB-токен на флешке, PC-токен в `%ProgramData%\SearchEngine\` или рядом с EXE
 - `config/server-error-messages.json`
 
 → [../SETTINGS_REFERENCE.md](../SETTINGS_REFERENCE.md)

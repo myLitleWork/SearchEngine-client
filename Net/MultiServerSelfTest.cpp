@@ -7,9 +7,12 @@
 
 #include "MultiServerManager.h"
 
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -183,6 +186,11 @@ namespace
 		}
 		bool searched() const { return searched_.load(std::memory_order_acquire); }
 		bool failed() const { return failed_.load(std::memory_order_acquire); }
+		std::string lastAuthBody() const
+		{
+			std::lock_guard<std::mutex> lock(bodyMutex_);
+			return authBody_;
+		}
 
 	private:
 		void send(tcp::socket& socket, COMMAND command, const std::string& body)
@@ -237,6 +245,10 @@ namespace
 					failed_.store(true, std::memory_order_release);
 					return;
 				}
+				{
+					std::lock_guard<std::mutex> lock(bodyMutex_);
+					authBody_ = authBody;
+				}
 
 				search_protocol::ErrorResponseV1 errorPayload{};
 				errorPayload.errorCode = static_cast<std::uint32_t>(code_);
@@ -261,6 +273,8 @@ namespace
 		std::unique_ptr<tcp::socket> socket_;
 		search_protocol::ErrorCode code_;
 		std::thread worker_;
+		mutable std::mutex bodyMutex_;
+		std::string authBody_;
 		std::atomic_bool authenticated_{false};
 		std::atomic_bool userRegistrySeen_{false};
 		std::atomic_bool searched_{false};
@@ -382,18 +396,20 @@ int RunMultiServerSelfTestFromCommandLine()
 	if (legacy.negotiated() || !legacy.legacyFallbackUsed())
 		return 52;
 
-	// --- AUTHENTICATE_V1 wire ErrorCode mapping (server table 33..43) ---
+	// --- AUTHENTICATE_V1 wire ErrorCode mapping (server table 33..45) ---
 	if (static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFailed) != 33u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientDisabled) != 34u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthRequired) != 35u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdMissing) != 36u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMissing) != 37u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMissing) != 38u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) != 39u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) != 40u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) != 41u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMismatch) != 42u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 43u)
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceTypeMissing) != 38u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMissing) != 39u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) != 40u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) != 41u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) != 42u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceTypeMismatch) != 43u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMismatch) != 44u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 45u)
 		return 60;
 
 	// UTF-8 substrings from config/server-error-messages.json (stable wire texts).
@@ -405,16 +421,18 @@ int RunMultiServerSelfTestFromCommandLine()
 			"\xD1\x82\xD1\x80\xD0\xB5\xD0\xB1\xD1\x83\xD0\xB5\xD1\x82") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthClientIdMissing, "client_id") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthClientNameMissing, "client_name") ||
-		!expectAuthMessage(search_protocol::ErrorCode::AuthFlashSerialMissing,
-			"\xD1\x81\xD0\xB5\xD1\x80\xD0\xB8\xD0\xB9\xD0\xBD") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthDeviceTypeMissing, "device_type") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthDeviceIdMissing, "device_id") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthSignatureMissing,
 			"\xD0\xBF\xD0\xBE\xD0\xB4\xD0\xBF\xD0\xB8\xD1\x81") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthClientIdNotFound,
 			"\xD0\xBD\xD0\xB5\x20\xD0\xB7\xD0\xB0\xD1\x80\xD0\xB5\xD0\xB3\xD0\xB8\xD1\x81\xD1\x82") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthClientNameMismatch,
 			"\xD0\xB8\xD0\xBC\xD1\x8F") ||
-		!expectAuthMessage(search_protocol::ErrorCode::AuthFlashSerialMismatch,
-			"\xD1\x81\xD0\xB5\xD1\x80\xD0\xB8\xD0\xB9\xD0\xBD") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthDeviceTypeMismatch,
+			"\xD1\x82\xD0\xB8\xD0\xBF") ||
+		!expectAuthMessage(search_protocol::ErrorCode::AuthDeviceIdMismatch,
+			"device_id") ||
 		!expectAuthMessage(search_protocol::ErrorCode::AuthSignatureInvalid,
 			"\xD0\xBD\xD0\xB5\xD0\xB4\xD0\xB5\xD0\xB9\xD1\x81\xD1\x82\xD0\xB2"))
 		return 61;
@@ -437,7 +455,7 @@ int RunMultiServerSelfTestFromCommandLine()
 	authManager.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
 
 	const auto authAttempts = authManager.authenticateAllV1(
-		"desk", "missing-client", "flash-1", "sig");
+		"desk", "missing-client", "usb", "USBSERIAL01", "sig");
 	if (authAttempts.size() != 2)
 		return 65;
 	if (authAttempts[0].ok || authAttempts[1].ok)
@@ -450,8 +468,8 @@ int RunMultiServerSelfTestFromCommandLine()
 		authAttempts[1].wireErrorCode !=
 			static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid))
 		return 68;
-	if (authAttempts[0].error.find("40") == std::string::npos ||
-		authAttempts[1].error.find("43") == std::string::npos)
+	if (authAttempts[0].error.find("41") == std::string::npos ||
+		authAttempts[1].error.find("45") == std::string::npos)
 		return 69;
 	if (authManager.isServerAuthorized("auth-a") ||
 		authManager.isServerAuthorized("auth-b"))
@@ -471,6 +489,16 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 73;
 	if (authReject.failed() || authSig.failed())
 		return 74;
+
+	try {
+		const auto parsed = nlohmann::json::parse(authReject.lastAuthBody());
+		if (parsed.contains("flash_serial") ||
+			parsed.value("device_type", std::string()) != "usb" ||
+			parsed.value("device_id", std::string()) != "USBSERIAL01")
+			return 75;
+	} catch (...) {
+		return 75;
+	}
 
 	authManager.disconnectAll();
 	return 0;

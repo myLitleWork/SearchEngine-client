@@ -38,11 +38,13 @@
     {"code": 35, "name": "AuthRequired", "message": "Сервер требует авторизацию перед выполнением этой команды."},
     {"code": 36, "name": "AuthClientIdMissing", "message": "Сервер отклонил авторизацию: не передан идентификатор клиента (client_id)."},
     {"code": 37, "name": "AuthClientNameMissing", "message": "Сервер отклонил авторизацию: не передано имя клиента (client_name)."},
-    {"code": 38, "name": "AuthFlashSerialMissing", "message": "Сервер отклонил авторизацию: не передан серийный номер носителя."},
-    {"code": 39, "name": "AuthSignatureMissing", "message": "Сервер отклонил авторизацию: отсутствует подпись авторизационных данных."},
-    {"code": 40, "name": "AuthClientIdNotFound", "message": "Клиент не зарегистрирован на сервере: client_id отсутствует в серверной базе авторизации."},
-    {"code": 41, "name": "AuthClientNameMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другое имя клиента."},
-    {"code": 42, "name": "AuthFlashSerialMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой серийный номер носителя."},
-    {"code": 43, "name": "AuthSignatureInvalid", "message": "Сервер отклонил авторизацию: подпись авторизационных данных недействительна."}
+    {"code": 38, "name": "AuthDeviceTypeMissing", "message": "Сервер отклонил авторизацию: не передан тип устройства (device_type)."},
+    {"code": 39, "name": "AuthDeviceIdMissing", "message": "Сервер отклонил авторизацию: не передан идентификатор устройства (device_id)."},
+    {"code": 40, "name": "AuthSignatureMissing", "message": "Сервер отклонил авторизацию: отсутствует подпись авторизационных данных."},
+    {"code": 41, "name": "AuthClientIdNotFound", "message": "Клиент не зарегистрирован на сервере: client_id отсутствует в серверной базе авторизации."},
+    {"code": 42, "name": "AuthClientNameMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другое имя клиента."},
+    {"code": 43, "name": "AuthDeviceTypeMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой тип устройства."},
+    {"code": 44, "name": "AuthDeviceIdMismatch", "message": "Данные клиента не совпадают с серверной регистрацией: другой идентификатор устройства (device_id)."},
+    {"code": 45, "name": "AuthSignatureInvalid", "message": "Сервер отклонил авторизацию: подпись авторизационных данных недействительна."}
   ]
 }

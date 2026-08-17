@@ -8,7 +8,7 @@
 - Создаётся главная форма `TfMain` (`fMain`)
 - Специальные режимы командной строки:
   - `--docx-worker` (всегда, для конвертации)
-  - в Debug: `--multi-server-self-test`, `--auth-path-self-test`,
+  - в Debug: `--multi-server-self-test`, `--device-auth-self-test`, `--auth-path-self-test`,
     `--docx-timeout-self-test`, `--docx-cancel-self-test`,
     `--docx-restart-self-test`
 

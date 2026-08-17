@@ -32,6 +32,28 @@ namespace auth_paths
 		return directory + L"\\" + fileName;
 	}
 
+	inline std::wstring programDataSearchEngineDirectory()
+	{
+		wchar_t buffer[MAX_PATH] = {};
+		const DWORD length = GetEnvironmentVariableW(L"ProgramData", buffer, MAX_PATH);
+		if (length == 0 || length >= MAX_PATH)
+			return {};
+		return std::wstring(buffer, length) + L"\\SearchEngine";
+	}
+
+	inline std::wstring programDataAuthTokenPath()
+	{
+		const std::wstring directory = programDataSearchEngineDirectory();
+		if (directory.empty())
+			return {};
+		return directory + L"\\searchclient-auth-token.json";
+	}
+
+	inline std::wstring exeAuthTokenPath()
+	{
+		return fileBesideExecutable(L"searchclient-auth-token.json");
+	}
+
 	inline bool isRegularFile(const std::wstring& path)
 	{
 		if (path.empty())

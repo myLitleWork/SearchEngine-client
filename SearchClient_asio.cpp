@@ -5,6 +5,7 @@
 #include <tchar.h>
 #include "WordBatchProcessor.h"
 #include "MultiServerSelfTest.h"
+#include "DeviceAuthSelfTest.h"
 #include "AuthPaths.h"
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
@@ -19,6 +20,8 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 #ifdef _DEBUG
 	if (IsMultiServerSelfTestInvocation())
 		return RunMultiServerSelfTestFromCommandLine();
+	if (IsDeviceAuthSelfTestInvocation())
+		return RunDeviceAuthSelfTestFromCommandLine();
 	if (IsDocxTimeoutSelfTestInvocation())
 		return RunDocxTimeoutSelfTestFromCommandLine();
 	if (IsDocxCancelSelfTestInvocation())

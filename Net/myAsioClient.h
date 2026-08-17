@@ -110,12 +110,14 @@ namespace search_protocol
 		AuthRequired = 35,
 		AuthClientIdMissing = 36,
 		AuthClientNameMissing = 37,
-		AuthFlashSerialMissing = 38,
-		AuthSignatureMissing = 39,
-		AuthClientIdNotFound = 40,
-		AuthClientNameMismatch = 41,
-		AuthFlashSerialMismatch = 42,
-		AuthSignatureInvalid = 43
+		AuthDeviceTypeMissing = 38,
+		AuthDeviceIdMissing = 39,
+		AuthSignatureMissing = 40,
+		AuthClientIdNotFound = 41,
+		AuthClientNameMismatch = 42,
+		AuthDeviceTypeMismatch = 43,
+		AuthDeviceIdMismatch = 44,
+		AuthSignatureInvalid = 45
 	};
 
 	struct ErrorResponseV1
@@ -186,12 +188,14 @@ static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientD
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthRequired) == 35u);
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdMissing) == 36u);
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMissing) == 37u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMissing) == 38u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) == 39u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) == 40u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) == 41u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthFlashSerialMismatch) == 42u);
-static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) == 43u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceTypeMissing) == 38u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMissing) == 39u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureMissing) == 40u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientIdNotFound) == 41u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthClientNameMismatch) == 42u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceTypeMismatch) == 43u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMismatch) == 44u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) == 45u);
 
 using boost::asio::ip::tcp;
 

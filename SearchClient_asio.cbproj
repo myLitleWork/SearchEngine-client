@@ -181,6 +181,30 @@
         <None Include="AuthPaths.h">
             <BuildOrder>25</BuildOrder>
         </None>
+        <CppCompile Include="ComputerIdentity.cpp">
+            <DependentOn>ComputerIdentity.h</DependentOn>
+            <BuildOrder>41</BuildOrder>
+        </CppCompile>
+        <None Include="ComputerIdentity.h">
+            <BuildOrder>42</BuildOrder>
+        </None>
+        <CppCompile Include="DeviceAuthSelect.cpp">
+            <DependentOn>DeviceAuthSelect.h</DependentOn>
+            <BuildOrder>43</BuildOrder>
+        </CppCompile>
+        <None Include="DeviceAuthSelect.h">
+            <BuildOrder>44</BuildOrder>
+        </None>
+        <CppCompile Include="DeviceAuthSelfTest.cpp">
+            <DependentOn>DeviceAuthSelfTest.h</DependentOn>
+            <BuildOrder>45</BuildOrder>
+        </CppCompile>
+        <None Include="DeviceAuthSelfTest.h">
+            <BuildOrder>46</BuildOrder>
+        </None>
+        <None Include="DeviceIdentity.h">
+            <BuildOrder>47</BuildOrder>
+        </None>
         <CppCompile Include="BinaryFileLoad\FileData.cpp">
             <BuildOrder>13</BuildOrder>
         </CppCompile>

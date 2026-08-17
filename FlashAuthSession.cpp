@@ -155,7 +155,7 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 		std::lock_guard<std::mutex> lock(mutex_);
 		for (size_t i = 0; i < stack_.size(); ++i)
 		{
-			if (stack_[i].serial == token.flashSerial)
+			if (stack_[i].serial == token.deviceId)
 			{
 				stack_[i].driveLetter = driveLetter;
 				stack_[i].tokenPath = token.tokenPath;
@@ -168,7 +168,7 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 		}
 
 		FlashAuthEntry e;
-		e.serial = token.flashSerial;
+		e.serial = token.deviceId;
 		e.driveLetter = driveLetter;
 		e.tokenPath = token.tokenPath;
 		e.clientName = token.clientName;

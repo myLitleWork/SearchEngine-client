@@ -95,10 +95,11 @@ public:
 		return client_.isConnected();
 	}
 
-	// Flash path only. Never call for admin984.bin / LegacyUserRegistry.
+	// Device path only. Never call for admin984.bin / LegacyUserRegistry.
 	bool authenticateV1(const std::string& clientName,
 						const std::string& clientId,
-						const std::string& flashSerial,
+						const std::string& deviceType,
+						const std::string& deviceId,
 						const std::string& signature = {},
 						std::string* errMsg = nullptr,
 						search_protocol::ServerErrorInfo* serverError = nullptr)
@@ -117,9 +118,10 @@ public:
 			return false;
 
 		nlohmann::json body{
-			{"client_name", clientName},
 			{"client_id", clientId},
-			{"flash_serial", flashSerial},
+			{"client_name", clientName},
+			{"device_type", deviceType},
+			{"device_id", deviceId},
 			{"signature", signature}};
 		std::string reply;
 		if (!client_.requestText(
@@ -325,7 +327,7 @@ private:
 		}
 
 		if (authPolicy_ == ServerAuthPolicy::AuthenticateV1) {
-			// Flash sessions are authorized only by authenticateV1().
+			// Device sessions are authorized only by authenticateV1().
 			return true;
 		}
 
@@ -493,7 +495,8 @@ public:
 	bool authenticateV1(const std::string& serverId,
 						const std::string& clientName,
 						const std::string& clientId,
-						const std::string& flashSerial,
+						const std::string& deviceType,
+						const std::string& deviceId,
 						const std::string& signature = {},
 						std::string* errMsg = nullptr,
 						search_protocol::ServerErrorInfo* serverError = nullptr)
@@ -501,7 +504,7 @@ public:
 		auto session = findSession(serverId);
 		if (!session) return missingServer(serverId, errMsg);
 		const bool ok = session->authenticateV1(
-			clientName, clientId, flashSerial, signature, errMsg, serverError);
+			clientName, clientId, deviceType, deviceId, signature, errMsg, serverError);
 		if (ok) {
 			std::lock_guard<std::mutex> lock(mutex_);
 			user_ = clientName;
@@ -511,7 +514,8 @@ public:
 
 	bool authenticatePrimaryV1(const std::string& clientName,
 							   const std::string& clientId,
-							   const std::string& flashSerial,
+							   const std::string& deviceType,
+							   const std::string& deviceId,
 							   const std::string& signature = {},
 							   std::string* errMsg = nullptr)
 	{
@@ -519,16 +523,18 @@ public:
 			primaryServerId(),
 			clientName,
 			clientId,
-			flashSerial,
+			deviceType,
+			deviceId,
 			signature,
 			errMsg);
 	}
 
-	// Flash Connect: AUTHENTICATE_V1 on every enabled server for the year.
+	// Device Connect: AUTHENTICATE_V1 on every enabled server for the year.
 	std::vector<ServerAuthAttempt> authenticateAllV1(
 		const std::string& clientName,
 		const std::string& clientId,
-		const std::string& flashSerial,
+		const std::string& deviceType,
+		const std::string& deviceId,
 		const std::string& signature = {})
 	{
 		std::vector<ServerAuthAttempt> attempts;
@@ -540,7 +546,7 @@ public:
 			attempt.displayName = displayName(id);
 			search_protocol::ServerErrorInfo wireError;
 			attempt.ok = authenticateV1(
-				id, clientName, clientId, flashSerial, signature,
+				id, clientName, clientId, deviceType, deviceId, signature,
 				&attempt.error, &wireError);
 			if (wireError.hasCode) {
 				attempt.hasWireErrorCode = true;
@@ -589,7 +595,7 @@ public:
 		if (!session) return missingServer(serverId, errMsg);
 		if (authPolicy() == ServerAuthPolicy::AuthenticateV1) {
 			if (errMsg) {
-				*errMsg = "Для flash-сессии нужен повторный AUTHENTICATE_V1, "
+				*errMsg = "Для device-сессии нужен повторный AUTHENTICATE_V1, "
 					"а не USER_REGISTRY";
 			}
 			return false;
