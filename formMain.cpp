@@ -4107,19 +4107,24 @@ bool TfMain::isDeviceAuthSource() const
 
 std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 {
-	std::optional<UsbAuthProbe> probe;
+	std::vector<UsbAuthProbe> probes;
 	if (flashAuth_)
 	{
-		const auto entry = flashAuth_->activeEntry();
-		if (entry)
+		auto entries = flashAuth_->entries();
+		std::sort(entries.begin(), entries.end(),
+			[](const FlashAuthEntry& a, const FlashAuthEntry& b) {
+				return a.tick > b.tick;
+			});
+		probes.reserve(entries.size());
+		for (const auto& entry : entries)
 		{
 			UsbAuthProbe usb;
-			usb.tokenPath = entry->tokenPath;
-			usb.driveLetter = entry->driveLetter;
-			usb.claimedDeviceId = entry->serial;
+			usb.tokenPath = entry.tokenPath;
+			usb.driveLetter = entry.driveLetter;
+			usb.claimedDeviceId = entry.serial;
 			usb.liveHardwareSerial =
-				UsbHardwareSerial::GetSerialForDriveLetter(entry->driveLetter);
-			probe = usb;
+				UsbHardwareSerial::GetSerialForDriveLetter(entry.driveLetter);
+			probes.push_back(usb);
 		}
 	}
 
@@ -4131,14 +4136,29 @@ std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 	if (const auto liveUuid = QueryComputerSystemProductUuid())
 		uuid = *liveUuid;
 
-	const auto selected = SelectDeviceAuthIdentity(
-		probe, programData, exeToken, uuid);
+	const UsbAuthSelection usbSelection = SelectUsbAuthIdentityFromProbes(probes);
 
-	const bool usbSelected =
-		selected && selected->deviceType == device_identity::kDeviceTypeUsb;
-	if (probe && !usbSelected && flashAuth_)
-		flashAuth_->dropInvalidActive(probe->claimedDeviceId, probe->tokenPath);
-	return selected;
+	if (flashAuth_ && !probes.empty())
+	{
+		const std::size_t win = usbSelection.winningProbeIndex;
+		if (win != static_cast<std::size_t>(-1))
+		{
+			for (std::size_t i = 0; i < win; ++i)
+				flashAuth_->dropInvalidActive(
+					probes[i].claimedDeviceId, probes[i].tokenPath);
+		}
+		else
+		{
+			for (const auto& probe : probes)
+				flashAuth_->dropInvalidActive(
+					probe.claimedDeviceId, probe.tokenPath);
+		}
+	}
+
+	if (usbSelection.identity)
+		return usbSelection.identity;
+
+	return SelectPcAuthIdentity(programData, exeToken, uuid);
 }
 
 void TfMain::applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity)

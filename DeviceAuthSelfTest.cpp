@@ -14,6 +14,7 @@
 #include <Windows.h>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -73,6 +74,24 @@ namespace
 		return token.dump();
 	}
 
+	std::string makeTokenWithSignature(
+		const std::string& deviceType,
+		const std::string& deviceId,
+		const std::string& clientId,
+		const std::string& clientName,
+		const nlohmann::json& signature)
+	{
+		nlohmann::json token{
+			{"format", "searchclient-auth-token"},
+			{"format_version", 1},
+			{"client_id", clientId},
+			{"client_name", clientName},
+			{"device_type", deviceType},
+			{"device_id", deviceId},
+			{"signature", signature}};
+		return token.dump();
+	}
+
 	DeviceAuthIdentity sample(
 		const std::string& clientId,
 		const std::string& deviceId,
@@ -123,9 +142,15 @@ int RunDeviceAuthSelfTestFromCommandLine()
 	const std::wstring programDataToken = programDataDir + L"\\searchclient-auth-token.json";
 	const std::wstring exeToken = exeDir + L"\\searchclient-auth-token.json";
 	const std::wstring usbToken = root + L"\\usb-searchclient-auth-token.json";
+	const std::wstring usbTokenA = root + L"\\usb-a-searchclient-auth-token.json";
+	const std::wstring usbTokenB = root + L"\\usb-b-searchclient-auth-token.json";
+	const std::wstring encodingToken = root + L"\\encoding-searchclient-auth-token.json";
 	const std::string programDataUtf8 = wideToUtf8(programDataToken);
 	const std::string exeUtf8 = wideToUtf8(exeToken);
 	const std::string usbUtf8 = wideToUtf8(usbToken);
+	const std::string usbAUtf8 = wideToUtf8(usbTokenA);
+	const std::string usbBUtf8 = wideToUtf8(usbTokenB);
+	const std::string encodingUtf8 = wideToUtf8(encodingToken);
 	const std::string liveUuid = *uuid;
 
 	if (!writeFile(programDataToken, makeToken(
@@ -171,21 +196,21 @@ int RunDeviceAuthSelfTestFromCommandLine()
 	usb.driveLetter = "E:";
 	usb.claimedDeviceId = "USBSERIAL01";
 	usb.liveHardwareSerial = "USBSERIAL01";
-	selected = SelectDeviceAuthIdentity(usb, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
 	if (!selected || selected->deviceType != "usb" || selected->deviceId != "USBSERIAL01")
 		return 18;
 
-	selected = SelectDeviceAuthIdentity(std::nullopt, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({}, programDataUtf8, exeUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-exe")
 		return 19;
 
 	usb.liveHardwareSerial.clear();
-	selected = SelectDeviceAuthIdentity(usb, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer" || selected->deviceId != liveUuid)
 		return 20;
 
 	usb.liveHardwareSerial = "DIFFERENTUSB";
-	selected = SelectDeviceAuthIdentity(usb, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer")
 		return 21;
 
@@ -194,13 +219,68 @@ int RunDeviceAuthSelfTestFromCommandLine()
 		return 22;
 	usb.claimedDeviceId = "USBSERIAL01";
 	usb.liveHardwareSerial = "USBSERIAL01";
-	selected = SelectDeviceAuthIdentity(usb, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer")
 		return 23;
 
-	UsbAuthToken parsed;
-	if (TryParseAuthToken(usbUtf8, parsed) && parsed.deviceId == "USBSERIAL01")
+	if (!writeFile(usbToken, makeToken(
+			"usb", "USBSERIAL01", "usb-1", "flash-user", "sig-usb")))
 		return 24;
+	UsbAuthToken parsed;
+	if (!TryParseAuthToken(usbUtf8, parsed) || parsed.deviceId != "USBSERIAL01")
+		return 25;
+
+	if (!writeFile(encodingToken, makeTokenWithSignature(
+			"usb", "USBSERIAL01", "usb-enc", "flash-user",
+			nlohmann::json{{"alg", "RS256"}, {"value", "sig-no-encoding"}})))
+		return 33;
+	if (TryParseAuthToken(encodingUtf8, parsed))
+		return 34;
+
+	if (!writeFile(encodingToken, makeTokenWithSignature(
+			"usb", "USBSERIAL01", "usb-enc", "flash-user",
+			nlohmann::json{{"alg", "RS256"}, {"encoding", ""}, {"value", "sig-empty"}})))
+		return 35;
+	if (TryParseAuthToken(encodingUtf8, parsed))
+		return 36;
+
+	if (!writeFile(encodingToken, makeTokenWithSignature(
+			"usb", "USBSERIAL01", "usb-enc", "flash-user",
+			nlohmann::json{{"alg", "RS256"}, {"encoding", "hex"}, {"value", "sig-wrong"}})))
+		return 37;
+	if (TryParseAuthToken(encodingUtf8, parsed))
+		return 38;
+
+	if (!writeFile(usbTokenA, makeToken(
+			"usb", "USBSERIAL01", "usb-a", "flash-a", "sig-usb-a")))
+		return 39;
+	if (!writeFile(usbTokenB, makeToken(
+			"usb", "USBSERIAL02", "usb-b", "flash-b", "sig-usb-b")))
+		return 40;
+	UsbAuthProbe usbB;
+	usbB.tokenPath = usbBUtf8;
+	usbB.driveLetter = "F:";
+	usbB.claimedDeviceId = "USBSERIAL02";
+	usbB.liveHardwareSerial.clear();
+	UsbAuthProbe usbA;
+	usbA.tokenPath = usbAUtf8;
+	usbA.driveLetter = "E:";
+	usbA.claimedDeviceId = "USBSERIAL01";
+	usbA.liveHardwareSerial = "USBSERIAL01";
+	selected = SelectDeviceAuthIdentity({usbB, usbA}, programDataUtf8, exeUtf8, liveUuid);
+	if (!selected || selected->deviceType != "usb" || selected->clientId != "usb-a")
+		return 41;
+	const auto multiUsb = SelectUsbAuthIdentityFromProbes({usbB, usbA});
+	if (!multiUsb.identity || multiUsb.winningProbeIndex != 1)
+		return 42;
+
+	usbA.liveHardwareSerial.clear();
+	selected = SelectDeviceAuthIdentity({usbB, usbA}, programDataUtf8, exeUtf8, liveUuid);
+	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-exe")
+		return 43;
+	const auto allStaleUsb = SelectUsbAuthIdentityFromProbes({usbB, usbA});
+	if (allStaleUsb.identity || allStaleUsb.winningProbeIndex != static_cast<std::size_t>(-1))
+		return 44;
 
 	DeviceAuthIdentity usbReq;
 	usbReq.clientId = "usb-1";
@@ -213,40 +293,43 @@ int RunDeviceAuthSelfTestFromCommandLine()
 		usbJson.contains("flash_serial") ||
 		usbJson.at("device_type") != "usb" ||
 		usbJson.at("device_id") != "USBSERIAL01")
-		return 25;
+		return 26;
 
 	DeviceAuthIdentity pcReq = sample("pc-exe", liveUuid, "sig-exe");
 	const auto pcJson = nlohmann::json::parse(BuildAuthenticateV1Json(pcReq));
 	if (pcJson.contains("flash_serial") ||
 		pcJson.at("device_type") != "computer" ||
 		pcJson.at("device_id") != liveUuid)
-		return 26;
+		return 27;
 
 	const auto previousPc = sample("pc-old", liveUuid, "sig-old");
 	const auto nextPc = sample("pc-new", liveUuid, "sig-new");
 	if (!ShouldInvalidateServerAuth(previousPc, nextPc))
-		return 27;
-	if (ShouldInvalidateServerAuth(nextPc, nextPc))
 		return 28;
+	if (ShouldInvalidateServerAuth(nextPc, nextPc))
+		return 29;
 
 	const auto previousUsb = sample("usb-1", "USBSERIAL01", "sig-usb", "usb");
 	if (!ShouldInvalidateServerAuth(previousUsb, pcReq))
-		return 29;
-	if (!ShouldInvalidateServerAuth(previousPc, std::nullopt))
 		return 30;
+	if (!ShouldInvalidateServerAuth(previousPc, std::nullopt))
+		return 31;
 
 	auto changedId = previousPc;
 	changedId.deviceId = "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC";
 	if (!ShouldInvalidateServerAuth(previousPc, changedId))
-		return 31;
+		return 32;
 	auto changedSig = previousPc;
 	changedSig.signature = "sig-rotated";
 	if (!ShouldInvalidateServerAuth(previousPc, changedSig))
-		return 32;
+		return 45;
 
 	DeleteFileW(programDataToken.c_str());
 	DeleteFileW(exeToken.c_str());
 	DeleteFileW(usbToken.c_str());
+	DeleteFileW(usbTokenA.c_str());
+	DeleteFileW(usbTokenB.c_str());
+	DeleteFileW(encodingToken.c_str());
 	RemoveDirectoryW(programDataDir.c_str());
 	RemoveDirectoryW(exeDir.c_str());
 	RemoveDirectoryW(root.c_str());

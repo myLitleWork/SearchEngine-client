@@ -80,8 +80,10 @@ bool TryParseAuthToken(const std::string& tokenPathUtf8, UsbAuthToken& out)
 	const std::string alg = j["signature"].value("alg", std::string());
 	if (alg != "RS256")
 		return false;
-	const std::string encoding = j["signature"].value("encoding", std::string());
-	if (!encoding.empty() && encoding != "base64")
+	if (!j["signature"].contains("encoding") || !j["signature"]["encoding"].is_string())
+		return false;
+	const std::string encoding = j["signature"]["encoding"].get<std::string>();
+	if (encoding.empty() || encoding != "base64")
 		return false;
 	const std::string signatureValue = j["signature"].value("value", std::string());
 	if (signatureValue.empty())

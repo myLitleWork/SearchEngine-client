@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 struct DeviceAuthIdentity
 {
@@ -31,13 +33,22 @@ std::string BuildAuthenticateV1Json(const DeviceAuthIdentity& identity);
 
 std::optional<DeviceAuthIdentity> TryUsbIdentityFromProbe(const UsbAuthProbe& probe);
 
+struct UsbAuthSelection
+{
+	std::optional<DeviceAuthIdentity> identity;
+	std::size_t winningProbeIndex = static_cast<std::size_t>(-1);
+};
+
+UsbAuthSelection SelectUsbAuthIdentityFromProbes(
+	const std::vector<UsbAuthProbe>& probes);
+
 std::optional<DeviceAuthIdentity> SelectPcAuthIdentity(
 	const std::string& programDataTokenPathUtf8,
 	const std::string& exeDirTokenPathUtf8,
 	const std::string& liveComputerUuid);
 
 std::optional<DeviceAuthIdentity> SelectDeviceAuthIdentity(
-	const std::optional<UsbAuthProbe>& usbProbe,
+	const std::vector<UsbAuthProbe>& usbProbes,
 	const std::string& programDataTokenPathUtf8,
 	const std::string& exeDirTokenPathUtf8,
 	const std::string& liveComputerUuid);
