@@ -1247,10 +1247,20 @@ bool TfMain::useF12Control()
 void TfMain::registryOnServer(const std::string& user_name)
 {
     try {
-		serverManager_.setUser(user_name);
-		std::string err;
-		if (!serverManager_.connectPrimary(&err))
-			ShowMessage("Ошибка регистрации на сервере: " + US(err));
+		const auto attempts = serverManager_.authenticateAllLegacy(user_name);
+		const int okCount = static_cast<int>(std::count_if(
+			attempts.begin(), attempts.end(),
+			[](const ServerAuthAttempt& a) { return a.ok; }));
+		if (okCount > 0)
+			return;
+
+		std::unique_ptr<TStringList> failures(new TStringList());
+		failures->Add(L"Ошибка регистрации на сервере:");
+		for (const auto& attempt : attempts) {
+			failures->Add(
+				L"• " + US(attempt.displayName) + L": " + US(attempt.error));
+		}
+		ShowMessage(failures->Text);
     }
     catch (const std::exception& e) {
         ShowMessage("Ошибка регистрации: " + String(e.what()));
@@ -1678,74 +1688,61 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		if (!tryConnect() || !auth_)
 			return;
 
-		if (flashMode)
-		{
-			const auto attempts = serverManager_.authenticateAllV1(
-				user_, client_id_, flash_serial_, auth_signature_);
-			const int okCount = static_cast<int>(std::count_if(
-				attempts.begin(), attempts.end(),
-				[](const ServerAuthAttempt& a) { return a.ok; }));
-			const int total = static_cast<int>(attempts.size());
+		const auto attempts = flashMode
+			? serverManager_.authenticateAllV1(
+				user_, client_id_, flash_serial_, auth_signature_)
+			: serverManager_.authenticateAllLegacy(user_);
+		const int okCount = static_cast<int>(std::count_if(
+			attempts.begin(), attempts.end(),
+			[](const ServerAuthAttempt& a) { return a.ok; }));
+		const int total = static_cast<int>(attempts.size());
 
-			if (okCount <= 0) {
-				disconnectUiFull();
-				std::unique_ptr<TStringList> failures(new TStringList());
-				failures->Add(L"Авторизация на серверах не выполнена.");
-				for (const auto& attempt : attempts) {
-					failures->Add(
-						L"• " + US(attempt.displayName) + L": " + US(attempt.error));
-					if (attempt.hasWireErrorCode) {
-						pushLog(
-							L"Server authentication failed: server=" +
-							US(attempt.serverId) +
-							L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
-							L" wire_code=" + String(attempt.wireErrorCode));
-					}
-					else if (!attempt.error.empty()) {
-						pushLog(
-							L"Server authentication failed: server=" +
-							US(attempt.serverId) + L" " + US(attempt.error));
-					}
+		if (okCount <= 0) {
+			disconnectUiFull();
+			std::unique_ptr<TStringList> failures(new TStringList());
+			failures->Add(L"Авторизация на серверах не выполнена.");
+			for (const auto& attempt : attempts) {
+				failures->Add(
+					L"• " + US(attempt.displayName) + L": " + US(attempt.error));
+				if (attempt.hasWireErrorCode) {
+					pushLog(
+						L"Server authentication failed: server=" +
+						US(attempt.serverId) +
+						L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
+						L" wire_code=" + String(attempt.wireErrorCode));
 				}
-				ShowMessage(failures->Text);
-				return;
-			}
-
-			applyServerAuthUiStatus();
-			componentsEnable(true);
-			if (okCount < total) {
-				std::unique_ptr<TStringList> partial(new TStringList());
-				partial->Add(
-					L"Авторизовано серверов " + String(okCount) + L" из " +
-					String(total) + L". Поиск пойдёт только по ним.");
-				for (const auto& attempt : attempts) {
-					if (attempt.ok)
-						continue;
-					partial->Add(
-						L"• " + US(attempt.displayName) + L": " +
-						US(attempt.error));
-					if (attempt.hasWireErrorCode) {
-						pushLog(
-							L"Server authentication failed: server=" +
-							US(attempt.serverId) +
-							L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
-							L" wire_code=" + String(attempt.wireErrorCode));
-					}
+				else if (!attempt.error.empty()) {
+					pushLog(
+						L"Server authentication failed: server=" +
+						US(attempt.serverId) + L" " + US(attempt.error));
 				}
-				ShowMessage(partial->Text);
 			}
+			ShowMessage(failures->Text);
+			return;
 		}
-		else
-		{
-			// Admin: legacy USER_REGISTRY only (already done in tryConnect/connectPrimary).
-			registryOnServer(user_);
-			if (!hasServerAuthorization()) {
-				disconnectUiFull();
-				ShowMessage(L"Регистрация на сервере не выполнена.");
-				return;
+
+		applyServerAuthUiStatus();
+		componentsEnable(true);
+		if (okCount < total) {
+			std::unique_ptr<TStringList> partial(new TStringList());
+			partial->Add(
+				L"Авторизовано серверов " + String(okCount) + L" из " +
+				String(total) + L". Поиск пойдёт только по ним.");
+			for (const auto& attempt : attempts) {
+				if (attempt.ok)
+					continue;
+				partial->Add(
+					L"• " + US(attempt.displayName) + L": " +
+					US(attempt.error));
+				if (attempt.hasWireErrorCode) {
+					pushLog(
+						L"Server authentication failed: server=" +
+						US(attempt.serverId) +
+						L" code=" + US(serverErrorCodeName(attempt.wireErrorCode)) +
+						L" wire_code=" + String(attempt.wireErrorCode));
+				}
 			}
-			applyServerAuthUiStatus();
-			componentsEnable(true);
+			ShowMessage(partial->Text);
 		}
 	}
 	catch (const Exception& e) {
@@ -1817,15 +1814,9 @@ void TfMain::applyServerAuthUiStatus()
 		lbStatus->Caption = L"Статус: отключено от сервера";
 		return;
 	}
-	if (auth_source_ == LocalAuthSource::Flash) {
-		lbStatus->Caption =
-			L"Статус: авторизовано серверов " + String(ok) + L"/" + String(total) +
-			L", " + cmbGod->Text + L" год";
-		return;
-	}
 	lbStatus->Caption =
-		L"Статус: настроено серверов " + String(total) +
-		L", основной подключён, " + cmbGod->Text + L" год";
+		L"Статус: авторизовано серверов " + String(ok) + L"/" + String(total) +
+		L", " + cmbGod->Text + L" год";
 }
 
 
@@ -4968,18 +4959,24 @@ bool TfMain::tryConnect()
 			return false;
 		}
 		// Re-apply policy after configure() recreates sessions.
-		if (auth_source_ == LocalAuthSource::Flash &&
-			!client_id_.empty() && !flash_serial_.empty())
+		const bool flashMode =
+			auth_source_ == LocalAuthSource::Flash &&
+			!client_id_.empty() && !flash_serial_.empty();
+		if (flashMode)
 			serverManager_.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
 		else
 			serverManager_.setAuthPolicy(ServerAuthPolicy::LegacyUserRegistry);
 
-		std::string err;
-		if (!serverManager_.connectPrimary(&err)) {
-			ShowMessage("Ошибка подключения: " + US(err));
-			lbStatus->Caption = "Статус: нет подключения";
-			componentsEnable(false);
-			return false;
+		// Flash keeps the existing primary transport probe. Admin must not
+		// authorize only primary here: btnConnectClick runs authenticateAllLegacy.
+		if (flashMode) {
+			std::string err;
+			if (!serverManager_.connectPrimary(&err)) {
+				ShowMessage("Ошибка подключения: " + US(err));
+				lbStatus->Caption = "Статус: нет подключения";
+				componentsEnable(false);
+				return false;
+			}
 		}
 		// Do not enable search/load here: caller finishes server-auth first.
 		const int serverCount = static_cast<int>(serverManager_.serverCount());

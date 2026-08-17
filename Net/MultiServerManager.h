@@ -551,6 +551,38 @@ public:
 		return attempts;
 	}
 
+	// Admin Connect: USER_REGISTRY on every enabled server for the year.
+	// Does not use AUTHENTICATE_V1. Partial success is allowed.
+	std::vector<ServerAuthAttempt> authenticateAllLegacy(const std::string& user)
+	{
+		if (!user.empty())
+			setUser(user);
+
+		std::vector<ServerAuthAttempt> attempts;
+		const auto ids = serverIds();
+		attempts.reserve(ids.size());
+		if (authPolicy() == ServerAuthPolicy::AuthenticateV1) {
+			for (const auto& id : ids) {
+				ServerAuthAttempt attempt;
+				attempt.serverId = id;
+				attempt.displayName = displayName(id);
+				attempt.error =
+					"USER_REGISTRY недоступен в режиме AUTHENTICATE_V1";
+				attempts.push_back(std::move(attempt));
+			}
+			return attempts;
+		}
+
+		for (const auto& id : ids) {
+			ServerAuthAttempt attempt;
+			attempt.serverId = id;
+			attempt.displayName = displayName(id);
+			attempt.ok = connect(id, &attempt.error);
+			attempts.push_back(std::move(attempt));
+		}
+		return attempts;
+	}
+
 	bool reconnect(const std::string& serverId, std::string* errMsg = nullptr)
 	{
 		auto session = findSession(serverId);
