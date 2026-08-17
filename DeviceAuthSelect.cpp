@@ -95,17 +95,29 @@ std::optional<DeviceAuthIdentity> SelectPcAuthIdentity(
 	return std::nullopt;
 }
 
+UsbAuthSelection SelectUsbAuthIdentityFromProbes(
+	const std::vector<UsbAuthProbe>& probes)
+{
+	UsbAuthSelection result;
+	for (std::size_t i = 0; i < probes.size(); ++i) {
+		if (const auto usb = TryUsbIdentityFromProbe(probes[i])) {
+			result.identity = usb;
+			result.winningProbeIndex = i;
+			return result;
+		}
+	}
+	return result;
+}
+
 std::optional<DeviceAuthIdentity> SelectDeviceAuthIdentity(
-	const std::optional<UsbAuthProbe>& usbProbe,
+	const std::vector<UsbAuthProbe>& usbProbes,
 	const std::string& programDataTokenPathUtf8,
 	const std::string& exeDirTokenPathUtf8,
 	const std::string& liveComputerUuid)
 {
-	if (usbProbe) {
-		const auto usb = TryUsbIdentityFromProbe(*usbProbe);
-		if (usb)
-			return usb;
-	}
+	const UsbAuthSelection usbSelection = SelectUsbAuthIdentityFromProbes(usbProbes);
+	if (usbSelection.identity)
+		return usbSelection.identity;
 	return SelectPcAuthIdentity(
 		programDataTokenPathUtf8, exeDirTokenPathUtf8, liveComputerUuid);
 }
