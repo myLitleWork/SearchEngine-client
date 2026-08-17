@@ -3877,7 +3877,12 @@ System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op](
 
 		rchEdt->Enabled = true;
 
-		if(dbgEh->CanFocus())
+		TWinControl* active = ActiveControl;
+		const bool searchInputActive =
+			active == cmbField || active == cmbMaxReq || active == cmbReq ||
+			(cmbField && cmbField->DroppedDown) ||
+			(cmbMaxReq && cmbMaxReq->DroppedDown);
+		if (!searchInputActive && dbgEh->CanFocus())
 			dbgEh->SetFocus();
 
         tmLoadText->Enabled = true;
@@ -4061,6 +4066,11 @@ void TfMain::applyLocalAuthSources()
 	if (auth_paths::isRegularFile(adminFile))
 	{
 		const std::string adminUtf8 = auth_paths::toUtf8(adminFile);
+		if (auth_ && auth_source_ == LocalAuthSource::Admin && user_ == "admin" &&
+			token_dir_ == adminUtf8)
+		{
+			return;
+		}
 		const bool switched =
 			auth_source_ != LocalAuthSource::Admin || user_ != "admin";
 		if (switched && auth_ && !lostDevice)
@@ -4163,6 +4173,17 @@ std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 
 void TfMain::applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity)
 {
+	const LocalAuthSource expectedSource =
+		(identity.deviceType == device_identity::kDeviceTypeUsb)
+			? LocalAuthSource::Usb
+			: LocalAuthSource::Computer;
+	if (auth_ && auth_source_ == expectedSource &&
+		token_dir_ == identity.tokenPath &&
+		!ShouldInvalidateServerAuth(currentDeviceIdentity(), identity))
+	{
+		return;
+	}
+
 	const bool invalidate =
 		(auth_ || hasServerAuthorization()) &&
 		ShouldInvalidateServerAuth(currentDeviceIdentity(), identity);
