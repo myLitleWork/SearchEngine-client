@@ -329,6 +329,16 @@
             <DependentOn>Net\MultiServerSelfTest.h</DependentOn>
             <BuildOrder>30</BuildOrder>
         </CppCompile>
+        <CppCompile Include="Net\TelegramAttachmentClient.cpp">
+            <DependentOn>Net\TelegramAttachmentClient.h</DependentOn>
+        </CppCompile>
+        <None Include="Net\TelegramAttachmentClient.h">
+        </None>
+        <CppCompile Include="Net\TelegramAttachmentSelfTest.cpp">
+            <DependentOn>Net\TelegramAttachmentSelfTest.h</DependentOn>
+        </CppCompile>
+        <None Include="Net\TelegramAttachmentSelfTest.h">
+        </None>
         <CppCompile Include="Net\myAsioClient.cpp">
             <DependentOn>Net\myAsioClient.h</DependentOn>
             <BuildOrder>29</BuildOrder>

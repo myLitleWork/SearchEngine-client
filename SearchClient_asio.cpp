@@ -5,6 +5,7 @@
 #include <tchar.h>
 #include "WordBatchProcessor.h"
 #include "MultiServerSelfTest.h"
+#include "TelegramAttachmentSelfTest.h"
 #include "DeviceAuthSelfTest.h"
 #include "AuthPaths.h"
 //---------------------------------------------------------------------------
@@ -20,6 +21,8 @@ int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 #ifdef _DEBUG
 	if (IsMultiServerSelfTestInvocation())
 		return RunMultiServerSelfTestFromCommandLine();
+	if (IsTelegramAttachmentSelfTestInvocation())
+		return RunTelegramAttachmentSelfTestFromCommandLine();
 	if (IsDeviceAuthSelfTestInvocation())
 		return RunDeviceAuthSelfTestFromCommandLine();
 	if (IsDocxTimeoutSelfTestInvocation())

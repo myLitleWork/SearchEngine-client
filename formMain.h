@@ -135,6 +135,7 @@
 #include "Message.h"
 #include "myAsioClient.h"
 #include "MultiServerManager.h"
+#include "TelegramAttachmentClient.h"
 #include "utils.h"
 
 
@@ -502,17 +503,34 @@ public:		// User declarations
 		std::string outputName;
 		std::string remotePath;
 	};
-	struct RemoteArchiveRequest
+	struct TelegramAttachmentRequest
 	{
 		std::string serverId;
-		String remotePath;
-		std::vector<String> files;
+		int telegramId{0};
+		int telegramType{0};
+		std::string fileName;
+		std::string outputName;
+	};
+	struct TelegramAttachmentArchiveRequest
+	{
+		std::string serverId;
+		int telegramId{0};
+		int telegramType{1};
+		std::vector<String> filesToExtract;
+	};
+	struct AttachmentListCacheEntry
+	{
+		bool attempted{false};
+		bool ok{false};
+		std::vector<TelegramAttachmentInfo> items;
+		std::string error;
 	};
 	struct SaveTaskContext
 	{
-		std::vector<RemoteFileRequest> pril_vh;
+		std::vector<TelegramAttachmentRequest> pril_vh;
 		std::vector<RemoteFileRequest> text_files;
-		std::vector<RemoteArchiveRequest> pril_ish;
+		std::vector<TelegramAttachmentArchiveRequest> pril_ish;
+		std::map<std::string, AttachmentListCacheEntry> attachmentLists;
 		std::string out_dir;
 		bool makeDocx = false;
 		std::shared_ptr<DocxConversionSession> docxSession;
@@ -552,10 +570,10 @@ public:		// User declarations
 
 	int SaveFileVh(const std::string& out_dir, const RemoteFileRequest& f, bool makeDocx = false,
 		bool flushStreamToOs = false, DocxConversionSession* docxSession = nullptr);
-	int SaveFileIsh(const std::string& out_dir, const RemoteArchiveRequest& f,
+	int SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArchiveRequest& f,
 		bool flushStreamToOs = false);
-	int SaveFileVh2(const std::string& out_dir, const RemoteFileRequest& f,
-		bool flushStreamToOs = false);
+	int SaveFileVh2(const std::string& out_dir, const TelegramAttachmentRequest& f,
+		bool flushStreamToOs, SaveTaskContext& ctx);
 
 	bool save_pocessing = false;
 
