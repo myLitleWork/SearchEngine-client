@@ -74,6 +74,38 @@ String GetSearchClientProductVersion()
     }
     return String(productVersion);
 }
+
+std::string utf8FromVcl(const String& value)
+{
+	return conv::to_string(std::wstring(value.c_str()));
+}
+
+std::string nativePathFromVcl(const String& path)
+{
+	return std::string(AnsiString(path).c_str());
+}
+
+void splitPrilNames(const String& prilNames, std::vector<String>& tokens)
+{
+	tokens.clear();
+	const int len = prilNames.Length();
+	int start = 1;
+	while (start <= len) {
+		int pos = 0;
+		for (int i = start; i <= len; ++i) {
+			if (prilNames[i] == L';') {
+				pos = i;
+				break;
+			}
+		}
+		if (pos == 0) {
+			tokens.push_back(prilNames.SubString(start, len - start + 1));
+			break;
+		}
+		tokens.push_back(prilNames.SubString(start, pos - start));
+		start = pos + 1;
+	}
+}
 }
 
 
@@ -2588,10 +2620,8 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 					   bool flushStreamToOs,
 					   SaveTaskContext& ctx)
 {
-	const std::string displayName = f.outputName.empty() ? f.fileName : f.outputName;
-	const std::string cacheKey =
-		f.serverId + "\n" + std::to_string(f.telegramId) + "\n" +
-		std::to_string(f.telegramType);
+	const String displayName = f.outputName.IsEmpty() ? Utf8ToVcl(f.fileName) : f.outputName;
+	const TelegramAttachmentListKey cacheKey{f.serverId, f.telegramId, f.telegramType};
 	auto& listEntry = ctx.attachmentLists[cacheKey];
 
 	constexpr int MAX_TRIES = 5;
@@ -2642,31 +2672,29 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		findAdvertisedTelegramAttachment(listEntry.items, f.fileName);
 	if (!advertised || advertised->name.empty()) {
 		pushLog(
-			"Приложение \"" + String(displayName.c_str()) +
+			"Приложение \"" + displayName +
 			"\" не объявлено сервером для шт. " + String(f.telegramId)
 		);
 		return 0;
 	}
 	if (!advertised->exists) {
 		pushLog(
-			"Приложение \"" + String(advertised->name.c_str()) +
+			"Приложение \"" + Utf8ToVcl(advertised->name) +
 			"\" отсутствует на сервере (шт. " + String(f.telegramId) + ")"
 		);
 		return 0;
 	}
 
-	std::string file_name = displayName;
-    std::string full_file_name = out_dir + "\\" + file_name;
-	std::string pref;
+	String fileName = displayName;
+	String fullPath = String(out_dir.c_str()) + L"\\" + fileName;
     int try_limit = 1;
 
-	if (FileExists(String{full_file_name.c_str()})) {
+	if (FileExists(fullPath)) {
         do {
-            pref = "(" + std::to_string(try_limit++) + ") ";
-			file_name = pref + displayName;
-            full_file_name = out_dir + "\\" + file_name;
+			fileName = L"(" + String(try_limit++) + L") " + displayName;
+			fullPath = String(out_dir.c_str()) + L"\\" + fileName;
         }
-        while (FileExists(String{full_file_name.c_str()}) && try_limit <= 30);
+        while (FileExists(fullPath) && try_limit <= 30);
 
         if (try_limit > 30) {
 			pushLog("Ошибка при генерации имени файла (слишком много коллизий имён)!");
@@ -2674,6 +2702,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
         }
     }
 
+	const std::string nativePath = nativePathFromVcl(fullPath);
 	std::string err;
 	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt) {
 		if (saveCancelRequested.load(std::memory_order_acquire))
@@ -2685,23 +2714,21 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 				f.telegramId,
 				f.telegramType,
 				advertised->name,
-				full_file_name,
+				nativePath,
 				&receivedSize,
 				&err,
 				flushStreamToOs,
 				false)) {
-			std::string result;
-			if (file_name == displayName)
-				result = "\"" + displayName + "\"";
-			else
-				result = "\"" + displayName + "\" (\"" + file_name + "\")";
-			pushLog(("Файл " + result + ", " + std::to_string(receivedSize) +
-				" байт - успешно сохранен!").c_str());
+			String result = L"\"" + displayName + L"\"";
+			if (fileName != displayName)
+				result = L"\"" + displayName + L"\" (\"" + fileName + L"\")";
+			pushLog("Файл " + result + ", " + String(receivedSize) +
+				" байт - успешно сохранен!");
 			return 1;
 		}
 		if (err == busyServerErrorUserMessage() && attempt < MAX_TRIES) {
 			pushLog(
-				"Сервер занят при запросе файла \"" + String(advertised->name.c_str()) +
+				"Сервер занят при запросе файла \"" + Utf8ToVcl(advertised->name) +
 				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
 			if (!reconnectTransport(f.serverId))
@@ -2711,7 +2738,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 		}
 		break;
 	}
-	pushLog("Ошибка сохранения файла \"" + String(displayName.c_str()) + "\": " +
+	pushLog("Ошибка сохранения файла \"" + displayName + "\": " +
 		US(err));
 	if (!serverManager_.isConnected(f.serverId))
 		reconnectTransport(f.serverId);
@@ -2954,16 +2981,17 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 
 	const TelegramAttachmentInfo* advertised =
 		findAdvertisedTelegramAttachment(items, advertisedZip);
-	if (!advertised || advertised->name.empty()) {
+	if (!advertised || advertised->name.empty() ||
+		!isValidAttachmentBaseName(advertised->name)) {
 		pushLog(
-			"Архив \"" + String(advertisedZip.c_str()) +
+			"Архив \"" + Utf8ToVcl(advertisedZip) +
 			"\" не объявлен сервером для шт. " + String(f.telegramId)
 		);
 		return 0;
 	}
 	if (!advertised->exists) {
 		pushLog(
-			"Архив \"" + String(advertised->name.c_str()) +
+			"Архив \"" + Utf8ToVcl(advertised->name) +
 			"\" отсутствует на сервере (шт. " + String(f.telegramId) + ")"
 		);
 		return 0;
@@ -2972,10 +3000,9 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 	static int cc = 0;
 	++cc;
 
-	AnsiString temp_zip_dir = "ZipExtractTemp" + IntToStr(cc) + "\\";
-	AnsiString zip_name = String(advertised->name.c_str());
-	AnsiString tempDir = TPath::GetTempPath() + temp_zip_dir;
-	AnsiString fullDirZip = tempDir + zip_name;
+	const String zipName = Utf8ToVcl(advertised->name);
+	const String tempDir = TPath::GetTempPath() + L"ZipExtractTemp" + IntToStr(cc) + L"\\";
+	const String fullDirZip = tempDir + zipName;
 	TDirectory::CreateDirectory(tempDir);
 
 	if(cc > 99999)
@@ -2983,6 +3010,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 
 	bool ok = false;
 	std::uint64_t receivedSize = 0;
+	const std::string nativeZipPath = nativePathFromVcl(fullDirZip);
 	for (int attempt = 1; attempt <= MAX_TRIES; ++attempt)
 	{
 		if (saveCancelRequested.load(std::memory_order_acquire)) {
@@ -2997,7 +3025,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 			f.telegramId,
 			f.telegramType,
 			advertised->name,
-			std::string(fullDirZip.c_str()),
+			nativeZipPath,
 			&receivedSize,
 			&err,
 			flushStreamToOs,
@@ -3009,7 +3037,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 			if (!reconnectTransport(f.serverId))
 				break;
 			pushLog(
-				"Сервер занят при запросе файла \"" + zip_name +
+				"Сервер занят при запросе файла \"" + zipName +
 				"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
 			std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
@@ -3022,7 +3050,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 	{
 		TDirectory::Delete(tempDir, true);
 		pushLog(
-			"Файл \"" + zip_name +
+			"Файл \"" + zipName +
 			"\" не получен. Ошибка: " +
 			US(err)
 		);
@@ -3037,7 +3065,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 
 	if (!extractStats.fullyOk()) {
 		pushLog(
-			L"ZIP \"" + String(zip_name) + L"\": распаковано " +
+			L"ZIP \"" + zipName + L"\": распаковано " +
 			String(extractStats.extracted) + L" из " + String(extractStats.expected) +
 			L" файлов."
 		);
@@ -3046,7 +3074,7 @@ int TfMain::SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArch
 		return 0;
 	}
 
-	pushLog(("Файл " + std::string{zip_name.c_str()} + ", " + std::to_string(receivedSize) + " байт - успешно сохранен и распакован!").c_str());
+	pushLog("Файл " + zipName + ", " + String(receivedSize) + " байт - успешно сохранен и распакован!");
 
 	return 1; // Успех
 }
@@ -3106,7 +3134,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 	std::vector<TelegramAttachmentRequest> pril_map_vh;
 	std::vector<RemoteFileRequest> text_files;
-	std::map<std::string, TelegramAttachmentArchiveRequest> pril_map_ish;
+	std::map<std::pair<std::string, int>, TelegramAttachmentArchiveRequest> pril_map_ish;
 
 	std::string out_dir_async = out_dir;
 
@@ -3168,15 +3196,6 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
         }
 
         if (chkPril->Checked && getPrilCount()) {
-            auto getPrilsName = [this]() {
-                using namespace std;
-                AnsiString s = dbgEh->DataSource->DataSet->FieldValues["pril_name"];
-                string str = s.c_str();
-                regex regex{"[;]"};
-                sregex_token_iterator first{str.begin(), str.end(), regex, -1}, last;
-                return vector<string>{first, last};
-            };
-
 			int telegramId = 0;
 			bool haveTelegramId = false;
 			try {
@@ -3189,21 +3208,23 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 
 			if (haveTelegramId) {
 				const int telegramType = (type == L"Вх.") ? 0 : 1;
-				for (const auto& pn : getPrilsName()) {
-					const std::string fileName = telegramAttachmentBaseName(pn);
-					if (fileName.empty())
+				std::vector<String> prilTokens;
+				const String prilNames = dbgEh->DataSource->DataSet->FieldValues["pril_name"];
+				splitPrilNames(prilNames, prilTokens);
+				for (const String& token : prilTokens) {
+					const std::string fileName = utf8FromVcl(token);
+					if (!isValidAttachmentBaseName(fileName))
 						continue;
 					if (telegramType == 0)
 						pril_map_vh.push_back(
-							{sourceServerId, telegramId, telegramType, fileName, fileName});
+							{sourceServerId, telegramId, telegramType, fileName, token});
 					else {
-						const std::string archiveKey =
-							sourceServerId + "\n" + std::to_string(telegramId);
-						auto& archive = pril_map_ish[archiveKey];
+						auto& archive = pril_map_ish[
+							std::make_pair(sourceServerId, telegramId)];
 						archive.serverId = sourceServerId;
 						archive.telegramId = telegramId;
 						archive.telegramType = telegramType;
-						archive.filesToExtract.push_back(String{pn.c_str()});
+						archive.filesToExtract.push_back(token);
 					}
 				}
 			}
@@ -3305,7 +3326,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 					}
 					++fileOrdinal;
 					pushLog("Файл " + String(fileOrdinal) + " из " + String(totalFiles) +
-						": скачивание приложения \"" + String(f.outputName.c_str()) + "\"");
+						": скачивание приложения \"" + f.outputName + "\"");
 					const bool isLastInBatch = (fileOrdinal == totalFiles);
 					count_suc_files += SaveFileVh2(ctx->out_dir, f, isLastInBatch, *ctx);
 					saveFilesDone.fetch_add(1, std::memory_order_relaxed);

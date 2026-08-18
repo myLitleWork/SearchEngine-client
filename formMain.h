@@ -119,6 +119,8 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <tuple>
+#include <utility>
 #include <list>
 #include <mutex>
 #include <atomic>
@@ -509,7 +511,7 @@ public:		// User declarations
 		int telegramId{0};
 		int telegramType{0};
 		std::string fileName;
-		std::string outputName;
+		String outputName;
 	};
 	struct TelegramAttachmentArchiveRequest
 	{
@@ -530,7 +532,7 @@ public:		// User declarations
 		std::vector<TelegramAttachmentRequest> pril_vh;
 		std::vector<RemoteFileRequest> text_files;
 		std::vector<TelegramAttachmentArchiveRequest> pril_ish;
-		std::map<std::string, AttachmentListCacheEntry> attachmentLists;
+		std::map<TelegramAttachmentListKey, AttachmentListCacheEntry> attachmentLists;
 		std::string out_dir;
 		bool makeDocx = false;
 		std::shared_ptr<DocxConversionSession> docxSession;

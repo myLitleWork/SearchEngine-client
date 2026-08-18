@@ -4,7 +4,10 @@
 
 #include <cstdint>
 #include <string>
+#include <tuple>
 #include <vector>
+
+using TelegramAttachmentListKey = std::tuple<std::string, int, int>;
 
 struct TelegramAttachmentInfo
 {
@@ -13,7 +16,7 @@ struct TelegramAttachmentInfo
 	std::uint64_t size{0};
 };
 
-std::string telegramAttachmentBaseName(const std::string& name);
+bool isValidAttachmentBaseName(const std::string& name);
 
 const TelegramAttachmentInfo* findAdvertisedTelegramAttachment(
 	const std::vector<TelegramAttachmentInfo>& items,

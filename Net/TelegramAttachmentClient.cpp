@@ -72,6 +72,11 @@ namespace
 					const auto raw = item["size"].get<std::uint64_t>();
 					info.size = raw;
 				}
+				if (!isValidAttachmentBaseName(info.name)) {
+					error = "Список приложений содержит недопустимое имя файла";
+					result.clear();
+					return false;
+				}
 				result.push_back(std::move(info));
 			}
 		}
@@ -85,27 +90,41 @@ namespace
 	}
 }
 
-std::string telegramAttachmentBaseName(const std::string& name)
+bool isValidAttachmentBaseName(const std::string& name)
 {
-	if (name.empty())
-		return {};
+	if (name.empty() || name == "." || name == "..")
+		return false;
+	if (name.find('/') != std::string::npos ||
+		name.find('\\') != std::string::npos ||
+		name.find(':') != std::string::npos ||
+		name.find('\0') != std::string::npos)
+		return false;
+
 	try {
-		return std::filesystem::path(name).filename().string();
+		const std::filesystem::path path(name);
+		if (path.empty() ||
+			path.is_absolute() ||
+			path.has_root_path() ||
+			path.has_root_name() ||
+			path.has_root_directory() ||
+			path.filename() != path)
+			return false;
 	}
 	catch (...) {
-		return {};
+		return false;
 	}
+
+	return true;
 }
 
 const TelegramAttachmentInfo* findAdvertisedTelegramAttachment(
 	const std::vector<TelegramAttachmentInfo>& items,
 	const std::string& fileName)
 {
-	const std::string wanted = telegramAttachmentBaseName(fileName);
-	if (wanted.empty())
+	if (!isValidAttachmentBaseName(fileName))
 		return nullptr;
 	for (const auto& item : items) {
-		if (telegramAttachmentBaseName(item.name) == wanted)
+		if (item.name == fileName)
 			return &item;
 	}
 	return nullptr;
@@ -149,15 +168,14 @@ bool downloadTelegramAttachment(
 	if (error)
 		error->clear();
 
-	const std::string advertisedName = telegramAttachmentBaseName(fileName);
-	if (advertisedName.empty()) {
+	if (!isValidAttachmentBaseName(fileName)) {
 		if (error)
-			*error = "Имя приложения пустое";
+			*error = "Имя приложения недопустимо";
 		return false;
 	}
 
 	const std::string request =
-		makeSingleRequest(telegramId, telegramType, advertisedName).dump();
+		makeSingleRequest(telegramId, telegramType, fileName).dump();
 	return manager.requestFileToPath(
 		serverId,
 		request,

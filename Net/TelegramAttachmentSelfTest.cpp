@@ -7,6 +7,7 @@
 
 #include "MultiServerManager.h"
 #include "TelegramAttachmentClient.h"
+#include "utils.h"
 
 #include <nlohmann/json.hpp>
 
@@ -15,10 +16,13 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace
@@ -425,6 +429,26 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 	auto cleanup = [&]() { fs::remove_all(root, ec); };
 
 	{
+		std::map<TelegramAttachmentListKey, int> listKeys;
+		listKeys.emplace(TelegramAttachmentListKey{"server1", 23, 0}, 1);
+		listKeys.emplace(TelegramAttachmentListKey{"server12", 3, 0}, 2);
+		if (listKeys.size() != 2 ||
+			listKeys.at(TelegramAttachmentListKey{"server1", 23, 0}) ==
+				listKeys.at(TelegramAttachmentListKey{"server12", 3, 0})) {
+			cleanup();
+			return 80;
+		}
+
+		std::map<std::pair<std::string, int>, int> archiveKeys;
+		archiveKeys.emplace(std::make_pair(std::string{"server1"}, 23), 1);
+		archiveKeys.emplace(std::make_pair(std::string{"server12"}, 3), 2);
+		if (archiveKeys.size() != 2) {
+			cleanup();
+			return 81;
+		}
+	}
+
+	{
 		FakeAttachmentServer server(
 			R"([{"name":"a.pdf","exists":true,"size":7},{"name":"b.txt","exists":true,"size":3}])",
 			{{"a.pdf", "PDFDATA", PayloadMode::Whole, 0}});
@@ -459,6 +483,50 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			!jsonHasFileName(server.lastBodyFor(COMMAND::GET_TELEGA_SINGLE_ATACHMENT), "a.pdf")) {
 			cleanup();
 			return 14;
+		}
+		manager.disconnectAll();
+	}
+
+	{
+		const std::string utf8Name = conv::to_string(std::wstring(
+			L"\x043F\x0440\x0438\x043B\x043E\x0436\x0435\x043D\x0438\x0435 \x2116" L"1.pdf"));
+		const nh::json listJson = nh::json::array({
+			{{"name", utf8Name}, {"exists", true}, {"size", 9}}
+		});
+		FakeAttachmentServer server(
+			listJson.dump(),
+			{{utf8Name, "UTF8BYTES", PayloadMode::Whole, 0}});
+		MultiServerManager manager;
+		manager.configure({
+			{"first", "First", "127.0.0.1", std::to_string(server.port()), true}
+		}, "first");
+		manager.setUser("self-test-user");
+
+		std::vector<TelegramAttachmentInfo> items;
+		std::string error;
+		if (!requestTelegramAttachmentList(manager, "first", 321, 0, items, error) ||
+			items.size() != 1 ||
+			items[0].name != utf8Name ||
+			findAdvertisedTelegramAttachment(items, utf8Name) == nullptr) {
+			cleanup();
+			return 15;
+		}
+
+		const fs::path out = root / "utf8" / "payload.pdf";
+		if (!downloadIfAdvertised(manager, "first", 321, 0, utf8Name, out.string(), error)) {
+			cleanup();
+			return 16;
+		}
+		if (readFileBytes(out) != "UTF8BYTES") {
+			cleanup();
+			return 17;
+		}
+		if (server.sawGetBinFile() ||
+			server.countCommand(COMMAND::GETBINFILE) != 0 ||
+			!jsonHasFileName(
+				server.lastBodyFor(COMMAND::GET_TELEGA_SINGLE_ATACHMENT), utf8Name)) {
+			cleanup();
+			return 18;
 		}
 		manager.disconnectAll();
 	}
@@ -681,6 +749,48 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			return 61;
 		}
 		manager.disconnectAll();
+	}
+
+	{
+		const std::vector<std::string> badNames = {
+			"../456.zip",
+			"..\\456.zip",
+			"dir/456.zip",
+			"C:\\tmp\\456.zip"
+		};
+		int caseIndex = 0;
+		for (const auto& badName : badNames) {
+			const nh::json listJson = nh::json::array({
+				{{"name", badName}, {"exists", true}, {"size", 8}}
+			});
+			FakeAttachmentServer server(
+				listJson.dump(),
+				{{"456.zip", "ZIPBYTES", PayloadMode::Whole, 0}});
+			MultiServerManager manager;
+			manager.configure({
+				{"first", "First", "127.0.0.1", std::to_string(server.port()), true}
+			}, "first");
+			manager.setUser("self-test-user");
+
+			const fs::path out = root / ("bad" + std::to_string(caseIndex)) / "456.zip";
+			std::vector<TelegramAttachmentInfo> items;
+			std::string error;
+			if (requestTelegramAttachmentList(manager, "first", 456, 1, items, error) ||
+				!items.empty()) {
+				cleanup();
+				return 70 + caseIndex;
+			}
+			if (downloadIfAdvertised(manager, "first", 456, 1, "456.zip", out.string(), error) ||
+				server.countCommand(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 0 ||
+				fs::exists(out) ||
+				server.countCommand(COMMAND::GETBINFILE) != 0 ||
+				server.sawGetBinFile()) {
+				cleanup();
+				return 74 + caseIndex;
+			}
+			manager.disconnectAll();
+			++caseIndex;
+		}
 	}
 
 	cleanup();
