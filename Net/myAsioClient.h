@@ -51,6 +51,7 @@
 		// Zero-payload request; response payload is ProtocolCapabilitiesV1.
 		NEGOTIATE_PROTOCOL_V1 = 30,
 		AUTHENTICATE_V1 = 31,
+		GET_TELEGA_TEXT = 32,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -177,11 +178,13 @@ static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
 static_assert(static_cast<std::uint64_t>(COMMAND::SOMEERROR) == 0);
 static_assert(static_cast<std::uint64_t>(COMMAND::GETBINFILE) == 11);
 static_assert(static_cast<std::uint64_t>(COMMAND::PING) == 18);
+static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) == 26);
 static_assert(static_cast<std::uint64_t>(COMMAND::SERVER_BUSY_ERROR) == 27);
 static_assert(static_cast<std::uint64_t>(COMMAND::END_COMMAND) == 28);
 static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
 static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
 static_assert(static_cast<std::uint64_t>(COMMAND::AUTHENTICATE_V1) == 31);
+static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_TEXT) == 32);
 static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,
