@@ -37,7 +37,6 @@
 #include "myJson.h"
 #include "myRSA.h"
 #include "flashNum.h"
-#include "FileData.h"
 #include "mySomeFunc.h"
 #include "utils.h"
 #include <System.Threading.hpp>
@@ -1020,44 +1019,6 @@ __fastcall TfMain::TfMain(TComponent* Owner)
 
 	FillPopUpMenuWithGridColumns(popDbg, dbgEh);
 }
-std::vector<uint8_t> TfMain::loadFileToVector2(const std::string& filePath, const std::wstring& file_name,
-	bool showErrors) {
-	if (filePath.empty()) {
-		if (showErrors)
-			ShowMessage("Путь к файлу пуст. Не удалось открыть файл.");
-		return {};
-    }
-
-	const std::wstring wfilePath = String(filePath.c_str()).c_str();
-	std::unique_ptr<TFileStream> fileStream;
-	try {
-		fileStream.reset(new TFileStream(wfilePath.c_str(), fmOpenRead | fmShareDenyWrite));
-	}
-	catch (...) {
-		if (showErrors)
-			ShowMessage("Не удалось открыть файл.");
-		return {};
-	}
-
-	std::vector<uint8_t> fileContent;
-	const __int64 size = fileStream->Size;
-	if (size > 0) {
-		fileContent.resize(static_cast<size_t>(size));
-		try {
-			fileStream->ReadBuffer(fileContent.data(), static_cast<NativeInt>(size));
-		}
-		catch (...) {
-			if (showErrors)
-				ShowMessage("Не удалось прочитать файл.");
-			return {};
-		}
-	}
-
-	const std::string baseFileNameStr = conv::to_string(file_name);
-	FileData fileDataObject(baseFileNameStr, fileContent);
-	return serializeToBytes(fileDataObject);
-}
-
 void TfMain::InitDbgMenuDS()
 {
 
@@ -4721,30 +4682,25 @@ void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 	}
 	memLogLoad->Lines->Clear();
 
-	for(const auto& filePath:SelectFiles())
-		{
-
-			std::wstring baseFileNameWStr = ExtractFileName(String(filePath.c_str())).c_str();
-
-			auto file = loadFileToVector2(AnsiString(filePath).c_str(), baseFileNameWStr);
-
-			std::string err;
-
-			std::vector<uint8_t> str;
-			if (!serverManager_.requestBinary(
-					primaryServerId(), file, COMMAND::LOAD_RAZN, str, nullptr, &err)) {
-				memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + US(err));
-				continue;
-			}
-
-			// если всё ок — str содержит данные
-
-
-			memLogLoad->Lines->Add(filePath + " - успешно загружен :)");
-
+	for (const auto& filePath : SelectFiles()) {
+		const std::wstring localPath(filePath.c_str());
+		std::string savedName;
+		std::string err;
+		if (!serverManager_.uploadFileV1(
+				primaryServerId(),
+				localPath,
+				COMMAND::UPLOAD_RAZN_V1,
+				&savedName,
+				&err)) {
+			memLogLoad->Lines->Add(filePath + " - не удалось загрузить :( " + US(err));
+			continue;
 		}
 
-
+		String successLine = filePath + " - успешно загружен :)";
+		if (!savedName.empty())
+			successLine += " [" + US(savedName) + "]";
+		memLogLoad->Lines->Add(successLine);
+	}
 }
 //---------------------------------------------------------------------------
 #include <stdexcept>
@@ -5116,15 +5072,14 @@ void __fastcall TfMain::btnLoadOnServerFilesClick(TObject *Sender)
 				return;
 			}
 
-			std::wstring baseFileNameWStr = ExtractFileName(filePath).w_str();  // начальное имя
-			baseFileNameWStr = conv::to_wstring(user_) + L"\\" + baseFileNameWStr;  // полное имя
-
+			const std::wstring localPath(filePath.c_str());
 			std::string err;
-			auto file = loadFileToVector2(AnsiString(filePath).c_str(), baseFileNameWStr, false);
-
-			std::vector<uint8_t> str;
-			bool ok = serverManager_.requestBinary(
-				primaryServerId(), file, COMMAND::LOAD_TLG_TO_SEND, str, nullptr, &err);
+			const bool ok = serverManager_.uploadFileV1(
+				primaryServerId(),
+				localPath,
+				COMMAND::UPLOAD_TLG_TO_SEND_V1,
+				nullptr,
+				&err);
 
 			if (!ok) {
 				const String pathCopy = filePath;

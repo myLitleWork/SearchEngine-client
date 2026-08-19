@@ -399,10 +399,14 @@ int RunStreamingUploadSelfTestFromCommandLine()
 			cleanup();
 			return 2;
 		}
-		if (formText.find("COMMAND::LOAD_TLG_TO_SEND") == std::string::npos ||
-			formText.find("COMMAND::LOAD_RAZN") == std::string::npos ||
-			formText.find("COMMAND::UPLOAD_TLG_TO_SEND_V1") != std::string::npos ||
-			formText.find("COMMAND::UPLOAD_RAZN_V1") != std::string::npos) {
+		if (formText.find("COMMAND::LOAD_TLG_TO_SEND") != std::string::npos ||
+			formText.find("COMMAND::LOAD_RAZN") != std::string::npos ||
+			formText.find("COMMAND::UPLOAD_TLG_TO_SEND_V1") == std::string::npos ||
+			formText.find("COMMAND::UPLOAD_RAZN_V1") == std::string::npos ||
+			formText.find("loadFileToVector2") != std::string::npos ||
+			formText.find("FileData") != std::string::npos ||
+			formText.find("serializeToBytes") != std::string::npos ||
+			formText.find("conv::to_wstring(user_) + L\"\\\\\"") != std::string::npos) {
 			cleanup();
 			return 3;
 		}

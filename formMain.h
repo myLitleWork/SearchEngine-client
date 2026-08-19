@@ -594,8 +594,6 @@ public:		// User declarations
 	RecentComboHistory ComboHistory{nullptr,0};
 
 
-	std::vector<uint8_t> loadFileToVector2(const std::string& filePath, const std::wstring& file_name,
-		bool showErrors = true);
 	void __fastcall onSuccessfulAuthorization(const std::string& user_name, const std::string& filePath);
 	void applyLocalAuthSources();
 	void queueApplyLocalAuthSources();
