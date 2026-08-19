@@ -1,10 +1,10 @@
 ﻿{
   "formatVersion": 1,
   "releaseFingerprintFormat": 2,
-  "releaseInputSha256": "7d729e267a7b18b46333847679ff865adf87ec9e34c3ada26db2bf66397b55e0",
+  "releaseInputSha256": "1b1fa0c0cb628134ed241e2d1dcd7a7ed592d46ad9db68401ef44c39b9196a64",
   "major": 4,
   "minor": 3,
-  "patch": 43,
+  "patch": 44,
   "titleTemplate": "SearchClient_asio v{version}",
   "productName": "SearchClient"
 }

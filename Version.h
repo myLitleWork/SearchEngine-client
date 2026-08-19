@@ -7,7 +7,7 @@ namespace AppVersion
 {
 	const int Major = 4;
 	const int Minor = 3;
-	const int Patch = 43;
+	const int Patch = 44;
 
 	inline UnicodeString Text()
 	{
