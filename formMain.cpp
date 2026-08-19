@@ -85,6 +85,56 @@ std::string nativePathFromVcl(const String& path)
 	return std::string(AnsiString(path).c_str());
 }
 
+bool parseTelegramIdType(
+	const String& num,
+	const String& type,
+	int& telegramId,
+	int& telegramType)
+{
+	try {
+		telegramId = StrToInt(num);
+	}
+	catch (...) {
+		return false;
+	}
+	telegramType = (type == L"Вх.") ? 0 : 1;
+	return true;
+}
+
+String currentTelegramTypeString(TDBGridEh* grid)
+{
+	try {
+		if (grid && grid->DataSource && grid->DataSource->DataSet)
+			return grid->DataSource->DataSet->FieldValues["type"];
+	}
+	catch (...) {
+	}
+	try {
+		if (grid && grid->Fields[7])
+			return grid->Fields[7]->AsString;
+	}
+	catch (...) {
+	}
+	return String();
+}
+
+String currentTelegramNumString(TDBGridEh* grid)
+{
+	try {
+		if (grid && grid->DataSource && grid->DataSource->DataSet)
+			return grid->DataSource->DataSet->FieldValues["num"];
+	}
+	catch (...) {
+	}
+	try {
+		if (grid && grid->Fields[0])
+			return grid->Fields[0]->AsString;
+	}
+	catch (...) {
+	}
+	return String();
+}
+
 void splitPrilNames(const String& prilNames, std::vector<String>& tokens)
 {
 	tokens.clear();
@@ -1074,22 +1124,21 @@ void TfMain::loadTextToEditFromServer()
 		return;
 	}
 
-	AnsiString ss;
-
-	try{
-		ss = dbgEh->DataSource->DataSet->FieldValues["dir"];
-	}
-	catch(...){}
-
-	if(ss == "")
+	int telegramId = 0;
+	int telegramType = 0;
+	if (!parseTelegramIdType(
+			currentTelegramNumString(dbgEh),
+			currentTelegramTypeString(dbgEh),
+			telegramId,
+			telegramType)) {
+		ShowMessage(L"Некорректный номер телеграммы");
 		return;
-
+	}
 
 	std::string err;
 	std::string str;
-	if (!serverManager_.requestText(
-			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
-			COMMAND::FILETEXT, str, nullptr, &err)) {
+	if (!requestTelegramText(
+			serverManager_, currentSourceServerId(), telegramId, telegramType, str, err)) {
 		ShowMessage("Ошибка запроса: " + US(err));
 		return;
 	}
@@ -2458,22 +2507,26 @@ void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Ha
         return;
     }
 
-    const String ss = dbgEh->Fields[9]->AsString;
-    if (ss.IsEmpty()) {
-        Handled = true;
-        return;
-    }
+	int telegramId = 0;
+	int telegramType = 0;
+	if (!parseTelegramIdType(
+			currentTelegramNumString(dbgEh),
+			currentTelegramTypeString(dbgEh),
+			telegramId,
+			telegramType)) {
+		ShowMessage(L"Некорректный номер телеграммы");
+		Handled = true;
+		return;
+	}
 
-    std::string err;
-
+	std::string err;
 	std::string str;
-	if (!serverManager_.requestText(
-			currentSourceServerId(), std::string(AnsiString(ss).c_str()),
-			COMMAND::FILETEXT, str, nullptr, &err)) {
+	if (!requestTelegramText(
+			serverManager_, currentSourceServerId(), telegramId, telegramType, str, err)) {
 		ShowMessage("Ошибка запроса: " + US(err));
 		Handled = true;
 		return;
-    }
+	}
 
     // 3) перекодировка и вывод в редактор
     std::unique_ptr<TStringList> reg(new TStringList());
@@ -2748,7 +2801,7 @@ int TfMain::SaveFileVh2(const std::string& out_dir,
 
 
 int TfMain::SaveFileVh(const std::string& out_dir,
-					   const RemoteFileRequest& f,
+					   const TelegramTextRequest& f,
 	bool makeDocx,
 					   bool flushStreamToOs,
 					   DocxConversionSession* docxSession)
@@ -2771,10 +2824,13 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 
 
 
-		ok = serverManager_.requestBinFile(f.serverId, f.remotePath, str, nullptr, &err);
-
-		if (ok && !str.empty())
+		std::string text;
+		ok = requestTelegramText(
+			serverManager_, f.serverId, f.telegramId, f.telegramType, text, err);
+		if (ok && !text.empty()) {
+			str.assign(text.begin(), text.end());
 			break;
+		}
 
 		// проверка по строке
 		if (err == busyServerErrorUserMessage() && attempt < MAX_TRIES)
@@ -2785,7 +2841,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 				std::chrono::milliseconds(RETRY_DELAY_MS)
 			);
             pushLog(
-			"Запрос файла \"" + String(f.remotePath.c_str()) +
+			"Запрос файла \"" + String(f.outputName.c_str()) +
 			"\", повтор " + String(attempt + 1) + " из " + String(MAX_TRIES)
 			);
 
@@ -2800,7 +2856,7 @@ int TfMain::SaveFileVh(const std::string& out_dir,
 	if (!ok || str.empty())
 	{
 		pushLog(
-			"Файл \"" + String(f.remotePath.c_str()) +
+			"Файл \"" + String(f.outputName.c_str()) +
 			"\" не получен: " + US(err)
 		);
 		if (!serverManager_.isConnected(f.serverId))
@@ -3133,7 +3189,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 	// ===== подготовка данных (в UI потоке) =====
 
 	std::vector<TelegramAttachmentRequest> pril_map_vh;
-	std::vector<RemoteFileRequest> text_files;
+	std::vector<TelegramTextRequest> text_files;
 	std::map<std::pair<std::string, int>, TelegramAttachmentArchiveRequest> pril_map_ish;
 
 	std::string out_dir_async = out_dir;
@@ -3231,12 +3287,20 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
         }
 
         if (chkText->Checked || chkDocx->Checked) {
-			AnsiString dd = dbgEh->DataSource->DataSet->FieldValues["dir"];
-			std::string dir_file_name = dd.c_str();
-			fs::path filePath = fs::path{dir_file_name.c_str()}.filename();
-            if (filePath.extension().empty())
-                filePath.replace_extension(".tlg");
-			text_files.push_back({sourceServerId, filePath.string(), dir_file_name});
+			int telegramId = 0;
+			int telegramType = 0;
+			if (!parseTelegramIdType(num, type, telegramId, telegramType)) {
+				preLog->Add("Шт. " + num + " - некорректный номер телеграммы");
+			}
+			else {
+				AnsiString dd = dbgEh->DataSource->DataSet->FieldValues["dir"];
+				std::string dir_file_name = dd.c_str();
+				fs::path filePath = fs::path{dir_file_name.c_str()}.filename();
+				if (filePath.extension().empty())
+					filePath.replace_extension(".tlg");
+				text_files.push_back(
+					{sourceServerId, filePath.string(), telegramId, telegramType});
+			}
         }
 	}
 
@@ -3915,7 +3979,7 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 	} timerFinalizer{tmLoadText};
 
 	// Удалённая строка: не оставляем текст предыдущей телеграммы и
-	// инвалидируем in-flight FILETEXT через last_loaded_num_.
+	// инвалидируем in-flight GET_TELEGA_TEXT через last_loaded_num_.
 	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
 		String num;
 		try {
@@ -3939,22 +4003,22 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 		return;
 	}
 
-	String dir;
-	try {
-		dir = dbgEh->DataSource->DataSet->FieldValues["dir"];
-	} catch (...) {
+	int telegramId = 0;
+	int telegramType = 0;
+	if (!parseTelegramIdType(
+			new_num,
+			currentTelegramTypeString(dbgEh),
+			telegramId,
+			telegramType)) {
+		ShowMessage(L"Некорректный номер телеграммы");
 		return;
 	}
-	if (dir.IsEmpty())
-		return;
 
-	// Подготовка переменных
-	std::string dir_str = AnsiString(dir).c_str();
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
 	timerFinalizer.disarm();
 
-System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op]() {
+System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, rowKey, live, op]() {
     std::lock_guard<std::mutex> lock(clickMutex);
 	std::string str;
 	std::string err;
@@ -3974,8 +4038,8 @@ System::Threading::TTask::Run([this, sourceServerId, dir_str, rowKey, live, op](
 	}
 
 	// 1) отправка
-	if (!serverManager_.requestText(
-			sourceServerId, dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
+	if (!requestTelegramText(
+			serverManager_, sourceServerId, telegramId, telegramType, str, err)) {
 		TThread::Queue(nullptr, [this, live, op, err]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;

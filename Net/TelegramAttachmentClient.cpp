@@ -187,3 +187,25 @@ bool downloadTelegramAttachment(
 		flushStreamToOs,
 		replaceAfterSuccess);
 }
+
+bool requestTelegramText(
+	MultiServerManager& manager,
+	const std::string& serverId,
+	int telegramId,
+	int telegramType,
+	std::string& result,
+	std::string& error)
+{
+	error.clear();
+	result.clear();
+
+	const std::string request = makeListRequest(telegramId, telegramType).dump();
+	if (!manager.requestText(
+			serverId, request, COMMAND::GET_TELEGA_TEXT, result, nullptr, &error)) {
+		if (error.empty())
+			error = "Не удалось получить текст телеграммы";
+		return false;
+	}
+
+	return true;
+}

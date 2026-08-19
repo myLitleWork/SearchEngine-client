@@ -46,15 +46,24 @@ namespace
 		std::size_t interruptAfter{0};
 	};
 
+	struct TextPayload
+	{
+		int telegramId{0};
+		int telegramType{0};
+		std::string bytes;
+	};
+
 	class FakeAttachmentServer
 	{
 	public:
 		FakeAttachmentServer(
 			std::string listJson,
-			std::vector<AttachmentPayload> payloads)
+			std::vector<AttachmentPayload> payloads,
+			std::vector<TextPayload> texts = {})
 			: acceptor_(io_, tcp::endpoint(tcp::v4(), 0))
 			, listJson_(std::move(listJson))
 			, payloads_(std::move(payloads))
+			, texts_(std::move(texts))
 			, worker_([this]() { run(); })
 		{
 		}
@@ -72,6 +81,11 @@ namespace
 		unsigned short port() const { return acceptor_.local_endpoint().port(); }
 		bool failed() const { return failed_.load(std::memory_order_acquire); }
 		bool sawGetBinFile() const { return sawGetBinFile_.load(std::memory_order_acquire); }
+		bool sawFileText() const { return sawFileText_.load(std::memory_order_acquire); }
+		bool sawForbiddenRawDownload() const
+		{
+			return sawGetBinFile() || sawFileText();
+		}
 
 		int countCommand(COMMAND command) const
 		{
@@ -162,6 +176,12 @@ namespace
 				return true;
 			if (body.find("remotePath") != std::string::npos)
 				return true;
+			if (body.find("FileName") != std::string::npos)
+				return true;
+			if (body.find("\"path\"") != std::string::npos)
+				return true;
+			if (body.find("\"dir\"") != std::string::npos)
+				return true;
 			if (body.find("D:") != std::string::npos || body.find("d:") != std::string::npos)
 				return true;
 			if (body.find("\\\\") != std::string::npos)
@@ -216,8 +236,12 @@ namespace
 				readRequest(socket, request, body);
 				record(request.command, body);
 
-				if (request.command == COMMAND::GETBINFILE) {
-					sawGetBinFile_.store(true, std::memory_order_release);
+				if (request.command == COMMAND::GETBINFILE ||
+					request.command == COMMAND::FILETEXT) {
+					if (request.command == COMMAND::GETBINFILE)
+						sawGetBinFile_.store(true, std::memory_order_release);
+					else
+						sawFileText_.store(true, std::memory_order_release);
 					failed_.store(true, std::memory_order_release);
 					send(socket, COMMAND::SOMEERROR, {});
 					return;
@@ -235,6 +259,44 @@ namespace
 						return;
 					}
 					send(socket, request.command, listJson_);
+					continue;
+				}
+
+				if (request.command == COMMAND::GET_TELEGA_TEXT) {
+					if (!isScopedListJson(body)) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					int telegramId = 0;
+					int telegramType = -1;
+					try {
+						const auto parsed = nh::json::parse(body);
+						telegramId = parsed.at("id").get<int>();
+						telegramType = parsed.at("type").get<int>();
+					}
+					catch (...) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					const TextPayload* payload = nullptr;
+					for (const auto& item : texts_) {
+						if (item.telegramId == telegramId &&
+							item.telegramType == telegramType) {
+							payload = &item;
+							break;
+						}
+					}
+					if (!payload) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					send(socket, request.command, payload->bytes);
 					continue;
 				}
 
@@ -313,7 +375,8 @@ namespace
 				serveApplicationRequests(*socket_);
 			}
 			catch (...) {
-				if (sawGetBinFile_.load(std::memory_order_acquire))
+				if (sawGetBinFile_.load(std::memory_order_acquire) ||
+					sawFileText_.load(std::memory_order_acquire))
 					failed_.store(true, std::memory_order_release);
 			}
 		}
@@ -323,12 +386,14 @@ namespace
 		std::unique_ptr<tcp::socket> socket_;
 		std::string listJson_;
 		std::vector<AttachmentPayload> payloads_;
+		std::vector<TextPayload> texts_;
 		std::thread worker_;
 		mutable std::mutex mutex_;
 		std::vector<COMMAND> commands_;
 		std::vector<std::string> bodies_;
 		std::atomic_bool failed_{false};
 		std::atomic_bool sawGetBinFile_{false};
+		std::atomic_bool sawFileText_{false};
 	};
 
 	std::string readFileBytes(const fs::path& path)
@@ -373,6 +438,30 @@ namespace
 		catch (...) {
 			return false;
 		}
+	}
+
+	bool jsonHasNoRawPathFields(const std::string& body)
+	{
+		try {
+			const auto parsed = nh::json::parse(body);
+			if (!parsed.is_object())
+				return false;
+			return !parsed.contains("path") &&
+				!parsed.contains("dir") &&
+				!parsed.contains("DirectTo") &&
+				!parsed.contains("FileName") &&
+				!parsed.contains("remotePath");
+		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool sawLegacyRawDownload(const FakeAttachmentServer& server)
+	{
+		return server.sawForbiddenRawDownload() ||
+			server.countCommand(COMMAND::GETBINFILE) != 0 ||
+			server.countCommand(COMMAND::FILETEXT) != 0;
 	}
 
 	bool downloadIfAdvertised(
@@ -473,6 +562,7 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			return 12;
 		}
 		if (server.countCommand(COMMAND::GETBINFILE) != 0 ||
+			server.countCommand(COMMAND::FILETEXT) != 0 ||
 			server.countCommand(COMMAND::GET_TELEGA_ATACHMENTS) != 1 ||
 			server.countCommand(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 1) {
 			cleanup();
@@ -739,12 +829,11 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			cleanup();
 			return 60;
 		}
-		if (primary.countCommand(COMMAND::GET_TELEGA_ATACHMENTS) != 0 ||
+		if (sawLegacyRawDownload(primary) || sawLegacyRawDownload(second) ||
+			primary.countCommand(COMMAND::GET_TELEGA_ATACHMENTS) != 0 ||
 			primary.countCommand(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 0 ||
-			primary.countCommand(COMMAND::GETBINFILE) != 0 ||
 			second.countCommand(COMMAND::GET_TELEGA_ATACHMENTS) != 1 ||
-			second.countCommand(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 1 ||
-			second.sawGetBinFile() || primary.sawGetBinFile()) {
+			second.countCommand(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 1) {
 			cleanup();
 			return 61;
 		}
@@ -791,6 +880,98 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			manager.disconnectAll();
 			++caseIndex;
 		}
+	}
+
+	{
+		if (static_cast<std::uint64_t>(COMMAND::GET_TELEGA_TEXT) != 32ull ||
+			static_cast<std::uint64_t>(COMMAND::FILETEXT) != 2ull ||
+			static_cast<std::uint64_t>(COMMAND::GETBINFILE) != 11ull) {
+			cleanup();
+			return 90;
+		}
+
+		FakeAttachmentServer server(
+			"[]",
+			{},
+			{
+				{123, 0, "TELEGA-VHOD"},
+				{456, 1, "TELEGA-ISHOD"}
+			});
+		MultiServerManager manager;
+		manager.configure({
+			{"first", "First", "127.0.0.1", std::to_string(server.port()), true}
+		}, "first");
+		manager.setUser("self-test-user");
+
+		std::string vhod;
+		std::string error;
+		if (!requestTelegramText(manager, "first", 123, 0, vhod, error) ||
+			vhod != "TELEGA-VHOD") {
+			cleanup();
+			return 91;
+		}
+		const std::string vhodBody = server.lastBodyFor(COMMAND::GET_TELEGA_TEXT);
+		if (server.countCommand(COMMAND::GET_TELEGA_TEXT) != 1 ||
+			!jsonHasIdType(vhodBody, 123, 0) ||
+			!jsonHasNoRawPathFields(vhodBody) ||
+			sawLegacyRawDownload(server) ||
+			server.failed()) {
+			cleanup();
+			return 92;
+		}
+
+		std::string ishod;
+		if (!requestTelegramText(manager, "first", 456, 1, ishod, error) ||
+			ishod != "TELEGA-ISHOD") {
+			cleanup();
+			return 93;
+		}
+		const std::string ishodBody = server.lastBodyFor(COMMAND::GET_TELEGA_TEXT);
+		if (server.countCommand(COMMAND::GET_TELEGA_TEXT) != 2 ||
+			!jsonHasIdType(ishodBody, 456, 1) ||
+			!jsonHasNoRawPathFields(ishodBody) ||
+			sawLegacyRawDownload(server) ||
+			server.countCommand(COMMAND::GETBINFILE) != 0 ||
+			server.countCommand(COMMAND::FILETEXT) != 0 ||
+			server.failed()) {
+			cleanup();
+			return 94;
+		}
+		manager.disconnectAll();
+	}
+
+	{
+		FakeAttachmentServer primary(
+			"[]",
+			{},
+			{{9, 0, "PRIMARY-TEXT"}});
+		FakeAttachmentServer second(
+			"[]",
+			{},
+			{{9, 0, "SECOND-TEXT"}});
+		MultiServerManager manager;
+		manager.configure({
+			{"first", "First", "127.0.0.1", std::to_string(primary.port()), true},
+			{"second", "Second", "127.0.0.1", std::to_string(second.port()), true}
+		}, "first");
+		manager.setUser("self-test-user");
+
+		std::string text;
+		std::string error;
+		if (!requestTelegramText(manager, "second", 9, 0, text, error) ||
+			text != "SECOND-TEXT") {
+			cleanup();
+			return 95;
+		}
+		if (primary.countCommand(COMMAND::GET_TELEGA_TEXT) != 0 ||
+			second.countCommand(COMMAND::GET_TELEGA_TEXT) != 1 ||
+			sawLegacyRawDownload(primary) ||
+			sawLegacyRawDownload(second) ||
+			!jsonHasIdType(second.lastBodyFor(COMMAND::GET_TELEGA_TEXT), 9, 0)) {
+			cleanup();
+			return 96;
+		}
+		manager.disconnectAll();
 	}
 
 	cleanup();

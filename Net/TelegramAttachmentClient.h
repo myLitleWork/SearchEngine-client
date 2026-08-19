@@ -41,3 +41,11 @@ bool downloadTelegramAttachment(
 	std::string* error = nullptr,
 	bool flushStreamToOs = false,
 	bool replaceAfterSuccess = false);
+
+bool requestTelegramText(
+	MultiServerManager& manager,
+	const std::string& serverId,
+	int telegramId,
+	int telegramType,
+	std::string& result,
+	std::string& error);

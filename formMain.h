@@ -499,11 +499,12 @@ public:		// User declarations
 	std::atomic_uint32_t saveFilesTotal{0};
 
 
-	struct RemoteFileRequest
+	struct TelegramTextRequest
 	{
 		std::string serverId;
 		std::string outputName;
-		std::string remotePath;
+		int telegramId{0};
+		int telegramType{0};
 	};
 	struct TelegramAttachmentRequest
 	{
@@ -530,7 +531,7 @@ public:		// User declarations
 	struct SaveTaskContext
 	{
 		std::vector<TelegramAttachmentRequest> pril_vh;
-		std::vector<RemoteFileRequest> text_files;
+		std::vector<TelegramTextRequest> text_files;
 		std::vector<TelegramAttachmentArchiveRequest> pril_ish;
 		std::map<TelegramAttachmentListKey, AttachmentListCacheEntry> attachmentLists;
 		std::string out_dir;
@@ -570,7 +571,7 @@ public:		// User declarations
 	void loadTextToEditFromServer();
 	std::vector<String> SelectFiles();
 
-	int SaveFileVh(const std::string& out_dir, const RemoteFileRequest& f, bool makeDocx = false,
+	int SaveFileVh(const std::string& out_dir, const TelegramTextRequest& f, bool makeDocx = false,
 		bool flushStreamToOs = false, DocxConversionSession* docxSession = nullptr);
 	int SaveFileIsh(const std::string& out_dir, const TelegramAttachmentArchiveRequest& f,
 		bool flushStreamToOs = false);
