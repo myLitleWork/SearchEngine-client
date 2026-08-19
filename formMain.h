@@ -134,7 +134,7 @@
 #include "FrameAttachments.h"
 #include "FramePdtv.h"
 
-#include "Message.h"
+#include "Attachments/AttachmentPackage.h"
 #include "myAsioClient.h"
 #include "MultiServerManager.h"
 #include "TelegramAttachmentClient.h"
@@ -607,7 +607,7 @@ public:		// User declarations
 	void registryOnServer(const std::string& user_name);
 
 
-	 Message message_;
+	 AttachmentPackage message_;
 	 std::string user_;
 	 bool auth_ = false; // local flash/admin UI only
 	 std::string token_dir_;

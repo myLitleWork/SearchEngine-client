@@ -35,7 +35,7 @@ function Get-ReleaseInputSha256 {
     $sourceExtensions = @('.c', '.cc', '.cpp', '.cxx', '.h', '.hpp', '.pas', '.dfm', '.res', '.rc', '.ico')
     $scriptExtensions = @('.bat', '.cmd', '.ps1')
     $tutorialExtensions = @('.htm', '.html', '.jpg', '.jpeg', '.md', '.pdf', '.png', '.txt')
-    $sourceDirectories = @('BinaryFileLoad', 'Database', 'Frames', 'Message', 'MyStrings', 'my_json', 'Net', 'WordServer')
+    $sourceDirectories = @('Attachments', 'BinaryFileLoad', 'Database', 'Frames', 'MyStrings', 'my_json', 'Net', 'WordServer')
     $templateFiles = @(
         'deployment/SearchClientPortable/Verify-Package.cmd',
         'deployment/SearchClientPortable/Verify-Package.ps1',

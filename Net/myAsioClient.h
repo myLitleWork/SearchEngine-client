@@ -32,6 +32,7 @@
 		GET_ISH_TELEGI_FROM_SQL,
 		START_UPDATE_BASE,
 		LOAD_TLG_TO_SEND,
+		// HISTORICAL RESERVED / DISABLED ON CURRENT SERVER / DO NOT USE.
 		GET_MESSAGE,
 		USER_REGISTRY,
 		PING,
@@ -56,6 +57,8 @@
 		UPLOAD_TLG_TO_SEND_V1 = 34,
 		UPLOAD_RAZN_V1 = 35,
 		//--------------------
+        // HISTORICAL RESERVED composite marker / DISABLED ON CURRENT SERVER.
+        // DO NOT USE and DO NOT REUSE this wire value.
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
 	};
@@ -103,6 +106,7 @@ namespace search_protocol
 		IndexUpdateFailed = 24,
 		OperatorNotRegistered = 25,
 		AttachmentNotFound = 26,
+		// Historical reserved wire codes. Keep numbers stable.
 		MessageNotFound = 27,
 		MessageSaveFailed = 28,
 		MessageReadFailed = 29,
@@ -190,6 +194,8 @@ static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
 static_assert(static_cast<std::uint64_t>(COMMAND::AUTHENTICATE_V1) == 31);
 static_assert(static_cast<std::uint64_t>(COMMAND::LOAD_TLG_TO_SEND) == 15);
 static_assert(static_cast<std::uint64_t>(COMMAND::LOAD_RAZN) == 22);
+static_assert(static_cast<std::uint64_t>(COMMAND::GET_MESSAGE) == 16);
+static_assert(static_cast<std::uint64_t>(COMMAND::SAVE_MESSAGE_TO) == 2781032419ULL);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_TEXT) == 32);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_ISH_PDTV_TEXT) == 33);
 static_assert(static_cast<std::uint64_t>(COMMAND::UPLOAD_TLG_TO_SEND_V1) == 34);

@@ -4876,10 +4876,10 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	for (;;) {
 		try {
 			try {
-				message_ = Message::deserializeFromBytes(str);
+				message_ = AttachmentPackage::deserializeFromBytes(str);
 			} catch (...) {
 				str[25] = save_byte;
-				message_ = Message::deserializeFromBytes(str);
+				message_ = AttachmentPackage::deserializeFromBytes(str);
 			}
 		} catch (const std::exception& e) {
 			ShowMessage(String(L"Ошибка разбора пакета вложений:\n") + String(e.what()));

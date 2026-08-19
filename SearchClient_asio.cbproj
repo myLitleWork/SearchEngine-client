@@ -77,8 +77,8 @@
         <UWP_CppLogo44>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_44.png</UWP_CppLogo44>
         <UWP_CppLogo150>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_150.png</UWP_CppLogo150>
         <SanitizedProjectName>SearchClient_asio</SanitizedProjectName>
-        <IncludePath>Database\;my_json\;$(PROJECTDIR);Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(IncludePath)</IncludePath>
-        <ILINK_LibraryPath>Database\;my_json\;Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
+        <IncludePath>Database\;my_json\;$(PROJECTDIR);Net\;Frames\;WordServer\;Attachments\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(IncludePath)</IncludePath>
+        <ILINK_LibraryPath>Database\;my_json\;Net\;Frames\;WordServer\;Attachments\;MyStrings\;BinaryFileLoad\;$(BDS)\Components\EhLib\Lib\;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <VerInfo_Locale>1049</VerInfo_Locale>
         <VerInfo_MajorVer>4</VerInfo_MajorVer>
         <VerInfo_MinorVer>3</VerInfo_MinorVer>
@@ -157,7 +157,7 @@
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
         <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <BCC_IncludePath>$(PROJECTDIR);Net\;Frames\;WordServer\;Message\;MyStrings\;BinaryFileLoad\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BCC_IncludePath)</BCC_IncludePath>
+        <BCC_IncludePath>$(PROJECTDIR);Net\;Frames\;WordServer\;Attachments\;MyStrings\;BinaryFileLoad\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;$(BCC_IncludePath)</BCC_IncludePath>
         <LinkPackageStatics>rtl.lib;vcl.lib;VclSmp.lib;vclx.lib;vclimg.lib;vcldb.lib;dbrtl.lib;vclwinx.lib;bindengine.lib;EhLib280.lib;xmlrtl.lib;frx28.lib;fs28.lib;fqb280.lib;fsDB28.lib;frxDB28.lib;dsnap.lib;frxe28.lib;FireDAC.lib;FireDACCommon.lib;FireDACCommonDriver.lib;FireDACSqliteDriver.lib;vclFireDAC.lib</LinkPackageStatics>
         <ILINK_LibraryPath>$(BDSLIB)\$(PLATFORM)$(CC_SUFFIX)\debug;..\..\..\..\Downloads\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSLIB)\$(PLATFORM)$(CC_SUFFIX)\debug;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release;C:\Program Files (x86)\Embarcadero\Studio\22.0\lib\boost;C:\Users\Sg\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;E:\РАЗНОЕ\ПРОГРАММЫ\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(BDSLIB)\$(PLATFORM)\debug;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <IncludePath>$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release\;C:\Users\Sg\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;C:\Program Files (x86)\Embarcadero\Studio\22.0\include\EhLib\Lib\Win32\Release;E:\РАЗНОЕ\ПРОГРАММЫ\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(IncludePath)</IncludePath>
@@ -279,8 +279,8 @@
             <DependentOn>Frames\MyFrameDbg.h</DependentOn>
             <BuildOrder>30</BuildOrder>
         </CppCompile>
-        <CppCompile Include="Message\Message.cpp">
-            <DependentOn>Message\Message.h</DependentOn>
+        <CppCompile Include="Attachments\AttachmentPackage.cpp">
+            <DependentOn>Attachments\AttachmentPackage.h</DependentOn>
             <BuildOrder>22</BuildOrder>
         </CppCompile>
         <LibFiles Include="myCrypto-bcb.lib" Condition="'$(Platform)'=='Win32'">

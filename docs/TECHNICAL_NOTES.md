@@ -41,6 +41,14 @@
 - **Отчёты:** FastReport (`frxReport`, `report_client_asio.fr3`)
 - **Сетки:** EhLib (`TDBGridEh`, `TMemTableEh`)
 
+## SVC-013 attachment container and legacy commands
+
+- Live wire-container для `GET_ATTACHMENTS` на клиенте: `Attachments/AttachmentPackage.*`.
+- `GET_MESSAGE=16` и `SAVE_MESSAGE_TO=2781032419` сохранены только как historical
+  reserved enum values в `Net/myAsioClient.h` и не используются для production calls.
+- Historical wire error codes `MessageNotFound`/`MessageSaveFailed`/`MessageReadFailed`
+  (27/28/29) сохранены без renumber для cross-repo совместимости.
+
 ## Базы данных
 
 | Файл | Назначение |

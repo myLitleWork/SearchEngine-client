@@ -8,6 +8,7 @@
 #include "MultiServerManager.h"
 #include "TelegramAttachmentClient.h"
 #include "utils.h"
+#include "Attachments/AttachmentPackage.h"
 
 #include <nlohmann/json.hpp>
 
@@ -608,6 +609,22 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 		return 1;
 
 	auto cleanup = [&]() { fs::remove_all(root, ec); };
+
+	{
+		AttachmentPackage expected;
+		expected.attachments[fs::path("a.txt")] = {0x41, 0x42, 0x43};
+		expected.attachments[fs::path("sub") / "b.bin"] = {0x00, 0x01, 0xFE, 0xFF};
+		const auto fixtureBytes = AttachmentPackage::serializeToBytes(expected);
+		const auto restored = AttachmentPackage::deserializeFromBytes(fixtureBytes);
+		if (restored.attachments != expected.attachments) {
+			cleanup();
+			return 79;
+		}
+		if (AttachmentPackage::serializeToBytes(restored) != fixtureBytes) {
+			cleanup();
+			return 78;
+		}
+	}
 
 	{
 		std::map<TelegramAttachmentListKey, int> listKeys;
