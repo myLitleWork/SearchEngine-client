@@ -1186,6 +1186,230 @@ bool MyAsioClient::socketReadBin(std::vector<uint8_t>& out,
     }
 }
 
+bool MyAsioClient::uploadFileV1(const std::wstring& localPath,
+							   COMMAND command,
+							   std::string* savedName,
+							   std::string* errMsg,
+							   search_protocol::ServerErrorInfo* serverError)
+{
+	std::lock_guard<std::mutex> lk(io_mutex_);
+	if (savedName)
+		savedName->clear();
+	if (serverError)
+		serverError->reset();
+
+	auto closeTransport = [this]() {
+		if (!socket_)
+			return;
+		boost::system::error_code ignored;
+		if (socket_->is_open())
+			socket_->shutdown(tcp::socket::shutdown_both, ignored);
+		socket_->close(ignored);
+	};
+
+	try {
+		if (command != COMMAND::UPLOAD_TLG_TO_SEND_V1 &&
+			command != COMMAND::UPLOAD_RAZN_V1) {
+			if (errMsg)
+				*errMsg = "Неподдерживаемая команда streaming upload";
+			return false;
+		}
+		if (!socket_ || !socket_->is_open()) {
+			if (errMsg)
+				*errMsg = "Нет подключения к серверу";
+			return false;
+		}
+
+		const std::filesystem::path path(localPath);
+		const std::string fileName = client_file_publish::Narrow(path.filename().wstring());
+		if (fileName.empty()) {
+			if (errMsg)
+				*errMsg = "Не удалось определить имя файла";
+			return false;
+		}
+
+		std::ifstream input(path, std::ios::binary);
+		if (!input.is_open()) {
+			if (errMsg)
+				*errMsg = "Не удалось открыть локальный файл";
+			return false;
+		}
+		input.seekg(0, std::ios::end);
+		const std::streamoff endPos = input.tellg();
+		if (endPos < 0) {
+			if (errMsg)
+				*errMsg = "Не удалось определить размер локального файла";
+			return false;
+		}
+		const std::uint64_t fileSize = static_cast<std::uint64_t>(endPos);
+		input.seekg(0, std::ios::beg);
+
+		const nlohmann::json metadata = {
+			{"version", 1},
+			{"file_name", fileName},
+			{"file_size", fileSize}
+		};
+		const std::string metadataText = metadata.dump();
+
+		header request{};
+		request.size = static_cast<uint_fast64_t>(metadataText.size());
+		request.command = command;
+		boost::asio::write(*socket_, boost::asio::buffer(&request, sizeof(request)));
+		if (!metadataText.empty()) {
+			boost::asio::write(
+				*socket_,
+				boost::asio::buffer(metadataText.data(), metadataText.size()));
+		}
+
+		header readyHeader{};
+		if (!read_exact_idle_timeout(
+				*socket_, &readyHeader, sizeof(readyHeader), errMsg)) {
+			closeTransport();
+			return false;
+		}
+		if (consumeServerErrorResponse(
+				*socket_,
+				readyHeader,
+				errMsg,
+				"Сервер вернул ошибку",
+				serverError)) {
+			return false;
+		}
+		if (readyHeader.command != command) {
+			if (errMsg)
+				*errMsg = "Неожиданная команда READY";
+			closeTransport();
+			return false;
+		}
+		constexpr std::uint64_t kMaxJsonResponse = 16ull * 1024ull;
+		if (readyHeader.size > kMaxJsonResponse) {
+			if (errMsg)
+				*errMsg = "READY response слишком большой";
+			closeTransport();
+			return false;
+		}
+		std::string readyBody(static_cast<std::size_t>(readyHeader.size), '\0');
+		if (readyHeader.size > 0 &&
+			!read_exact_idle_timeout(
+				*socket_,
+				readyBody.data(),
+				static_cast<std::size_t>(readyHeader.size),
+				errMsg)) {
+			closeTransport();
+			return false;
+		}
+		try {
+			const auto readyJson = nlohmann::json::parse(readyBody);
+			if (!readyJson.is_object() ||
+				readyJson.value("version", 0) != 1 ||
+				readyJson.value("ready", false) != true) {
+				if (errMsg)
+					*errMsg = "Некорректный READY response";
+				closeTransport();
+				return false;
+			}
+		}
+		catch (const std::exception& e) {
+			if (errMsg)
+				*errMsg = e.what();
+			closeTransport();
+			return false;
+		}
+
+		constexpr std::size_t kChunk = 64u * 1024u;
+		std::vector<char> buffer(kChunk);
+		std::uint64_t sent = 0;
+		while (sent < fileSize) {
+			const std::size_t n = static_cast<std::size_t>(
+				(std::min)(static_cast<std::uint64_t>(kChunk), fileSize - sent));
+			input.read(buffer.data(), static_cast<std::streamsize>(n));
+			const std::streamsize got = input.gcount();
+			if (got <= 0 || static_cast<std::uint64_t>(got) != n) {
+				if (errMsg)
+					*errMsg = "Локальный файл стал короче advertised size";
+				closeTransport();
+				return false;
+			}
+			boost::asio::write(*socket_, boost::asio::buffer(buffer.data(), n));
+			sent += n;
+		}
+
+		header finalHeader{};
+		if (!read_exact_idle_timeout(
+				*socket_, &finalHeader, sizeof(finalHeader), errMsg)) {
+			closeTransport();
+			return false;
+		}
+		if (consumeServerErrorResponse(
+				*socket_,
+				finalHeader,
+				errMsg,
+				"Сервер вернул ошибку",
+				serverError)) {
+			return false;
+		}
+		if (finalHeader.command != command) {
+			if (errMsg)
+				*errMsg = "Неожиданная команда финального ответа";
+			closeTransport();
+			return false;
+		}
+		if (finalHeader.size > kMaxJsonResponse) {
+			if (errMsg)
+				*errMsg = "Финальный ответ слишком большой";
+			closeTransport();
+			return false;
+		}
+		std::string finalBody(static_cast<std::size_t>(finalHeader.size), '\0');
+		if (finalHeader.size > 0 &&
+			!read_exact_idle_timeout(
+				*socket_,
+				finalBody.data(),
+				static_cast<std::size_t>(finalHeader.size),
+				errMsg)) {
+			closeTransport();
+			return false;
+		}
+		try {
+			const auto finalJson = nlohmann::json::parse(finalBody);
+			if (!finalJson.is_object() ||
+				finalJson.value("version", 0) != 1 ||
+				finalJson.value("ok", false) != true ||
+				!finalJson.contains("saved_name") ||
+				!finalJson["saved_name"].is_string()) {
+				if (errMsg)
+					*errMsg = "Некорректный финальный ответ upload";
+				closeTransport();
+				return false;
+			}
+			const std::string name = finalJson["saved_name"].get<std::string>();
+			if (name.empty() ||
+				name.find('/') != std::string::npos ||
+				name.find('\\') != std::string::npos) {
+				if (errMsg)
+					*errMsg = "Сервер вернул небезопасное saved_name";
+				closeTransport();
+				return false;
+			}
+			if (savedName)
+				*savedName = name;
+		}
+		catch (const std::exception& e) {
+			if (errMsg)
+				*errMsg = e.what();
+			closeTransport();
+			return false;
+		}
+		return true;
+	}
+	catch (const std::exception& e) {
+		closeTransport();
+		if (errMsg)
+			*errMsg = e.what();
+		return false;
+	}
+}
+
 MyAsioClient::~MyAsioClient() noexcept
 {
     try {

@@ -53,6 +53,8 @@
 		AUTHENTICATE_V1 = 31,
 		GET_TELEGA_TEXT = 32,
 		GET_ISH_PDTV_TEXT = 33,
+		UPLOAD_TLG_TO_SEND_V1 = 34,
+		UPLOAD_RAZN_V1 = 35,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -186,8 +188,12 @@ static_assert(static_cast<std::uint64_t>(COMMAND::END_COMMAND) == 28);
 static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
 static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
 static_assert(static_cast<std::uint64_t>(COMMAND::AUTHENTICATE_V1) == 31);
+static_assert(static_cast<std::uint64_t>(COMMAND::LOAD_TLG_TO_SEND) == 15);
+static_assert(static_cast<std::uint64_t>(COMMAND::LOAD_RAZN) == 22);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_TEXT) == 32);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_ISH_PDTV_TEXT) == 33);
+static_assert(static_cast<std::uint64_t>(COMMAND::UPLOAD_TLG_TO_SEND_V1) == 34);
+static_assert(static_cast<std::uint64_t>(COMMAND::UPLOAD_RAZN_V1) == 35);
 static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,
@@ -269,6 +275,12 @@ public:
 						  std::string* errMsg = nullptr,
 						  bool flushStreamToOs = false,
 						  bool replaceAfterSuccess = false);
+
+	bool uploadFileV1(const std::wstring& localPath,
+					  COMMAND command,
+					  std::string* savedName = nullptr,
+					  std::string* errMsg = nullptr,
+					  search_protocol::ServerErrorInfo* serverError = nullptr);
 
 
     // уже есть у тебя:

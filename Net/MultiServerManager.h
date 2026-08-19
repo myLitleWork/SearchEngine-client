@@ -241,6 +241,27 @@ public:
 		return ok;
 	}
 
+	bool uploadFileV1(const std::string& user,
+					  const std::wstring& localPath,
+					  COMMAND command,
+					  std::string* savedName = nullptr,
+					  std::string* errMsg = nullptr,
+					  search_protocol::ServerErrorInfo* serverError = nullptr)
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		if (serverError)
+			serverError->reset();
+		if (!ensureAuthorizedForRequestLocked(user, errMsg))
+			return false;
+		const bool ok = client_.uploadFileV1(
+			localPath, command, savedName, errMsg, serverError);
+		if (!ok && !client_.isConnected()) {
+			registeredUser_.clear();
+			serverAuthorized_ = false;
+		}
+		return ok;
+	}
+
 private:
 	enum class ProtocolSupport
 	{
@@ -675,6 +696,21 @@ public:
 		return session->requestFileToPath(
 			currentUser(), request, command, outPath, onProgress, receivedSize, errMsg,
 			flushStreamToOs, replaceAfterSuccess);
+	}
+
+	bool uploadFileV1(const std::string& serverId,
+					  const std::wstring& localPath,
+					  COMMAND command,
+					  std::string* savedName = nullptr,
+					  std::string* errMsg = nullptr,
+					  search_protocol::ServerErrorInfo* serverError = nullptr)
+	{
+		if (serverError)
+			serverError->reset();
+		auto session = findSession(serverId);
+		if (!session) return missingServer(serverId, errMsg);
+		return session->uploadFileV1(
+			currentUser(), localPath, command, savedName, errMsg, serverError);
 	}
 
 private:

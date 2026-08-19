@@ -339,6 +339,11 @@
         </CppCompile>
         <None Include="Net\TelegramAttachmentSelfTest.h">
         </None>
+        <CppCompile Include="Net\StreamingUploadSelfTest.cpp">
+            <DependentOn>Net\StreamingUploadSelfTest.h</DependentOn>
+        </CppCompile>
+        <None Include="Net\StreamingUploadSelfTest.h">
+        </None>
         <CppCompile Include="Net\myAsioClient.cpp">
             <DependentOn>Net\myAsioClient.h</DependentOn>
             <BuildOrder>29</BuildOrder>
