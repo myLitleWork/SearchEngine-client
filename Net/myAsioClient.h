@@ -18,8 +18,8 @@
 		SOLOREQUEST,
 		FILETEXT,
 		JSONREGUEST,
-		// Values 4..9 belonged to removed client features. Keep the wire slots
-		// reserved so every active command retains its protocol number.
+		// Values 3..9 are historical wire slots without production handlers.
+		// Keep the ordinals reserved so every active command retains its number.
 		RESERVED_COMMAND_4,
 		RESERVED_COMMAND_5,
 		RESERVED_COMMAND_6,
@@ -184,6 +184,13 @@ bool isAuthRejectionErrorCode(std::uint32_t rawCode) noexcept;
 static_assert(sizeof(header) == 16, "The wire header must remain 16 bytes");
 static_assert(static_cast<std::uint64_t>(COMMAND::SOMEERROR) == 0);
 static_assert(static_cast<std::uint64_t>(COMMAND::FILETEXT) == 2);
+static_assert(static_cast<std::uint64_t>(COMMAND::JSONREGUEST) == 3);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_4) == 4);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_5) == 5);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_6) == 6);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_7) == 7);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_8) == 8);
+static_assert(static_cast<std::uint64_t>(COMMAND::RESERVED_COMMAND_9) == 9);
 static_assert(static_cast<std::uint64_t>(COMMAND::GETBINFILE) == 11);
 static_assert(static_cast<std::uint64_t>(COMMAND::PING) == 18);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) == 26);
