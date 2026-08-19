@@ -22,6 +22,15 @@ namespace
 		};
 	}
 
+	nlohmann::json makePdtvRequest(int telegramId, int slot, int entryIndex)
+	{
+		return nlohmann::json{
+			{"id", telegramId},
+			{"slot", slot},
+			{"entry_index", entryIndex}
+		};
+	}
+
 	nlohmann::json makeSingleRequest(
 		int telegramId,
 		int telegramType,
@@ -204,6 +213,29 @@ bool requestTelegramText(
 			serverId, request, COMMAND::GET_TELEGA_TEXT, result, nullptr, &error)) {
 		if (error.empty())
 			error = "Не удалось получить текст телеграммы";
+		return false;
+	}
+
+	return true;
+}
+
+bool requestPdtvText(
+	MultiServerManager& manager,
+	const std::string& serverId,
+	int telegramId,
+	int slot,
+	int entryIndex,
+	std::string& result,
+	std::string& error)
+{
+	error.clear();
+	result.clear();
+
+	const std::string request = makePdtvRequest(telegramId, slot, entryIndex).dump();
+	if (!manager.requestText(
+			serverId, request, COMMAND::GET_ISH_PDTV_TEXT, result, nullptr, &error)) {
+		if (error.empty())
+			error = "Не удалось получить текст ПДТВ";
 		return false;
 	}
 

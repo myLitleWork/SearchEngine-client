@@ -7,8 +7,10 @@
 #include "utils.h"
 #include "myAsioClient.h"
 #include "myJson.h"
+#include "TelegramAttachmentClient.h"
 #include <System.Threading.hpp>
 #include <memory>
+#include <string>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma link "DBAxisGridsEh"
@@ -41,6 +43,8 @@ void TfrPdtv::InitDbgDS()
 	mt->FieldDefs->Add(L"file",       ftWideString, 30, false);
 	mt->FieldDefs->Add(L"ddate_time", ftWideString, 30, false);
 	mt->FieldDefs->Add(L"dir",        ftWideString, 30, false);
+	mt->FieldDefs->Add(L"pdtv_slot", ftInteger, 0, false);
+	mt->FieldDefs->Add(L"pdtv_entry_index", ftInteger, 0, false);
 	mt->CreateDataSet();
 
 	ds = new TDataSource(this);
@@ -65,6 +69,15 @@ void TfrPdtv::FillDbg()
 		numberS = dbgMain->Fields[0]->AsString; // номер документа
 		to      = dbgMain->Fields[8]->AsString; // получатели
 
+		int telegramId = 0;
+		try {
+			telegramId = StrToInt(numberS);
+		}
+		catch (const Exception& e) {
+			ShowMessage(L"ПДТВ: некорректный номер документа: " + e.Message);
+			return;
+		}
+
 		TCursor prev = Screen->Cursor;
 		Screen->Cursor = crHourGlass;
 
@@ -79,7 +92,7 @@ void TfrPdtv::FillDbg()
 			});
 		};
 
-		System::Threading::TTask::Run([this, numberS, to, cmd, prev, safeShow, serverId, live, op]()
+		System::Threading::TTask::Run([this, to, cmd, prev, safeShow, serverId, live, op, telegramId]()
 		{
 			std::string number;
 			std::string jsonStr;
@@ -91,7 +104,7 @@ void TfrPdtv::FillDbg()
 				if (live && !live->load(std::memory_order_acquire))
 					ok = false;
 
-				number = AnsiString(numberS).c_str();
+				number = std::to_string(telegramId);
 
 				std::string err;
 				if (ok && !serverManager.requestText(
@@ -215,11 +228,11 @@ void TfrPdtv::FillDbg()
                         }
                     }
 
-					auto appendRow = [this, &safeShow](const String& kuda, const String& file, const String& date_time, const String& dir)
+					auto appendRow = [this, &safeShow](const String& kuda, const String& file, const String& date_time, const String& dir, int slot, int entryIndex)
 					{
 						try {
 							mt->DisableControls();
-							mt->AppendRecord(ARRAYOFCONST((kuda, file, date_time, dir)));
+							mt->AppendRecord(ARRAYOFCONST((kuda, file, date_time, dir, slot, entryIndex)));
 							mt->EnableControls();
 						} catch (const Exception& e) {
 							mt->EnableControls();
@@ -258,7 +271,7 @@ void TfrPdtv::FillDbg()
                             file = pdtv;
 						}
 
-						appendRow(kuda, file, date_time, dir);
+						appendRow(kuda, file, date_time, dir, 0, 0);
                     }
                     else
                     {
@@ -293,7 +306,7 @@ void TfrPdtv::FillDbg()
                                 file = v_pdtv[i];
                             }
 
-                            appendRow(kuda, file, date_time, dir);
+                            appendRow(kuda, file, date_time, dir, 1, i);
                         }
                     }
 
@@ -334,41 +347,38 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 	memPdtv->Text = "";
 	memPdtv->ParentFont = true;
 	memPdtv->Font->Size -= 3 ;
-	AnsiString ansi_dir = dbgPdtv->DataSource->DataSet->FieldValues["dir"];
-
-	if(ansi_dir.IsEmpty())
-		return;
-
 
 	const int main_heigth = dbgMain->Height/5;
 	dbgPdtv->RowDetailPanel->Height = dbgMenu->RowDetailPanel->Height - 20;
 	memPdtv->Align = alClient;
 	memPdtv->Clear();
 
-	std::string dir_str{ansi_dir.c_str()};
-
-	if(auto it = dir_str.find(';'); it != std::string::npos)
-	{
-		dir_str = dir_str.erase(it);
+	int telegramId = 0;
+	int slot = 0;
+	int entryIndex = 0;
+	try {
+		telegramId = StrToInt(dbgMain->Fields[0]->AsString);
+		slot = dbgPdtv->DataSource->DataSet->FieldByName(L"pdtv_slot")->AsInteger;
+		entryIndex = dbgPdtv->DataSource->DataSet->FieldByName(L"pdtv_entry_index")->AsInteger;
 	}
-
-	if(auto it = dir_str.find('/'); it == dir_str.length() - 1)
-	{
-		dir_str = dir_str.erase(it);
-	}
-
-	std::string err;
-
-	// Запрашиваем текст подтверждения.
-	std::string str;
-	if (!serverManager.requestText(
-			SourceServerId(), dir_str, COMMAND::FILETEXT, str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + Utf8ToVcl(err));
+	catch (const Exception& e) {
+		ShowMessage(L"ПДТВ: некорректный селектор строки: " + e.Message);
 		return;
 	}
 
-// Ответ сервера находится в str.
-
+	std::string err;
+	std::string str;
+	if (!requestPdtvText(
+			serverManager,
+			SourceServerId(),
+			telegramId,
+			slot,
+			entryIndex,
+			str,
+			err)) {
+		ShowMessage("Ошибка запроса: " + Utf8ToVcl(err));
+		return;
+	}
 
 	std::unique_ptr<TStringList> reg(new TStringList());
 	reg->Text = str.c_str();

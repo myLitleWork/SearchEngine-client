@@ -49,3 +49,12 @@ bool requestTelegramText(
 	int telegramType,
 	std::string& result,
 	std::string& error);
+
+bool requestPdtvText(
+	MultiServerManager& manager,
+	const std::string& serverId,
+	int telegramId,
+	int slot,
+	int entryIndex,
+	std::string& result,
+	std::string& error);

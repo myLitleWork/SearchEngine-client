@@ -53,17 +53,27 @@ namespace
 		std::string bytes;
 	};
 
+	struct PdtvTextPayload
+	{
+		int telegramId{0};
+		int slot{0};
+		int entryIndex{0};
+		std::string bytes;
+	};
+
 	class FakeAttachmentServer
 	{
 	public:
 		FakeAttachmentServer(
 			std::string listJson,
 			std::vector<AttachmentPayload> payloads,
-			std::vector<TextPayload> texts = {})
+			std::vector<TextPayload> texts = {},
+			std::vector<PdtvTextPayload> pdtvs = {})
 			: acceptor_(io_, tcp::endpoint(tcp::v4(), 0))
 			, listJson_(std::move(listJson))
 			, payloads_(std::move(payloads))
 			, texts_(std::move(texts))
+			, pdtvs_(std::move(pdtvs))
 			, worker_([this]() { run(); })
 		{
 		}
@@ -228,6 +238,28 @@ namespace
 			}
 		}
 
+		static bool isScopedPdtvJson(const std::string& body)
+		{
+			try {
+				const auto parsed = nh::json::parse(body);
+				if (!parsed.is_object() || parsed.size() != 3)
+					return false;
+				if (!parsed.contains("id") || !parsed.contains("slot") ||
+					!parsed.contains("entry_index"))
+					return false;
+				if (!parsed["id"].is_number_integer() ||
+					!parsed["slot"].is_number_integer() ||
+					!parsed["entry_index"].is_number_integer())
+					return false;
+				if (parsed.contains("type") || parsed.contains("file_name"))
+					return false;
+				return !looksLikeServerPath(body);
+			}
+			catch (...) {
+				return false;
+			}
+		}
+
 		void serveApplicationRequests(tcp::socket& socket)
 		{
 			for (;;) {
@@ -341,6 +373,47 @@ namespace
 					continue;
 				}
 
+				if (request.command == COMMAND::GET_ISH_PDTV_TEXT) {
+					if (!isScopedPdtvJson(body)) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					int telegramId = 0;
+					int slot = -1;
+					int entryIndex = -1;
+					try {
+						const auto parsed = nh::json::parse(body);
+						telegramId = parsed.at("id").get<int>();
+						slot = parsed.at("slot").get<int>();
+						entryIndex = parsed.at("entry_index").get<int>();
+					}
+					catch (...) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					const PdtvTextPayload* payload = nullptr;
+					for (const auto& item : pdtvs_) {
+						if (item.telegramId == telegramId &&
+							item.slot == slot &&
+							item.entryIndex == entryIndex) {
+							payload = &item;
+							break;
+						}
+					}
+					if (!payload) {
+						failed_.store(true, std::memory_order_release);
+						send(socket, COMMAND::SOMEERROR, {});
+						return;
+					}
+
+					send(socket, request.command, payload->bytes);
+					continue;
+				}
+
 				failed_.store(true, std::memory_order_release);
 				send(socket, COMMAND::SOMEERROR, {});
 				return;
@@ -387,6 +460,7 @@ namespace
 		std::string listJson_;
 		std::vector<AttachmentPayload> payloads_;
 		std::vector<TextPayload> texts_;
+		std::vector<PdtvTextPayload> pdtvs_;
 		std::thread worker_;
 		mutable std::mutex mutex_;
 		std::vector<COMMAND> commands_;
@@ -422,6 +496,24 @@ namespace
 			return parsed.is_object() &&
 				parsed.value("id", -1) == id &&
 				parsed.value("type", -1) == type;
+		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool jsonHasIdSlotEntry(
+		const std::string& body,
+		int id,
+		int slot,
+		int entryIndex)
+	{
+		try {
+			const auto parsed = nh::json::parse(body);
+			return parsed.is_object() &&
+				parsed.value("id", -1) == id &&
+				parsed.value("slot", -1) == slot &&
+				parsed.value("entry_index", -1) == entryIndex;
 		}
 		catch (...) {
 			return false;
@@ -970,6 +1062,118 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			!jsonHasIdType(second.lastBodyFor(COMMAND::GET_TELEGA_TEXT), 9, 0)) {
 			cleanup();
 			return 96;
+		}
+		manager.disconnectAll();
+	}
+
+	{
+		const fs::path framePdtv =
+			fs::path(__FILE__).parent_path().parent_path() / "Frames" / "FramePdtv.cpp";
+		if (fs::exists(framePdtv)) {
+			const auto source = readFileBytes(framePdtv);
+			if (source.find("COMMAND::FILETEXT") != std::string::npos) {
+				cleanup();
+				return 99;
+			}
+		}
+
+		if (static_cast<std::uint64_t>(COMMAND::GET_ISH_PDTV_TEXT) != 33ull ||
+			static_cast<std::uint64_t>(COMMAND::GET_TELEGA_SINGLE_ATACHMENT) != 26ull ||
+			static_cast<std::uint64_t>(COMMAND::FILETEXT) != 2ull ||
+			static_cast<std::uint64_t>(COMMAND::GETBINFILE) != 11ull) {
+			cleanup();
+			return 100;
+		}
+
+		FakeAttachmentServer server(
+			"[]",
+			{},
+			{},
+			{
+				{12345, 0, 0, "PDTV-SLOT0"},
+				{12345, 1, 0, "PDTV-FIRST"},
+				{12345, 1, 1, "PDTV-MIDDLE"},
+				{12345, 1, 2, "PDTV-LAST"}
+			});
+		MultiServerManager manager;
+		manager.configure({
+			{"first", "First", "127.0.0.1", std::to_string(server.port()), true}
+		}, "first");
+		manager.setUser("self-test-user");
+
+		std::string text;
+		std::string error;
+		if (!requestPdtvText(manager, "first", 12345, 0, 0, text, error) ||
+			text != "PDTV-SLOT0") {
+			cleanup();
+			return 101;
+		}
+		const std::string slot0Body = server.lastBodyFor(COMMAND::GET_ISH_PDTV_TEXT);
+		if (server.countCommand(COMMAND::GET_ISH_PDTV_TEXT) != 1 ||
+			!jsonHasIdSlotEntry(slot0Body, 12345, 0, 0) ||
+			!jsonHasNoRawPathFields(slot0Body) ||
+			sawLegacyRawDownload(server) ||
+			server.failed()) {
+			cleanup();
+			return 102;
+		}
+
+		if (!requestPdtvText(manager, "first", 12345, 1, 0, text, error) ||
+			text != "PDTV-FIRST" ||
+			!requestPdtvText(manager, "first", 12345, 1, 1, text, error) ||
+			text != "PDTV-MIDDLE" ||
+			!requestPdtvText(manager, "first", 12345, 1, 2, text, error) ||
+			text != "PDTV-LAST") {
+			cleanup();
+			return 103;
+		}
+		const std::string lastBody = server.lastBodyFor(COMMAND::GET_ISH_PDTV_TEXT);
+		if (server.countCommand(COMMAND::GET_ISH_PDTV_TEXT) != 4 ||
+			!jsonHasIdSlotEntry(lastBody, 12345, 1, 2) ||
+			!jsonHasNoRawPathFields(lastBody) ||
+			server.countCommand(COMMAND::FILETEXT) != 0 ||
+			server.countCommand(COMMAND::GETBINFILE) != 0 ||
+			sawLegacyRawDownload(server) ||
+			server.failed()) {
+			cleanup();
+			return 104;
+		}
+		manager.disconnectAll();
+	}
+
+	{
+		FakeAttachmentServer primary(
+			"[]",
+			{},
+			{},
+			{{9, 0, 0, "PRIMARY-PDTV"}});
+		FakeAttachmentServer second(
+			"[]",
+			{},
+			{},
+			{{9, 1, 1, "SECOND-PDTV"}});
+		MultiServerManager manager;
+		manager.configure({
+			{"first", "First", "127.0.0.1", std::to_string(primary.port()), true},
+			{"second", "Second", "127.0.0.1", std::to_string(second.port()), true}
+		}, "first");
+		manager.setUser("self-test-user");
+
+		std::string text;
+		std::string error;
+		if (!requestPdtvText(manager, "second", 9, 1, 1, text, error) ||
+			text != "SECOND-PDTV") {
+			cleanup();
+			return 105;
+		}
+		if (primary.countCommand(COMMAND::GET_ISH_PDTV_TEXT) != 0 ||
+			second.countCommand(COMMAND::GET_ISH_PDTV_TEXT) != 1 ||
+			sawLegacyRawDownload(primary) ||
+			sawLegacyRawDownload(second) ||
+			!jsonHasIdSlotEntry(second.lastBodyFor(COMMAND::GET_ISH_PDTV_TEXT), 9, 1, 1) ||
+			!jsonHasNoRawPathFields(second.lastBodyFor(COMMAND::GET_ISH_PDTV_TEXT))) {
+			cleanup();
+			return 106;
 		}
 		manager.disconnectAll();
 	}

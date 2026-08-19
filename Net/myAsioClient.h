@@ -52,6 +52,7 @@
 		NEGOTIATE_PROTOCOL_V1 = 30,
 		AUTHENTICATE_V1 = 31,
 		GET_TELEGA_TEXT = 32,
+		GET_ISH_PDTV_TEXT = 33,
 		//--------------------
         SAVE_MESSAGE_TO = 2781032419,
 		//--------------------
@@ -186,6 +187,7 @@ static_assert(static_cast<std::uint64_t>(COMMAND::ERROR_RESPONSE) == 29);
 static_assert(static_cast<std::uint64_t>(COMMAND::NEGOTIATE_PROTOCOL_V1) == 30);
 static_assert(static_cast<std::uint64_t>(COMMAND::AUTHENTICATE_V1) == 31);
 static_assert(static_cast<std::uint64_t>(COMMAND::GET_TELEGA_TEXT) == 32);
+static_assert(static_cast<std::uint64_t>(COMMAND::GET_ISH_PDTV_TEXT) == 33);
 static_assert(sizeof(search_protocol::ErrorResponseV1) == 8,
 	"ERROR_RESPONSE v1 payload must remain 8 bytes");
 static_assert(sizeof(search_protocol::ProtocolCapabilitiesV1) == 8,
