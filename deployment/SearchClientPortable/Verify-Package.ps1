@@ -22,8 +22,6 @@ if (-not (Test-Path -LiteralPath $checksums -PathType Leaf)) {
 
 foreach ($required in @(
     'app\SearchClient_asio.exe',
-    'app\myCrypto.dll',
-    'app\libcrypto-3.dll',
     'app\sht.docm',
     'app\Settings.db3',
     'app\admin984.bin',

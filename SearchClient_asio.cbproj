@@ -283,10 +283,6 @@
             <DependentOn>Attachments\AttachmentPackage.h</DependentOn>
             <BuildOrder>22</BuildOrder>
         </CppCompile>
-        <LibFiles Include="myCrypto-bcb.lib" Condition="'$(Platform)'=='Win32'">
-            <BuildOrder>12</BuildOrder>
-            <IgnorePath>true</IgnorePath>
-        </LibFiles>
         <CppCompile Include="myJson.cpp">
             <DependentOn>myJson.h</DependentOn>
             <BuildOrder>8</BuildOrder>
@@ -526,18 +522,6 @@
                 <DeployFile LocalName=".\Win32\Release\SearchClient_asio.exe" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>SearchClient_asio.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="myCrypto-bcb.lib" Configuration="Debug" Class="ProjectFile">
-                    <Platform Name="Win32">
-                        <RemoteDir>.\</RemoteDir>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="myCrypto-bcb.lib" Configuration="Release" Class="ProjectFile">
-                    <Platform Name="Win32">
-                        <RemoteDir>.\</RemoteDir>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

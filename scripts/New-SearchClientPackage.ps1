@@ -106,9 +106,7 @@ foreach ($required in @('Verify-Package.cmd', 'Verify-Package.ps1')) {
 # seed and the non-secret admin marker are copied from the package template, not
 # from a developer's runtime folder.
 $requiredBuildPayloadNames = @(
-    'SearchClient_asio.exe',
-    'myCrypto.dll',
-    'libcrypto-3.dll'
+    'SearchClient_asio.exe'
 )
 $payloadFiles = @(
     foreach ($name in $requiredBuildPayloadNames) {
