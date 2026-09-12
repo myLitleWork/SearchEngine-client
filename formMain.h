@@ -454,6 +454,7 @@ private:	// User declarations
 	std::vector<ServerSearchFailure> searchFailures_async;
 	int searchServerSuccessCount = 0;
 	int searchServerTotalCount = 0;
+	bool unauthorizedSearchSkipNotified_ = false;
 	TObject* lastSender = nullptr;
 	void ensureServerCatalogSeeded(const String& fallbackHost);
 	void reloadAvailableYears();

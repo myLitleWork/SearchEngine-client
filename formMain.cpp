@@ -1306,14 +1306,27 @@ void __fastcall TfMain::finishSearch()
 			String(static_cast<int>(serverManager_.serverCount()));
 	};
 	if (!searchSuccess) {
+		const std::string skipMsg = unauthorizedSearchSkipMessage();
 		std::unique_ptr<TStringList> message(new TStringList());
 		message->Add(String(searchError.c_str()));
+		int extraCount = 0;
+		bool hadSkip = false;
+		const bool includeSkips = !unauthorizedSearchSkipNotified_;
 		for (const auto& failure : searchFailures_async) {
+			if (failure.error == skipMsg) {
+				hadSkip = true;
+				if (!includeSkips)
+					continue;
+			}
 			message->Add(L"• " + US(failure.displayName) + L": " + US(failure.error));
+			++extraCount;
 		}
+		if (hadSkip)
+			unauthorizedSearchSkipNotified_ = true;
 		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount) +
 			sessionSuffix();
-		ShowMessage(message->Text);
+		if (!hadSkip || includeSkips || extraCount > 0)
+			ShowMessage(message->Text);
 		btnSearch->Enabled = auth_ && hasServerAuthorization();
         return;
     }
@@ -1367,13 +1380,26 @@ void __fastcall TfMain::finishSearch()
 	String statusServers = String(searchServerSuccessCount) + L"/" + String(searchServerTotalCount);
 
 	if (!searchFailures_async.empty()) {
+		const std::string skipMsg = unauthorizedSearchSkipMessage();
 		std::unique_ptr<TStringList> failures(new TStringList());
-		failures->Add(
-			L"Получены ответы от " + String(searchServerSuccessCount) + L" из " +
-			String(searchServerTotalCount) + L" серверов.");
+		int popupCount = 0;
+		bool hadSkip = false;
 		for (const auto& failure : searchFailures_async) {
+			if (failure.error == skipMsg) {
+				hadSkip = true;
+				if (unauthorizedSearchSkipNotified_)
+					continue;
+			}
+			if (popupCount == 0) {
+				failures->Add(
+					L"Получены ответы от " + String(searchServerSuccessCount) + L" из " +
+					String(searchServerTotalCount) + L" серверов.");
+			}
 			failures->Add(L"• " + US(failure.displayName) + L": " + US(failure.error));
+			++popupCount;
 		}
+		if (hadSkip)
+			unauthorizedSearchSkipNotified_ = true;
 		if (savePartial) {
 			failures->Add(L"");
 			failures->Add(
@@ -1388,7 +1414,8 @@ void __fastcall TfMain::finishSearch()
 			lbStatus->Caption = L"Поиск завершён частично: " + statusServers +
 				sessionSuffix();
 		}
-		ShowMessage(failures->Text);
+		if (popupCount > 0 || savePartial)
+			ShowMessage(failures->Text);
 	}
 	else if (savePartial) {
 		lbStatus->Caption = L"Поиск завершён частично: сохранено " +
@@ -1816,6 +1843,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 				}
 			}
 			ShowMessage(partial->Text);
+			unauthorizedSearchSkipNotified_ = true;
 		}
 	}
 	catch (const Exception& e) {
@@ -1845,6 +1873,7 @@ void TfMain::disconnectTransportOnly()
 void TfMain::disconnectUiFull()
 {
 	disconnectTransportOnly();
+	unauthorizedSearchSkipNotified_ = false;
 	lbStatus->Caption = "Статус: отключено от сервера";
 	PageControl1->ActivePageIndex = 0;
 	componentsEnable(false);
