@@ -1321,13 +1321,19 @@ void __fastcall TfMain::finishSearch()
 {
 	if (!uiIsLive())
 		return;
+	const auto sessionSuffix = [this]() {
+		return L", сессии " +
+			String(static_cast<int>(serverManager_.authorizedServerCount())) + L"/" +
+			String(static_cast<int>(serverManager_.serverCount()));
+	};
 	if (!searchSuccess) {
 		std::unique_ptr<TStringList> message(new TStringList());
 		message->Add(String(searchError.c_str()));
 		for (const auto& failure : searchFailures_async) {
 			message->Add(L"• " + US(failure.displayName) + L": " + US(failure.error));
 		}
-		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount);
+		lbStatus->Caption = L"Поиск не выполнен: 0/" + String(searchServerTotalCount) +
+			sessionSuffix();
 		ShowMessage(message->Text);
 		btnSearch->Enabled = auth_ && hasServerAuthorization();
         return;
@@ -1358,7 +1364,7 @@ void __fastcall TfMain::finishSearch()
 		else
 			searchSaveReport_ = searchSaveReport_ + L"\r\n\r\n" + openErr;
 		applyRchEdtText(L"", false);
-		lbStatus->Caption = L"Ошибка отображения результатов";
+		lbStatus->Caption = L"Ошибка отображения результатов" + sessionSuffix();
 		btnSearch->Enabled = auth_ && hasServerAuthorization();
 		return;
 	}
@@ -1396,20 +1402,22 @@ void __fastcall TfMain::finishSearch()
 				String(attemptedCount) +
 				L" строк. Подробности ошибок записи — в панели текста.");
 			lbStatus->Caption = L"Поиск завершён частично: серверов " + statusServers +
-				L", сохранено " + String(savedCount) + L" из " + String(attemptedCount);
+				L", сохранено " + String(savedCount) + L" из " + String(attemptedCount) +
+				sessionSuffix();
 		}
 		else {
-			lbStatus->Caption = L"Поиск завершён частично: " + statusServers;
+			lbStatus->Caption = L"Поиск завершён частично: " + statusServers +
+				sessionSuffix();
 		}
 		ShowMessage(failures->Text);
 	}
 	else if (savePartial) {
 		lbStatus->Caption = L"Поиск завершён частично: сохранено " +
-			String(savedCount) + L" из " + String(attemptedCount);
+			String(savedCount) + L" из " + String(attemptedCount) + sessionSuffix();
 	}
 	else {
 		lbStatus->Caption = L"Поиск завершён: серверов " + String(searchServerSuccessCount) +
-			L", результатов " + String(savedCount);
+			L", результатов " + String(savedCount) + sessionSuffix();
 	}
 
 	if(cmbReq->CanFocus())
@@ -1521,10 +1529,33 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 	else {
 		requestBody = std::string(requestText.c_str());
 	}
-	const std::vector<std::string> serverIds = serverManager_.serverIds();
-	if (serverIds.empty()) {
+	const std::vector<std::string> allServerIds = serverManager_.serverIds();
+	if (allServerIds.empty()) {
 		searchSuccess = false;
 		searchError = "Для выбранного года нет настроенных серверов";
+		lastSender = Sender;
+		finishSearch();
+		return;
+	}
+	std::vector<std::string> serverIds;
+	std::vector<ServerSearchFailure> skippedUnauthed;
+	serverIds.reserve(allServerIds.size());
+	for (const auto& id : allServerIds) {
+		if (serverManager_.isServerAuthorized(id))
+			serverIds.push_back(id);
+		else {
+			skippedUnauthed.push_back({
+				id,
+				serverManager_.displayName(id),
+				unauthorizedSearchSkipMessage()});
+		}
+	}
+	if (serverIds.empty()) {
+		searchSuccess = false;
+		searchError = "Ни один сервер не авторизован для поиска";
+		searchFailures_async = std::move(skippedUnauthed);
+		searchServerSuccessCount = 0;
+		searchServerTotalCount = static_cast<int>(allServerIds.size());
 		lastSender = Sender;
 		finishSearch();
 		return;
@@ -1532,7 +1563,9 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
     // --- Запуск фоновой задачи ---
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
-	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds, Sender, live, op]() {
+	const std::size_t allServerCount = allServerIds.size();
+	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds,
+		skippedUnauthed, allServerCount, Sender, live, op]() {
 		struct Outcome {
 			std::string serverId;
 			std::string displayName;
@@ -1552,11 +1585,6 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 				outcome.serverId = serverIds[i];
 				outcome.displayName = serverManager_.displayName(outcome.serverId);
 				try {
-					if (!serverManager_.isServerAuthorized(outcome.serverId)) {
-						outcome.error = serverErrorUserMessage(static_cast<std::uint32_t>(
-							search_protocol::ErrorCode::AuthRequired));
-						return;
-					}
 					std::string response;
 					if (!serverManager_.requestText(
 							outcome.serverId, requestBody, searchCommand, response, nullptr,
@@ -1595,10 +1623,11 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 				failures.push_back({outcome.serverId, outcome.displayName, outcome.error});
 			}
 		}
+		failures.insert(failures.end(), skippedUnauthed.begin(), skippedUnauthed.end());
 		this->telegi_async = std::move(merged);
 		this->searchFailures_async = std::move(failures);
 		this->searchServerSuccessCount = successes;
-		this->searchServerTotalCount = static_cast<int>(outcomes.size());
+		this->searchServerTotalCount = static_cast<int>(allServerCount);
 		this->searchSuccess = successes > 0;
 		this->searchError = successes > 0
 			? std::string{}

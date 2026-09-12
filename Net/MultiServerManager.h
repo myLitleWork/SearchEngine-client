@@ -38,6 +38,11 @@ struct ServerAuthAttempt
 	std::uint32_t wireErrorCode{0};
 };
 
+inline std::string unauthorizedSearchSkipMessage()
+{
+	return "Нет авторизованной сессии. Сервер пропущен; остальные сессии остаются.";
+}
+
 class ServerSession
 {
 public:
@@ -403,6 +408,7 @@ public:
 		std::lock_guard<std::mutex> lock(mutex_);
 		sessions_.swap(sessions);
 		order_.swap(order);
+		deviceAuthCache_ = {};
 		primaryServerId_ = primaryServerId;
 		if (sessions_.find(primaryServerId_) == sessions_.end())
 			primaryServerId_ = order_.empty() ? std::string{} : order_.front();
@@ -527,6 +533,7 @@ public:
 		const bool ok = session->authenticateV1(
 			clientName, clientId, deviceType, deviceId, signature, errMsg, serverError);
 		if (ok) {
+			rememberDeviceAuth(clientName, clientId, deviceType, deviceId, signature);
 			std::lock_guard<std::mutex> lock(mutex_);
 			user_ = clientName;
 		}
@@ -635,6 +642,7 @@ public:
 		std::vector<std::shared_ptr<ServerSession>> sessions;
 		{
 			std::lock_guard<std::mutex> lock(mutex_);
+			deviceAuthCache_ = {};
 			for (const auto& item : sessions_)
 				sessions.push_back(item.second);
 		}
@@ -649,9 +657,11 @@ public:
 					 std::atomic_uint64_t* progress = nullptr,
 					 std::string* errMsg = nullptr)
 	{
-		auto session = findSession(serverId);
-		if (!session) return missingServer(serverId, errMsg);
-		return session->requestText(currentUser(), request, command, out, progress, errMsg);
+		return runPreparedRequest(serverId, errMsg,
+			[&](const std::shared_ptr<ServerSession>& session) {
+				return session->requestText(
+					currentUser(), request, command, out, progress, errMsg);
+			});
 	}
 
 	bool requestBinary(const std::string& serverId,
@@ -664,10 +674,11 @@ public:
 	{
 		if (serverError)
 			serverError->reset();
-		auto session = findSession(serverId);
-		if (!session) return missingServer(serverId, errMsg);
-		return session->requestBinary(
-			currentUser(), request, command, out, progress, errMsg, serverError);
+		return runPreparedRequest(serverId, errMsg,
+			[&](const std::shared_ptr<ServerSession>& session) {
+				return session->requestBinary(
+					currentUser(), request, command, out, progress, errMsg, serverError);
+			});
 	}
 
 	bool requestBinFile(const std::string& serverId,
@@ -676,9 +687,11 @@ public:
 						std::atomic_uint64_t* progress = nullptr,
 						std::string* errMsg = nullptr)
 	{
-		auto session = findSession(serverId);
-		if (!session) return missingServer(serverId, errMsg);
-		return session->requestBinFile(currentUser(), path, out, progress, errMsg);
+		return runPreparedRequest(serverId, errMsg,
+			[&](const std::shared_ptr<ServerSession>& session) {
+				return session->requestBinFile(
+					currentUser(), path, out, progress, errMsg);
+			});
 	}
 
 	bool requestFileToPath(const std::string& serverId,
@@ -691,11 +704,12 @@ public:
 						   bool flushStreamToOs = false,
 						   bool replaceAfterSuccess = false)
 	{
-		auto session = findSession(serverId);
-		if (!session) return missingServer(serverId, errMsg);
-		return session->requestFileToPath(
-			currentUser(), request, command, outPath, onProgress, receivedSize, errMsg,
-			flushStreamToOs, replaceAfterSuccess);
+		return runPreparedRequest(serverId, errMsg,
+			[&](const std::shared_ptr<ServerSession>& session) {
+				return session->requestFileToPath(
+					currentUser(), request, command, outPath, onProgress, receivedSize,
+					errMsg, flushStreamToOs, replaceAfterSuccess);
+			});
 	}
 
 	bool uploadFileV1(const std::string& serverId,
@@ -707,13 +721,83 @@ public:
 	{
 		if (serverError)
 			serverError->reset();
-		auto session = findSession(serverId);
-		if (!session) return missingServer(serverId, errMsg);
-		return session->uploadFileV1(
-			currentUser(), localPath, command, savedName, errMsg, serverError);
+		return runPreparedRequest(serverId, errMsg,
+			[&](const std::shared_ptr<ServerSession>& session) {
+				return session->uploadFileV1(
+					currentUser(), localPath, command, savedName, errMsg, serverError);
+			});
 	}
 
 private:
+	struct DeviceAuthCache
+	{
+		std::string clientName;
+		std::string clientId;
+		std::string deviceType;
+		std::string deviceId;
+		std::string signature;
+		bool present{false};
+	};
+
+	void rememberDeviceAuth(const std::string& clientName,
+							const std::string& clientId,
+							const std::string& deviceType,
+							const std::string& deviceId,
+							const std::string& signature)
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		deviceAuthCache_.clientName = clientName;
+		deviceAuthCache_.clientId = clientId;
+		deviceAuthCache_.deviceType = deviceType;
+		deviceAuthCache_.deviceId = deviceId;
+		deviceAuthCache_.signature = signature;
+		deviceAuthCache_.present = true;
+	}
+
+	bool ensureDeviceSession(const std::string& serverId, std::string* errMsg)
+	{
+		if (authPolicy() != ServerAuthPolicy::AuthenticateV1)
+			return true;
+		auto session = findSession(serverId);
+		if (!session)
+			return missingServer(serverId, errMsg);
+		if (session->isConnected() && session->isServerAuthorized())
+			return true;
+		DeviceAuthCache creds;
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			creds = deviceAuthCache_;
+		}
+		if (!creds.present)
+			return true;
+		return authenticateV1(
+			serverId,
+			creds.clientName,
+			creds.clientId,
+			creds.deviceType,
+			creds.deviceId,
+			creds.signature,
+			errMsg);
+	}
+
+	template<typename Fn>
+	bool runPreparedRequest(const std::string& serverId, std::string* errMsg, Fn&& fn)
+	{
+		auto session = findSession(serverId);
+		if (!session)
+			return missingServer(serverId, errMsg);
+		if (!ensureDeviceSession(serverId, errMsg))
+			return false;
+		if (fn(session))
+			return true;
+		if (authPolicy() != ServerAuthPolicy::AuthenticateV1)
+			return false;
+		if (session->isConnected() && session->isServerAuthorized())
+			return false;
+		if (!ensureDeviceSession(serverId, errMsg))
+			return false;
+		return fn(session);
+	}
 	std::shared_ptr<ServerSession> findSession(const std::string& serverId) const
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
@@ -739,4 +823,5 @@ private:
 	std::string primaryServerId_;
 	std::string user_;
 	ServerAuthPolicy authPolicy_{ServerAuthPolicy::LegacyUserRegistry};
+	DeviceAuthCache deviceAuthCache_{};
 };

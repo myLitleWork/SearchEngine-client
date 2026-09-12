@@ -494,6 +494,10 @@ int RunMultiServerSelfTestFromCommandLine()
 		return 70;
 	if (authManager.isConnected("auth-a") || authManager.isConnected("auth-b"))
 		return 71;
+	if (!authManager.authorizedServerIds().empty())
+		return 79;
+	if (unauthorizedSearchSkipMessage().find("35") != std::string::npos)
+		return 80;
 
 	std::string searchOut;
 	std::string searchErr;
