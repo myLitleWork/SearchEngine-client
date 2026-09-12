@@ -299,6 +299,9 @@
             <DependentOn>mySomeFunc.h</DependentOn>
             <BuildOrder>23</BuildOrder>
         </CppCompile>
+        <None Include="OutgoingArchiveZip.h">
+            <BuildOrder>37</BuildOrder>
+        </None>
         <None Include="MyStrings\myConverter.h">
             <BuildOrder>18</BuildOrder>
         </None>

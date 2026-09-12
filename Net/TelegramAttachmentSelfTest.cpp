@@ -7,8 +7,12 @@
 
 #include "MultiServerManager.h"
 #include "TelegramAttachmentClient.h"
+#include "OutgoingArchiveZip.h"
 #include "utils.h"
 #include "Attachments/AttachmentPackage.h"
+
+#include <System.Classes.hpp>
+#include <System.Zip.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -488,6 +492,29 @@ namespace
 			return false;
 		out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
 		return static_cast<bool>(out);
+	}
+
+	bool writeOutgoingArchiveZip(
+		const fs::path& zipPath,
+		const std::vector<std::pair<int, std::string>>& payloads)
+	{
+		fs::create_directories(zipPath.parent_path());
+		std::unique_ptr<TZipFile> zip(new TZipFile());
+		zip->Open(String(zipPath.wstring().c_str()), zmWrite);
+		std::vector<std::unique_ptr<TMemoryStream>> streams;
+		for (const auto& payload : payloads) {
+			auto stream = std::make_unique<TMemoryStream>();
+			if (!payload.second.empty()) {
+				stream->WriteBuffer(
+					payload.second.data(),
+					static_cast<NativeInt>(payload.second.size()));
+			}
+			stream->Position = 0;
+			zip->Add(stream.get(), outgoing_archive_zip::PayloadName(payload.first));
+			streams.push_back(std::move(stream));
+		}
+		zip->Close();
+		return TZipFile::IsValid(String(zipPath.wstring().c_str()));
 	}
 
 	bool jsonHasIdType(const std::string& body, int id, int type)
@@ -1216,6 +1243,108 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 			return 106;
 		}
 		manager.disconnectAll();
+	}
+
+	{
+		if (outgoing_archive_zip::PayloadName(0) !=
+				L"MESSAGE/aps/make_msg/tmpvl000.srg" ||
+			outgoing_archive_zip::PayloadName(1) !=
+				L"MESSAGE/aps/make_msg/tmpvl001.srg" ||
+			outgoing_archive_zip::PayloadName(10) !=
+				L"MESSAGE/aps/make_msg/tmpvl0010.srg") {
+			cleanup();
+			return 110;
+		}
+
+		std::vector<String> tokens;
+		outgoing_archive_zip::SplitPrilNames(L"a.pdf;b.doc;", tokens);
+		if (tokens.size() != 2 || tokens[0] != L"a.pdf" || tokens[1] != L"b.doc") {
+			cleanup();
+			return 111;
+		}
+		outgoing_archive_zip::SplitPrilNames(L"a.pdf;;b.doc", tokens);
+		if (tokens.size() != 3 ||
+			tokens[0] != L"a.pdf" ||
+			!tokens[1].IsEmpty() ||
+			tokens[2] != L"b.doc") {
+			cleanup();
+			return 112;
+		}
+
+		const fs::path zipPath = root / "outgoing-extract" / "77.zip";
+		if (!writeOutgoingArchiveZip(
+				zipPath,
+				{
+					{0, "BODY-ATL"},
+					{1, "FILE-A"},
+					{3, "FILE-B"}
+				})) {
+			cleanup();
+			return 113;
+		}
+
+		const fs::path outDir = root / "outgoing-extract" / "out";
+		fs::create_directories(outDir, ec);
+		const std::vector<String> prils{L"a.pdf", L"", L"b.doc"};
+		const auto stats = copyFile(
+			prils,
+			String(zipPath.wstring().c_str()),
+			String(outDir.wstring().c_str()));
+		if (!stats.fullyOk() ||
+			readFileBytes(outDir / "a.pdf") != "FILE-A" ||
+			readFileBytes(outDir / "b.doc") != "FILE-B" ||
+			fs::exists(outDir / "77.zip")) {
+			cleanup();
+			return 114;
+		}
+
+		const fs::path oneFile = root / "outgoing-extract" / "one" / "b.doc";
+		fs::create_directories(oneFile.parent_path(), ec);
+		std::wstring extractError;
+		if (!outgoing_archive_zip::ExtractAttachmentToPath(
+				String(zipPath.wstring().c_str()),
+				3,
+				String(oneFile.wstring().c_str()),
+				&extractError) ||
+			readFileBytes(oneFile) != "FILE-B") {
+			cleanup();
+			return 115;
+		}
+
+		const fs::path missingOut = root / "outgoing-extract" / "missing" / "no.doc";
+		fs::create_directories(missingOut.parent_path(), ec);
+		if (outgoing_archive_zip::ExtractAttachmentToPath(
+				String(zipPath.wstring().c_str()),
+				2,
+				String(missingOut.wstring().c_str()),
+				&extractError) ||
+			fs::exists(missingOut)) {
+			cleanup();
+			return 116;
+		}
+
+		const fs::path badZip = root / "outgoing-extract" / "bad.zip";
+		if (!writeFileBytes(badZip, "not-a-zip") ||
+			outgoing_archive_zip::ExtractAttachmentToPath(
+				String(badZip.wstring().c_str()),
+				1,
+				String((root / "outgoing-extract" / "bad-out.bin").wstring().c_str()),
+				&extractError)) {
+			cleanup();
+			return 117;
+		}
+
+		const fs::path frameAttachments =
+			fs::path(__FILE__).parent_path().parent_path() /
+			"Frames" / "FrameAttachments.cpp";
+		if (fs::exists(frameAttachments)) {
+			const auto source = readFileBytes(frameAttachments);
+			if (source.find("ExtractAttachmentToPath") == std::string::npos ||
+				source.find("ZipFileNameUtf8") == std::string::npos) {
+				cleanup();
+				return 118;
+			}
+		}
 	}
 
 	cleanup();

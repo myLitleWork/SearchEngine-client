@@ -1,4 +1,4 @@
-//---------------------------------------------------------------------------
+п»ї//---------------------------------------------------------------------------
 
 #ifndef mySomeFuncH
 #define mySomeFuncH
@@ -10,7 +10,23 @@
 #include <System.IOUtils.hpp>
 #include "ClientFilePublish.h"
 
-// Проверка, существует ли файл в указанной директории
+inline String CreateUniqueExtractTempDir()
+{
+	for (int attempt = 0; attempt < 256; ++attempt) {
+		static std::atomic<unsigned int> zipTempSeq{1};
+		const unsigned int sequence = zipTempSeq.fetch_add(1);
+		const String tempDir = TPath::GetTempPath() +
+			L"ZipExtractTemp-" +
+			UIntToStr(static_cast<unsigned>(GetCurrentProcessId())) +
+			L"-" + UIntToStr(sequence) + L"\\";
+		if (TDirectory::Exists(tempDir))
+			continue;
+		TDirectory::CreateDirectory(tempDir);
+		if (TDirectory::Exists(tempDir))
+			return tempDir;
+	}
+	return String();
+}
 
 void setUniqFileName(String& full_file_dir)
 {
@@ -57,29 +73,23 @@ inline client_file_publish::ZipExtractStats ExtZip(
 
 	ZipExtractStats stats;
 	stats.expected = static_cast<int>(fileMappings.size());
+	if (stats.expected <= 0)
+		return stats;
+
+	if (!FileExists(zipFile) || !TZipFile::IsValid(zipFile)) {
+		stats.failed = stats.expected;
+		stats.errors.push_back(L"РђСЂС…РёРІ РїРѕРІСЂРµР¶РґС‘РЅ РёР»Рё РёРјРµРµС‚ РЅРµРІРµСЂРЅС‹Р№ С„РѕСЂРјР°С‚");
+		return stats;
+	}
 
 	TZipFile *z = new TZipFile();
 	try {
 		z->Open(zipFile, zmRead);
 
-		String tempDir;
-		for (int attempt = 0; attempt < 256; ++attempt) {
-			static std::atomic<unsigned int> zipTempSeq{1};
-			const unsigned int sequence = zipTempSeq.fetch_add(1);
-			tempDir = TPath::GetTempPath() +
-				"ZipExtractTemp-" +
-				UIntToStr(static_cast<unsigned>(GetCurrentProcessId())) +
-				"-" + UIntToStr(sequence) + "\\";
-			if (TDirectory::Exists(tempDir))
-				continue;
-			TDirectory::CreateDirectory(tempDir);
-			if (TDirectory::Exists(tempDir))
-				break;
-			tempDir = "";
-		}
+		const String tempDir = CreateUniqueExtractTempDir();
 		if (tempDir.IsEmpty()) {
 			stats.failed = stats.expected;
-			stats.errors.push_back(L"Failed to create unique ZIP extract directory");
+			stats.errors.push_back(L"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РІСЂРµРјРµРЅРЅС‹Р№ РєР°С‚Р°Р»РѕРі СЂР°СЃРїР°РєРѕРІРєРё");
 			z->Close();
 		} else {
 
@@ -97,7 +107,7 @@ inline client_file_publish::ZipExtractStats ExtZip(
 			if (!ResolveUnderBase(tempBase, archiveRel, archiveAbs, &pathError)) {
 				++stats.failed;
 				stats.errors.push_back(
-					L"Небезопасный путь в архиве \"" + std::wstring(archivePath.c_str()) +
+					L"РќРµР±РµР·РѕРїР°СЃРЅС‹Р№ РїСѓС‚СЊ РІ Р°СЂС…РёРІРµ \"" + std::wstring(archivePath.c_str()) +
 					L"\": " + pathError);
 				continue;
 			}
@@ -107,14 +117,14 @@ inline client_file_publish::ZipExtractStats ExtZip(
 			if (!ResolveUnderBase(baseDir, targetRel, targetAbs, &pathError)) {
 				++stats.failed;
 				stats.errors.push_back(
-					L"Небезопасный целевой путь \"" + std::wstring(pair.second.c_str()) +
+					L"РќРµР±РµР·РѕРїР°СЃРЅС‹Р№ С†РµР»РµРІРѕР№ РїСѓС‚СЊ \"" + std::wstring(pair.second.c_str()) +
 					L"\": " + pathError);
 				continue;
 			}
 			if (!EnsureUniqueFilePath(targetAbs)) {
 				++stats.failed;
 				stats.errors.push_back(
-					L"Не удалось подобрать свободное имя для \"" +
+					L"РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРѕР±СЂР°С‚СЊ СЃРІРѕР±РѕРґРЅРѕРµ РёРјСЏ РґР»СЏ \"" +
 					std::wstring(pair.second.c_str()) + L"\"");
 				continue;
 			}
@@ -125,8 +135,8 @@ inline client_file_publish::ZipExtractStats ExtZip(
 				{
 					++stats.failed;
 					stats.errors.push_back(
-						L"Файл \"" + std::wstring(archivePath.c_str()) +
-						L"\" не найден в архиве");
+						L"Р’ Р°СЂС…РёРІРµ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ РѕР±СЏР·Р°С‚РµР»СЊРЅР°СЏ Р·Р°РїРёСЃСЊ В«" +
+						std::wstring(archivePath.c_str()) + L"В»");
 					continue;
 				}
 
@@ -139,7 +149,7 @@ inline client_file_publish::ZipExtractStats ExtZip(
 				if (!FileExists(extractedFilePath)) {
 					++stats.failed;
 					stats.errors.push_back(
-						L"После извлечения не найден файл \"" +
+						L"РџРѕСЃР»Рµ РёР·РІР»РµС‡РµРЅРёСЏ РЅРµ РЅР°Р№РґРµРЅ С„Р°Р№Р» \"" +
 						std::wstring(extractedFilePath.c_str()) + L"\"");
 					continue;
 				}
@@ -156,7 +166,7 @@ inline client_file_publish::ZipExtractStats ExtZip(
 			{
 				++stats.failed;
 				stats.errors.push_back(
-					L"Ошибка извлечения \"" + std::wstring(archivePath.c_str()) +
+					L"РћС€РёР±РєР° РёР·РІР»РµС‡РµРЅРёСЏ \"" + std::wstring(archivePath.c_str()) +
 					L"\": " + std::wstring(e.Message.c_str()));
 			}
 		}
@@ -177,13 +187,36 @@ inline client_file_publish::ZipExtractStats copyFile(
 	const String& archive_zip_dir,
 	const String& out_dir)
 {
+	using client_file_publish::ZipExtractStats;
+
 	std::map<String, String> fileMappings;
 	for (int i = 0; i < static_cast<int>(prils.size()); i++)
 	{
-		String archiveFilePath = "MESSAGE\\aps\\make_msg\\tmpvl00" + IntToStr(i + 1) + ".srg";
-		String targetFilePath = prils[i];
+		const String targetFilePath = prils[i].Trim();
+		if (targetFilePath.IsEmpty() ||
+			targetFilePath == L"." ||
+			targetFilePath == L".." ||
+			ExtractFileName(targetFilePath) != targetFilePath ||
+			targetFilePath.Pos(L"/") > 0 ||
+			targetFilePath.Pos(L"\\") > 0 ||
+			targetFilePath.Pos(L":") > 0)
+			continue;
+
+		const String archiveFilePath =
+			L"MESSAGE\\aps\\make_msg\\tmpvl00" + IntToStr(i + 1) + L".srg";
 		fileMappings[archiveFilePath] = targetFilePath;
 	}
+
+	if (fileMappings.empty()) {
+		ZipExtractStats stats;
+		stats.expected = static_cast<int>(prils.size());
+		if (stats.expected <= 0)
+			stats.expected = 1;
+		stats.failed = stats.expected;
+		stats.errors.push_back(L"РќРµС‚ РїСЂРёР»РѕР¶РµРЅРёР№ РґР»СЏ РёР·РІР»РµС‡РµРЅРёСЏ");
+		return stats;
+	}
+
 	return ExtZip(archive_zip_dir, out_dir, fileMappings);
 }
 
