@@ -32,26 +32,28 @@ namespace auth_paths
 		return directory + L"\\" + fileName;
 	}
 
-	inline std::wstring programDataSearchEngineDirectory()
+	inline std::wstring localAppDataSearchEngineDirectory()
 	{
-		wchar_t buffer[MAX_PATH] = {};
-		const DWORD length = GetEnvironmentVariableW(L"ProgramData", buffer, MAX_PATH);
-		if (length == 0 || length >= MAX_PATH)
+		std::vector<wchar_t> buffer(32768, L'\0');
+		const DWORD length = GetEnvironmentVariableW(
+			L"LOCALAPPDATA", buffer.data(), static_cast<DWORD>(buffer.size()));
+		if (length == 0 || length >= buffer.size())
 			return {};
-		return std::wstring(buffer, length) + L"\\SearchEngine";
+		const std::wstring root(buffer.data(), length);
+		const bool absolute = (root.size() >= 3 && root[1] == L':' &&
+			(root[2] == L'\\' || root[2] == L'/')) ||
+			(root.size() >= 2 && root[0] == L'\\' && root[1] == L'\\');
+		if (!absolute)
+			return {};
+		return root + L"\\SearchEngine";
 	}
 
-	inline std::wstring programDataAuthTokenPath()
+	inline std::wstring localAppDataAuthTokenPath()
 	{
-		const std::wstring directory = programDataSearchEngineDirectory();
+		const std::wstring directory = localAppDataSearchEngineDirectory();
 		if (directory.empty())
 			return {};
 		return directory + L"\\searchclient-auth-token.json";
-	}
-
-	inline std::wstring exeAuthTokenPath()
-	{
-		return fileBesideExecutable(L"searchclient-auth-token.json");
 	}
 
 	inline bool isRegularFile(const std::wstring& path)

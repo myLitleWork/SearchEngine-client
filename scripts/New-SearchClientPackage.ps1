@@ -159,6 +159,13 @@ try {
     New-Item -ItemType Directory -Force -Path (Join-Path $staging 'app\config') | Out-Null
     Copy-Item -LiteralPath $errorMessagesPath -Destination (Join-Path $staging 'app\config\server-error-messages.json') -Force
     if (Test-Path -LiteralPath $tutorialRoot -PathType Container) {
+        $authArtifacts = @(Get-ChildItem -LiteralPath $tutorialRoot `
+            -Recurse -File -Force | Where-Object {
+                $_.Name -match '(?i)^searchclient-auth-(token|request)\.json$'
+            })
+        if ($authArtifacts.Count -gt 0) {
+            throw "Auth token/request must not be included in tutorials: $($authArtifacts[0].FullName)"
+        }
         Copy-Item -LiteralPath $tutorialRoot -Destination (Join-Path $staging 'tutorials') -Recurse
     }
     Copy-Item -LiteralPath (Join-Path $templateRoot 'Verify-Package.cmd') -Destination $staging

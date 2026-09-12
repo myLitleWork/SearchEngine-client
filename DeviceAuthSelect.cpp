@@ -73,25 +73,19 @@ std::optional<DeviceAuthIdentity> TryUsbIdentityFromProbe(const UsbAuthProbe& pr
 }
 
 std::optional<DeviceAuthIdentity> SelectPcAuthIdentity(
-	const std::string& programDataTokenPathUtf8,
-	const std::string& exeDirTokenPathUtf8,
+	const std::string& userTokenPathUtf8,
 	const std::string& liveComputerUuid)
 {
 	const auto live = device_identity::NormalizeComputerUuid(liveComputerUuid);
 	if (!live)
 		return std::nullopt;
 
-	const std::string candidates[] = {
-		programDataTokenPathUtf8,
-		exeDirTokenPathUtf8
-	};
-	for (std::size_t i = 0; i < 2; ++i) {
-		if (candidates[i].empty())
-			continue;
-		UsbAuthToken token;
-		if (TryLoadComputerAuthToken(candidates[i], *live, token))
-			return FromToken(token);
-	}
+	// A missing or invalid user token must never select a shared fallback.
+	if (userTokenPathUtf8.empty())
+		return std::nullopt;
+	UsbAuthToken token;
+	if (TryLoadComputerAuthToken(userTokenPathUtf8, *live, token))
+		return FromToken(token);
 	return std::nullopt;
 }
 
@@ -111,13 +105,12 @@ UsbAuthSelection SelectUsbAuthIdentityFromProbes(
 
 std::optional<DeviceAuthIdentity> SelectDeviceAuthIdentity(
 	const std::vector<UsbAuthProbe>& usbProbes,
-	const std::string& programDataTokenPathUtf8,
-	const std::string& exeDirTokenPathUtf8,
+	const std::string& userTokenPathUtf8,
 	const std::string& liveComputerUuid)
 {
 	const UsbAuthSelection usbSelection = SelectUsbAuthIdentityFromProbes(usbProbes);
 	if (usbSelection.identity)
 		return usbSelection.identity;
 	return SelectPcAuthIdentity(
-		programDataTokenPathUtf8, exeDirTokenPathUtf8, liveComputerUuid);
+		userTokenPathUtf8, liveComputerUuid);
 }

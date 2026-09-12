@@ -5,6 +5,7 @@
 
 #ifdef _DEBUG
 
+#include "AuthPaths.h"
 #include "DeviceAuthSelect.h"
 #include "DeviceIdentity.h"
 #include "UsbAuthToken.h"
@@ -18,13 +19,35 @@
 
 namespace
 {
+	class ScopedLocalAppData
+	{
+		std::wstring previous_;
+		bool present_ = false;
+	public:
+		explicit ScopedLocalAppData(const std::wstring& value)
+		{
+			std::vector<wchar_t> buffer(32768, L'\0');
+			const DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer.data(),
+				static_cast<DWORD>(buffer.size()));
+			present_ = n > 0 && n < buffer.size();
+			if (present_)
+				previous_.assign(buffer.data(), n);
+			SetEnvironmentVariableW(L"LOCALAPPDATA", value.c_str());
+		}
+		~ScopedLocalAppData()
+		{
+			SetEnvironmentVariableW(L"LOCALAPPDATA", present_ ? previous_.c_str() : nullptr);
+		}
+	};
+
 	std::wstring tempDir()
 	{
 		wchar_t buffer[MAX_PATH] = {};
 		const DWORD n = GetTempPathW(MAX_PATH, buffer);
 		if (n == 0 || n >= MAX_PATH)
 			return {};
-		return std::wstring(buffer, n) + L"SearchClientDeviceAuthSelfTest";
+		return std::wstring(buffer, n) + L"SearchClientDeviceAuthSelfTest-" +
+			std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount());
 	}
 
 	std::string wideToUtf8(const std::wstring& value)
@@ -135,58 +158,94 @@ int RunDeviceAuthSelfTestFromCommandLine()
 
 	const std::wstring root = tempDir();
 	CreateDirectoryW(root.c_str(), nullptr);
-	const std::wstring programDataDir = root + L"\\ProgramData";
+	const std::wstring userRoot = root + L"\\UserA";
+	CreateDirectoryW(userRoot.c_str(), nullptr);
+	ScopedLocalAppData userEnvironment(userRoot);
+	const std::wstring userDir = auth_paths::localAppDataSearchEngineDirectory();
 	const std::wstring exeDir = root + L"\\Exe";
-	CreateDirectoryW(programDataDir.c_str(), nullptr);
+	CreateDirectoryW(userDir.c_str(), nullptr);
 	CreateDirectoryW(exeDir.c_str(), nullptr);
-	const std::wstring programDataToken = programDataDir + L"\\searchclient-auth-token.json";
+	const std::wstring userToken = auth_paths::localAppDataAuthTokenPath();
 	const std::wstring exeToken = exeDir + L"\\searchclient-auth-token.json";
 	const std::wstring usbToken = root + L"\\usb-searchclient-auth-token.json";
 	const std::wstring usbTokenA = root + L"\\usb-a-searchclient-auth-token.json";
 	const std::wstring usbTokenB = root + L"\\usb-b-searchclient-auth-token.json";
 	const std::wstring encodingToken = root + L"\\encoding-searchclient-auth-token.json";
-	const std::string programDataUtf8 = wideToUtf8(programDataToken);
-	const std::string exeUtf8 = wideToUtf8(exeToken);
+	const std::string userUtf8 = wideToUtf8(userToken);
 	const std::string usbUtf8 = wideToUtf8(usbToken);
 	const std::string usbAUtf8 = wideToUtf8(usbTokenA);
 	const std::string usbBUtf8 = wideToUtf8(usbTokenB);
 	const std::string encodingUtf8 = wideToUtf8(encodingToken);
 	const std::string liveUuid = *uuid;
 
-	if (!writeFile(programDataToken, makeToken(
-			"computer", liveUuid, "pc-1", "desk", "sig-programdata")))
+	if (!writeFile(userToken, makeToken(
+			"computer", liveUuid, "pc-1", "desk", "sig-user")))
 		return 7;
-	auto selected = SelectPcAuthIdentity(programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->clientId != "pc-1" || selected->signature != "sig-programdata")
+	auto selected = SelectPcAuthIdentity(userUtf8, liveUuid);
+	if (!selected || selected->clientId != "pc-1" || selected->signature != "sig-user")
 		return 8;
 
 	if (!writeFile(exeToken, makeToken(
 			"computer", liveUuid, "pc-exe", "desk", "sig-exe")))
 		return 9;
-	DeleteFileW(programDataToken.c_str());
-	selected = SelectPcAuthIdentity(programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->clientId != "pc-exe")
+	DeleteFileW(userToken.c_str());
+	selected = SelectPcAuthIdentity(userUtf8, liveUuid);
+	if (selected)
 		return 10;
 
-	if (!writeFile(programDataToken, "{not-json"))
+	if (!writeFile(userToken, "{not-json"))
 		return 11;
-	selected = SelectPcAuthIdentity(programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->clientId != "pc-exe")
+	selected = SelectPcAuthIdentity(userUtf8, liveUuid);
+	if (selected)
 		return 12;
 
-	if (!writeFile(programDataToken, makeToken(
+	if (!writeFile(userToken, makeToken(
 			"usb", "OTHERUSB", "wrong-type", "desk", "sig-wrong")))
 		return 13;
-	selected = SelectPcAuthIdentity(programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->clientId != "pc-exe")
+	selected = SelectPcAuthIdentity(userUtf8, liveUuid);
+	if (selected)
 		return 14;
 
-	if (!writeFile(programDataToken, makeToken(
+	if (!writeFile(userToken, makeToken(
 			"computer", "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB", "other-pc", "desk", "sig-other")))
 		return 15;
-	selected = SelectPcAuthIdentity(programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->clientId != "pc-exe")
+	selected = SelectPcAuthIdentity(userUtf8, liveUuid);
+	if (selected)
 		return 16;
+
+	// The shared EXE token above must not rescue an invalid/missing user token.
+	if (!writeFile(userToken, makeToken(
+			"computer", liveUuid, "pc-1", "desk", "sig-user")))
+		return 46;
+	const std::wstring secondRoot = root + L"\\UserB";
+	CreateDirectoryW(secondRoot.c_str(), nullptr);
+	SetEnvironmentVariableW(L"LOCALAPPDATA", secondRoot.c_str());
+	const auto secondDir = auth_paths::localAppDataSearchEngineDirectory();
+	const auto secondToken = auth_paths::localAppDataAuthTokenPath();
+	if (secondToken == userToken ||
+		SelectPcAuthIdentity(auth_paths::toUtf8(secondToken), liveUuid))
+		return 47;
+	CreateDirectoryW(secondDir.c_str(), nullptr);
+	if (!writeFile(secondToken, makeToken(
+			"computer", liveUuid, "pc-user-b", "second-user", "sig-user-b")))
+		return 48;
+	selected = SelectPcAuthIdentity(auth_paths::toUtf8(auth_paths::localAppDataAuthTokenPath()), liveUuid);
+	if (!selected || selected->clientId != "pc-user-b")
+		return 49;
+	SetEnvironmentVariableW(L"LOCALAPPDATA", nullptr);
+	if (!auth_paths::localAppDataAuthTokenPath().empty() ||
+		SelectPcAuthIdentity(auth_paths::toUtf8(auth_paths::localAppDataAuthTokenPath()), liveUuid))
+		return 50;
+	SetEnvironmentVariableW(L"LOCALAPPDATA", L"relative-profile");
+	if (!auth_paths::localAppDataAuthTokenPath().empty())
+		return 51;
+	SetEnvironmentVariableW(L"LOCALAPPDATA", userRoot.c_str());
+	selected = SelectPcAuthIdentity(auth_paths::toUtf8(auth_paths::localAppDataAuthTokenPath()), liveUuid);
+	if (!selected || selected->clientId != "pc-1")
+		return 52;
+	DeleteFileW(secondToken.c_str());
+	RemoveDirectoryW(secondDir.c_str());
+	RemoveDirectoryW(secondRoot.c_str());
 
 	if (!writeFile(usbToken, makeToken(
 			"usb", "USBSERIAL01", "usb-1", "flash-user", "sig-usb")))
@@ -196,21 +255,21 @@ int RunDeviceAuthSelfTestFromCommandLine()
 	usb.driveLetter = "E:";
 	usb.claimedDeviceId = "USBSERIAL01";
 	usb.liveHardwareSerial = "USBSERIAL01";
-	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, userUtf8, liveUuid);
 	if (!selected || selected->deviceType != "usb" || selected->deviceId != "USBSERIAL01")
 		return 18;
 
-	selected = SelectDeviceAuthIdentity({}, programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-exe")
+	selected = SelectDeviceAuthIdentity({}, userUtf8, liveUuid);
+	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-1")
 		return 19;
 
 	usb.liveHardwareSerial.clear();
-	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, userUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer" || selected->deviceId != liveUuid)
 		return 20;
 
 	usb.liveHardwareSerial = "DIFFERENTUSB";
-	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, userUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer")
 		return 21;
 
@@ -219,7 +278,7 @@ int RunDeviceAuthSelfTestFromCommandLine()
 		return 22;
 	usb.claimedDeviceId = "USBSERIAL01";
 	usb.liveHardwareSerial = "USBSERIAL01";
-	selected = SelectDeviceAuthIdentity({usb}, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usb}, userUtf8, liveUuid);
 	if (!selected || selected->deviceType != "computer")
 		return 23;
 
@@ -267,7 +326,7 @@ int RunDeviceAuthSelfTestFromCommandLine()
 	usbA.driveLetter = "E:";
 	usbA.claimedDeviceId = "USBSERIAL01";
 	usbA.liveHardwareSerial = "USBSERIAL01";
-	selected = SelectDeviceAuthIdentity({usbB, usbA}, programDataUtf8, exeUtf8, liveUuid);
+	selected = SelectDeviceAuthIdentity({usbB, usbA}, userUtf8, liveUuid);
 	if (!selected || selected->deviceType != "usb" || selected->clientId != "usb-a")
 		return 41;
 	const auto multiUsb = SelectUsbAuthIdentityFromProbes({usbB, usbA});
@@ -275,8 +334,8 @@ int RunDeviceAuthSelfTestFromCommandLine()
 		return 42;
 
 	usbA.liveHardwareSerial.clear();
-	selected = SelectDeviceAuthIdentity({usbB, usbA}, programDataUtf8, exeUtf8, liveUuid);
-	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-exe")
+	selected = SelectDeviceAuthIdentity({usbB, usbA}, userUtf8, liveUuid);
+	if (!selected || selected->deviceType != "computer" || selected->clientId != "pc-1")
 		return 43;
 	const auto allStaleUsb = SelectUsbAuthIdentityFromProbes({usbB, usbA});
 	if (allStaleUsb.identity || allStaleUsb.winningProbeIndex != static_cast<std::size_t>(-1))
@@ -324,13 +383,14 @@ int RunDeviceAuthSelfTestFromCommandLine()
 	if (!ShouldInvalidateServerAuth(previousPc, changedSig))
 		return 45;
 
-	DeleteFileW(programDataToken.c_str());
+	DeleteFileW(userToken.c_str());
 	DeleteFileW(exeToken.c_str());
 	DeleteFileW(usbToken.c_str());
 	DeleteFileW(usbTokenA.c_str());
 	DeleteFileW(usbTokenB.c_str());
 	DeleteFileW(encodingToken.c_str());
-	RemoveDirectoryW(programDataDir.c_str());
+	RemoveDirectoryW(userDir.c_str());
+	RemoveDirectoryW(userRoot.c_str());
 	RemoveDirectoryW(exeDir.c_str());
 	RemoveDirectoryW(root.c_str());
 	return 0;

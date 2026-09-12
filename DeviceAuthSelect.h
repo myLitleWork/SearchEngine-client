@@ -43,12 +43,10 @@ UsbAuthSelection SelectUsbAuthIdentityFromProbes(
 	const std::vector<UsbAuthProbe>& probes);
 
 std::optional<DeviceAuthIdentity> SelectPcAuthIdentity(
-	const std::string& programDataTokenPathUtf8,
-	const std::string& exeDirTokenPathUtf8,
+	const std::string& userTokenPathUtf8,
 	const std::string& liveComputerUuid);
 
 std::optional<DeviceAuthIdentity> SelectDeviceAuthIdentity(
 	const std::vector<UsbAuthProbe>& usbProbes,
-	const std::string& programDataTokenPathUtf8,
-	const std::string& exeDirTokenPathUtf8,
+	const std::string& userTokenPathUtf8,
 	const std::string& liveComputerUuid);

@@ -411,7 +411,8 @@ int RunMultiServerSelfTestFromCommandLine()
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceIdMismatch) != 44u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) != 45u ||
 		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceDisabled) != 46u ||
-		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceUnavailable) != 47u)
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceUnavailable) != 47u ||
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::ArchiveAdminRequired) != 48u)
 		return 60;
 
 	// UTF-8 substrings from config/server-error-messages.json (stable wire texts).
@@ -462,6 +463,13 @@ int RunMultiServerSelfTestFromCommandLine()
 		serverErrorCodeName(static_cast<std::uint32_t>(
 			search_protocol::ErrorCode::DataSourceUnavailable)) != "DataSourceUnavailable")
 		return 77;
+
+	const auto archiveAdminMsg = serverErrorUserMessage(
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::ArchiveAdminRequired));
+	if (archiveAdminMsg.find("48") == std::string::npos ||
+		serverErrorCodeName(static_cast<std::uint32_t>(
+			search_protocol::ErrorCode::ArchiveAdminRequired)) != "ArchiveAdminRequired")
+		return 78;
 
 	FakeAuthRejectServer authReject(search_protocol::ErrorCode::AuthClientIdNotFound);
 	FakeAuthRejectServer authSig(search_protocol::ErrorCode::AuthSignatureInvalid);

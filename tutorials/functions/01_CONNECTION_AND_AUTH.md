@@ -27,10 +27,15 @@ server-auth хотя бы на одном сервере.
 Локальная авторизация выполняется автоматически (WMI/флешка или `admin984.bin`).
 Серверная — только по кнопке **Подключение** (или при смене года).
 
+ПК-токен ищется только в профиле текущего пользователя Windows. Общий файл в
+`%ProgramData%` и файл рядом с EXE больше не используются для ПК-входа.
+При обновлении перенесите прежний токен в `%LOCALAPPDATA%\SearchEngine\`
+под нужной учётной записью; подпись и повторная регистрация не требуются.
+
 ### Что нужно подготовить
 
 1. Либо USB-токен `searchclient-auth-token.json` на флешке, либо PC-токен
-   (`%ProgramData%\SearchEngine\searchclient-auth-token.json`, иначе рядом с EXE),
+   (`%LOCALAPPDATA%\SearchEngine\searchclient-auth-token.json`),
    либо `admin984.bin` рядом с EXE (приоритет: USB, затем PC, затем admin).
 2. Настроенные год и серверы (`servers` / `server_ports`).
 3. Доступность серверов по сети.
@@ -78,7 +83,7 @@ server-auth хотя бы на одном сервере.
 | IP / host | Адрес основного/единственного сервера | Значение от администратора |
 | Год | Выбор портов и баз | Год нужного документа |
 | USB-токен | Локальный USB-вход + `AUTHENTICATE_V1` | Приоритет над PC и admin |
-| PC-токен | Локальный computer-вход + `AUTHENTICATE_V1` | `%ProgramData%\SearchEngine\`, иначе рядом с EXE |
+| PC-токен | Локальный computer-вход + `AUTHENTICATE_V1` | `%LOCALAPPDATA%\SearchEngine\` |
 | `admin984.bin` | Локальный admin + legacy `USER_REGISTRY` | Без `AUTHENTICATE_V1` |
 | Каталог серверов | Многосерверный режим | См. настройки `servers` |
 
@@ -102,7 +107,7 @@ server-auth хотя бы на одном сервере.
 
 **PC**
 
-1. USB нет; есть валидный `searchclient-auth-token.json` в `%ProgramData%\SearchEngine\` или рядом с EXE.
+1. USB нет; есть валидный `searchclient-auth-token.json` в `%LOCALAPPDATA%\SearchEngine\`.
 2. Видите `Авторизация : Иванов`.
 3. **Подключение** шлёт `AUTHENTICATE_V1` с `device_type=computer` и SMBIOS UUID. `flash_serial` не используется.
 
@@ -178,7 +183,7 @@ server-auth хотя бы на одном сервере.
 
 - Адреса серверов в `servers` (`SERVER_IP.INI` поддерживается только для совместимости)
 - `servers`, `server_ports`, `ports`
-- `admin984.bin`, USB-токен на флешке, PC-токен в `%ProgramData%\SearchEngine\` или рядом с EXE
+- `admin984.bin`, USB-токен на флешке, PC-токен в `%LOCALAPPDATA%\SearchEngine\`
 - `config/server-error-messages.json`
 
 → [../SETTINGS_REFERENCE.md](../SETTINGS_REFERENCE.md)

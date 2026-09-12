@@ -127,7 +127,8 @@ namespace search_protocol
 		AuthDeviceIdMismatch = 44,
 		AuthSignatureInvalid = 45,
 		DataSourceDisabled = 46,
-		DataSourceUnavailable = 47
+		DataSourceUnavailable = 47,
+		ArchiveAdminRequired = 48
 	};
 
 	struct ErrorResponseV1
@@ -226,6 +227,7 @@ static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthDeviceI
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::AuthSignatureInvalid) == 45u);
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceDisabled) == 46u);
 static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::DataSourceUnavailable) == 47u);
+static_assert(static_cast<std::uint32_t>(search_protocol::ErrorCode::ArchiveAdminRequired) == 48u);
 
 using boost::asio::ip::tcp;
 

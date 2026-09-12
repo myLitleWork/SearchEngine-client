@@ -4363,10 +4363,8 @@ std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 		}
 	}
 
-	const std::string programData =
-		auth_paths::toUtf8(auth_paths::programDataAuthTokenPath());
-	const std::string exeToken =
-		auth_paths::toUtf8(auth_paths::exeAuthTokenPath());
+	const std::string userToken =
+		auth_paths::toUtf8(auth_paths::localAppDataAuthTokenPath());
 	std::string uuid;
 	if (const auto liveUuid = QueryComputerSystemProductUuid())
 		uuid = *liveUuid;
@@ -4393,7 +4391,7 @@ std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 	if (usbSelection.identity)
 		return usbSelection.identity;
 
-	return SelectPcAuthIdentity(programData, exeToken, uuid);
+	return SelectPcAuthIdentity(userToken, uuid);
 }
 
 void TfMain::applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity)

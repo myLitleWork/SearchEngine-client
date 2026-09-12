@@ -33,6 +33,18 @@ foreach ($required in @(
     }
 }
 
+$authArtifacts = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force |
+    Where-Object {
+        $_.Name -match '(?i)^searchclient-auth-(token|request)\.json$'
+    })
+if ($authArtifacts.Count -gt 0) {
+    throw (
+        'Auth token/request must be stored outside the portable package. ' +
+        'The PC token belongs in %LOCALAPPDATA%\SearchEngine: ' +
+        $authArtifacts[0].FullName
+    )
+}
+
 foreach ($line in Get-Content -LiteralPath $checksums -Encoding UTF8) {
     if ($line -notmatch '^([0-9a-f]{64})  (.+)$') {
         throw "Invalid checksum line: $line"
