@@ -150,7 +150,13 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 	UsbAuthToken token;
 	if (!TryLoadUsbAuthToken(path, hw, token))
 		return false;
+	upsertToken(token, driveLetter);
+	return true;
+}
 
+void FlashAuthSession::upsertToken(
+	const UsbAuthToken& token, const std::string& driveLetter)
+{
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
 		for (size_t i = 0; i < stack_.size(); ++i)
@@ -163,7 +169,7 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 				stack_[i].clientId = token.clientId;
 				stack_[i].signatureValue = token.signatureValue;
 				stack_[i].tick = ++tick_;
-				return true;
+				return;
 			}
 		}
 
@@ -177,6 +183,30 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 		e.tick = ++tick_;
 		stack_.push_back(e);
 	}
+}
+
+bool FlashAuthSession::registerTokenPath(
+	const std::string& tokenPath, std::string driveLetter)
+{
+	driveLetter = NormalizeLetter(driveLetter);
+	if (driveLetter.empty() || tokenPath.size() < 2 || tokenPath[1] != ':' ||
+		std::toupper(static_cast<unsigned char>(tokenPath[0])) != driveLetter[0] ||
+		!FileExistsUtf8(tokenPath))
+	{
+		return false;
+	}
+
+	const std::string hardwareSerial = NormalizeFlashSerial(
+		UsbHardwareSerial::GetSerialForDriveLetter(driveLetter));
+	if (hardwareSerial.empty() || hardwareSerial == "(UNKNOWN)")
+		return false;
+
+	UsbAuthToken token;
+	if (!TryLoadUsbAuthToken(tokenPath, hardwareSerial, token))
+		return false;
+
+	upsertToken(token, driveLetter);
+	notifyChanged();
 	return true;
 }
 

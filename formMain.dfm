@@ -232,6 +232,29 @@ object fMain: TfMain
       StyleName = 'Windows'
       OnClick = btnDisconnectClick
     end
+    object cmbAuthUser: TComboBox
+      AlignWithMargins = True
+      Left = 1039
+      Top = 7
+      Width = 412
+      Height = 62
+      Margins.Left = 8
+      Margins.Top = 6
+      Margins.Right = 8
+      Margins.Bottom = 6
+      Align = alRight
+      Style = csDropDownList
+      DropDownCount = 12
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -22
+      Font.Name = 'Segoe UI'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 5
+      OnChange = cmbAuthUserChange
+      OnCloseUp = cmbAuthUserCloseUp
+    end
     object lblServerEndpoints: TLabel
       AlignWithMargins = True
       Left = 433

@@ -43,6 +43,9 @@ public:
 	// Скан уже подключённых USB (стартовый / safety-net).
 	void scanConnectedDisks();
 
+	// Добавить выбранный пользователем токен с уже подключённой флешки.
+	bool registerTokenPath(const std::string& tokenPath, std::string driveLetter);
+
 	// Убрать запись, если токен пропал с диска.
 	void dropInvalidActive(const std::string& serial, const std::string& tokenPath);
 
@@ -54,6 +57,7 @@ private:
 	void handleInsert(const std::string& serial, const std::string& driveLetter);
 	void handleRemove(const std::string& serial);
 	bool tryPushFromDrive(const std::string& serial, std::string driveLetter);
+	void upsertToken(const UsbAuthToken& token, const std::string& driveLetter);
 	void notifyChanged();
 
 	mutable std::mutex mutex_;

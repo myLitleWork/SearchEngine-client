@@ -227,6 +227,7 @@ __published:	// IDE-managed Components
 	TTimer *tmLoginIn;
 	TTimer *tmLoginOut;
 	TLabel *lblUser;
+	TComboBox *cmbAuthUser;
 	TPopupMenu *popListFilesLoad;
 	TMenuItem *popItemClearFilesOnLoad;
 	TMenuItem *delFileLoad;
@@ -356,6 +357,8 @@ __published:	// IDE-managed Components
 	void __fastcall actShowRowPanelExecute(TObject *Sender);
 	void __fastcall tmLoginInTimer(TObject *Sender);
 	void __fastcall tmLoginOutTimer(TObject *Sender);
+	void __fastcall cmbAuthUserChange(TObject *Sender);
+	void __fastcall cmbAuthUserCloseUp(TObject *Sender);
 	void __fastcall btnAddFilesLoadClick(TObject *Sender);
 	void __fastcall popItemClearFilesOnLoadClick(TObject *Sender);
 	void __fastcall delFileLoadClick(TObject *Sender);
@@ -432,6 +435,12 @@ private:	// User declarations
 	bool dbgEhDefaultAutoFit_ = true;
 	bool dbgEhLayoutBusy_ = false;
 	bool dbgEhLayoutReady_ = false;
+	bool applyingRuntimeSettings_ = false;
+	bool runtimeSettingsApplyPending_ = false;
+	bool formShown_ = false;
+	bool startupAutoConnectPending_ = true;
+	bool startupAutoConnectQueued_ = false;
+	bool suppressYearReconnect_ = false;
 	TTimer* responsiveLayoutTimer_ = nullptr;
 	TScrollBox* responsiveScrollHost_ = nullptr;
 	int responsiveLayoutPassesRemaining_ = 0;
@@ -460,6 +469,10 @@ private:	// User declarations
 	void reloadAvailableYears();
 	void updateServerEndpointsLabel();
 	bool configureServersForCurrentYear(String* errorMessage = nullptr);
+	bool applyRuntimeSettings(String* errorMessage = nullptr);
+	bool prepareStartupAutoConnect(String& connectionMessage);
+	void scheduleStartupAutoConnect();
+	void runStartupAutoConnect();
 	std::string currentSourceServerId() const;
 	std::string primaryServerId() const;
 
@@ -495,6 +508,7 @@ public:		// User declarations
 
 	// ????????
 	std::atomic_bool     saveRunning{false};
+	bool holdLoadTextUntilUserSelect_ = false;
 	std::atomic_bool     saveCancelRequested{false};
 	std::atomic_uint32_t saveFilesDone{0};
 	std::atomic_uint32_t saveFilesTotal{0};
@@ -550,6 +564,9 @@ public:		// User declarations
 
 
 	void __fastcall componentsEnable(bool b);
+	bool loadTextHeld() const;
+	void pauseLoadTextUntilUserSelect();
+	void armLoadTextTimer();
 
 	std::map<String,double> myMap;
 
@@ -579,8 +596,6 @@ public:		// User declarations
 	int SaveFileVh2(const std::string& out_dir, const TelegramAttachmentRequest& f,
 		bool flushStreamToOs, SaveTaskContext& ctx);
 
-	bool save_pocessing = false;
-
 	void disConnect();
 	void disconnectTransportOnly();
 	void disconnectUiFull();
@@ -594,11 +609,23 @@ public:		// User declarations
 
 	RecentComboHistory ComboHistory{nullptr,0};
 
-
+	enum class LocalAuthSource { None, Usb, Computer, Admin };
+	struct AvailableAuthChoice
+	{
+		LocalAuthSource source = LocalAuthSource::None;
+		DeviceAuthIdentity identity;
+		std::string key;
+	};
 	void __fastcall onSuccessfulAuthorization(const std::string& user_name, const std::string& filePath);
 	void applyLocalAuthSources();
 	void queueApplyLocalAuthSources();
 	void logoutUnauthorizedUi();
+	std::vector<AvailableAuthChoice> collectAvailableAuthChoices();
+	void refreshAuthUserCombo(const std::vector<AvailableAuthChoice>& choices);
+	void applyAdminAuthorization(const DeviceAuthIdentity& identity);
+	bool registerNewAuthUser();
+	bool importComputerAuthToken();
+	bool registerUsbAuthToken();
 	std::optional<DeviceAuthIdentity> resolveLiveDeviceIdentity();
 	DeviceAuthIdentity currentDeviceIdentity() const;
 	void applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity);
@@ -616,8 +643,10 @@ public:		// User declarations
 	 std::string device_type_;
 	 std::string device_id_;
 	 std::string auth_signature_;
-	 enum class LocalAuthSource { None, Usb, Computer, Admin };
 	 LocalAuthSource auth_source_ = LocalAuthSource::None;
+	 std::vector<AvailableAuthChoice> auth_choices_;
+	 std::string manual_auth_choice_key_;
+	 bool updating_auth_combo_ = false;
 	 std::unique_ptr<FlashAuthSession> flashAuth_;
 	 String last_loaded_num_;
 

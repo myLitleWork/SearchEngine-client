@@ -22,6 +22,7 @@
 #include "ComputerIdentity.h"
 #include "DeviceAuthSelect.h"
 #include "DeviceIdentity.h"
+#include "UsbAuthToken.h"
 #include "UsbHardwareSerial.h"
 #include "UserFileReplace.h"
 #include "ClientFilePublish.h"
@@ -160,6 +161,130 @@ String currentTelegramNumString(TDBGridEh* grid)
 inline UnicodeString US(const std::string& s)
 {
 	return Utf8ToVcl(s);
+}
+
+namespace {
+std::unique_ptr<TForm> makeStartupConnectWaitForm(
+	TForm* owner, const std::vector<ServerEndpoint>& endpoints)
+{
+	std::unique_ptr<TForm> form(new TForm(static_cast<TComponent*>(nullptr)));
+	form->Caption = L"Подключение";
+	form->BorderStyle = bsDialog;
+	form->Position = poOwnerFormCenter;
+	form->PopupParent = owner;
+	form->Width = 560;
+	form->Height = 380;
+	form->BorderIcons = TBorderIcons();
+
+	auto* hint = new TLabel(form.get());
+	hint->Parent = form.get();
+	hint->AlignWithMargins = true;
+	hint->Align = alTop;
+	hint->AutoSize = true;
+	hint->WordWrap = true;
+	hint->Caption =
+		L"Подключение к серверам выбранного года.\r\nДождитесь ответа сети.";
+
+	auto* list = new TListBox(form.get());
+	list->Parent = form.get();
+	list->AlignWithMargins = true;
+	list->Align = alClient;
+	for (const auto& ep : endpoints) {
+		String title = US(ep.displayName);
+		if (title.IsEmpty())
+			title = String(ep.id.c_str());
+		String detail = String(ep.host.c_str());
+		if (!ep.port.empty()) {
+			if (!detail.IsEmpty())
+				detail += L":";
+			detail += String(ep.port.c_str());
+		}
+		String line = title;
+		if (!detail.IsEmpty())
+			line += L"  —  " + detail;
+		list->Items->Add(line);
+	}
+	return form;
+}
+
+const wchar_t* kImportTokenCaption = L"+ Импортировать подписанный токен...";
+
+int askAuthTokenImportKind(TForm* owner)
+{
+	std::unique_ptr<TForm> dlg(new TForm(static_cast<TComponent*>(nullptr)));
+	dlg->Caption = L"Импорт токена";
+	dlg->BorderStyle = bsDialog;
+	dlg->Position = poOwnerFormCenter;
+	dlg->PopupParent = owner;
+	dlg->ClientWidth = 520;
+	dlg->ClientHeight = 210;
+	dlg->BorderIcons = TBorderIcons() << biSystemMenu;
+
+	auto* hint = new TLabel(dlg.get());
+	hint->Parent = dlg.get();
+	hint->AlignWithMargins = true;
+	hint->Align = alTop;
+	hint->WordWrap = true;
+	hint->AutoSize = true;
+	hint->Caption =
+		L"Выберите токен по его привязке:\r\n"
+		L"• токен этого компьютера — даже если файл принесли на флешке;\r\n"
+		L"• токен USB-флешки — если он привязан к самой флешке.";
+
+	auto* buttons = new TPanel(dlg.get());
+	buttons->Parent = dlg.get();
+	buttons->Align = alBottom;
+	buttons->BevelOuter = bvNone;
+	buttons->Height = 64;
+
+	auto* cancel = new TButton(dlg.get());
+	cancel->Parent = buttons;
+	cancel->AlignWithMargins = true;
+	cancel->Align = alRight;
+	cancel->Caption = L"Отмена";
+	cancel->ModalResult = mrCancel;
+	cancel->Width = 120;
+
+	auto* usb = new TButton(dlg.get());
+	usb->Parent = buttons;
+	usb->AlignWithMargins = true;
+	usb->Align = alRight;
+	usb->Caption = L"Токен USB-флешки";
+	usb->ModalResult = mrNo;
+	usb->Width = 180;
+
+	auto* pc = new TButton(dlg.get());
+	pc->Parent = buttons;
+	pc->AlignWithMargins = true;
+	pc->Align = alRight;
+	pc->Caption = L"Токен этого компьютера";
+	pc->ModalResult = mrYes;
+	pc->Width = 220;
+
+	return dlg->ShowModal();
+}
+
+String pickAuthTokenFile(TForm* owner)
+{
+	(void)owner;
+	std::unique_ptr<TOpenDialog> dialog(new TOpenDialog(nullptr));
+	dialog->Title = L"Выберите searchclient-auth-token.json";
+	dialog->Filter =
+		L"Токен авторизации|searchclient-auth-token.json|JSON (*.json)|*.json|Все файлы (*.*)|*.*";
+	dialog->Options = dialog->Options << ofFileMustExist << ofPathMustExist << ofHideReadOnly;
+	if (!dialog->Execute())
+		return String();
+	return dialog->FileName;
+}
+
+bool copyWideFile(const std::wstring& source, const std::wstring& destination)
+{
+	if (source.empty() || destination.empty())
+		return false;
+	if (_wcsicmp(source.c_str(), destination.c_str()) == 0)
+		return true;
+	return CopyFileW(source.c_str(), destination.c_str(), FALSE) != 0;
+}
 }
 
 //---------------------------------------------------------------------------
@@ -1233,6 +1358,49 @@ bool TfMain::configureServersForCurrentYear(String* errorMessage)
 		lblServerEndpoints->Caption = labelText;
 	return true;
 }
+
+bool TfMain::applyRuntimeSettings(String* errorMessage)
+{
+	if (applyingRuntimeSettings_)
+		return true;
+	if (gSearchProcessing.load(std::memory_order_acquire) ||
+		saveRunning.load(std::memory_order_acquire))
+	{
+		runtimeSettingsApplyPending_ = true;
+		if (errorMessage)
+			*errorMessage = L"Настройки будут применены после текущей операции.";
+		return true;
+	}
+
+	applyingRuntimeSettings_ = true;
+	suppressYearReconnect_ = true;
+	runtimeSettingsApplyPending_ = false;
+	bool ok = false;
+	try {
+		SqlCondition::map = getMapFromQry(qrySettings, "map");
+		SqlCondition::mapVh = getMapFromQry(qrySettings, "map_vh");
+		SqlCondition::mapIsh = getMapFromQry(qrySettings, "map_ish");
+		if (!useF12Control())
+			dbgEh->RowDetailPanel->Active = false;
+		reloadAvailableYears();
+		String configError;
+		ok = configureServersForCurrentYear(&configError);
+		disconnectTransportOnly();
+		unauthorizedSearchSkipNotified_ = false;
+		if (auth_) {
+			lbStatus->Caption = L"Статус: отключено от сервера";
+			componentsEnable(true);
+		}
+		if (!ok && errorMessage)
+			*errorMessage = configError;
+	}
+	__finally {
+		applyingRuntimeSettings_ = false;
+		suppressYearReconnect_ = false;
+	}
+	return ok;
+}
+
 std::string TfMain::primaryServerId() const
 {
 	return serverManager_.primaryServerId();
@@ -1428,6 +1596,8 @@ void __fastcall TfMain::finishSearch()
 
 	if(cmbReq->CanFocus())
 	cmbReq->SetFocus();
+	if (runtimeSettingsApplyPending_)
+		applyRuntimeSettings();
 }
 
 
@@ -1996,7 +2166,7 @@ void __fastcall TfMain::componentsEnable(bool b)
 		const bool serverOk = hasServerAuthorization();
 		const bool uiOn = b && auth_ && serverOk;
 
-		tmLoadText->Enabled = uiOn;
+		tmLoadText->Enabled = uiOn && !loadTextHeld();
 	   //	rchEdt->Enabled = b;
 		ListBox1->Enabled  = uiOn;
 	  //	ggSaveProgress->Enabled = b;
@@ -2041,8 +2211,30 @@ void __fastcall TfMain::componentsEnable(bool b)
 			btnDisconnect->Enabled = true;
 			cmbGod->Enabled = true;
 		}
+		if (cmbAuthUser)
+			cmbAuthUser->Enabled = true;
 }
 
+bool TfMain::loadTextHeld() const
+{
+	return holdLoadTextUntilUserSelect_;
+}
+
+void TfMain::pauseLoadTextUntilUserSelect()
+{
+	holdLoadTextUntilUserSelect_ = true;
+	if (tmLoadText)
+		tmLoadText->Enabled = false;
+}
+
+void TfMain::armLoadTextTimer()
+{
+	if (!tmLoadText || loadTextHeld() ||
+		saveRunning.load(std::memory_order_acquire))
+		return;
+	tmLoadText->Enabled = false;
+	tmLoadText->Enabled = true;
+}
 
 // Match persistent TWideStringField.Size on qryTelegi/memTbl (formMain.dfm).
 // Values longer than this are skipped at insert so FireDAC Open does not abort
@@ -2575,8 +2767,9 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
 		tbcSettingsChange(Sender);
 	}
 	else {
-		// Newly added server/year rows become selectable without restarting the client.
-		reloadAvailableYears();
+		String applyError;
+		if (!applyRuntimeSettings(&applyError) && !applyError.IsEmpty())
+			ShowMessage(applyError);
 	}
 	ScheduleResponsiveLayout();
 }
@@ -2607,8 +2800,11 @@ void __fastcall TfMain::dbgEhColumns6CellButtons0Click(TObject *Sender, bool &Ha
 //---------------------------------------------------------------------------
 void __fastcall TfMain::dbgEhCellClick(TColumnEh *Column)
 {
-	if(!save_pocessing)
-   		tmLoadText->Enabled = true;
+	if (loadTextHeld()) {
+		holdLoadTextUntilUserSelect_ = false;
+		last_loaded_num_ = "";
+	}
+	armLoadTextTimer();
 }
 //---------------------------------------------------------------------------
 
@@ -2654,7 +2850,8 @@ void __fastcall TfMain::cmbGodChange(TObject *Sender)
 		if(last_base != cmbGod->Text && auth_)
 		{
 			last_base = cmbGod->Text;
-			btnConnectClick(Sender);
+			if (!suppressYearReconnect_ && !applyingRuntimeSettings_)
+				btnConnectClick(Sender);
 		}
 	}
 	catch(...){};
@@ -3223,6 +3420,7 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
     }
 
     rchEdt->Lines->Clear();
+	pauseLoadTextUntilUserSelect();
 
     std::unique_ptr<TStringList> preLog(new TStringList()); // только для подготовки (UI поток)
 
@@ -3474,6 +3672,8 @@ void __fastcall TfMain::btnSaveClick(TObject *Sender)
 			componentsEnable(true);
 			saveCancelRequested.store(false, std::memory_order_release);
 			gSaveProcessing.store(false, std::memory_order_release);
+			if (runtimeSettingsApplyPending_)
+				applyRuntimeSettings();
 		});
 	});
 
@@ -3944,11 +4144,10 @@ void __fastcall TfMain::dbgEhKeyPress(TObject *Sender, System::WideChar &Key)
 
 void __fastcall TfMain::srcSearchDataChange(TObject *Sender, TField *Field)
 {
-	if(save_pocessing)
+	if (loadTextHeld())
 		return;
 
-	tmLoadText->Enabled = false;
-	tmLoadText->Enabled = true;
+	armLoadTextTimer();
 }
 //---------------------------------------------------------------------------
 
@@ -3969,6 +4168,8 @@ void __fastcall TfMain::tmLoadTextTimer(TObject *Sender)
 
 
 	if (!uiIsLive())
+		return;
+	if (loadTextHeld())
 		return;
 
 	if (!auth_ || !dbgEh || !dbgEh->DataSource || !dbgEh->DataSource->DataSet ||
@@ -4048,8 +4249,7 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
 		TThread::Queue(nullptr, [this, live, op]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
-			if (tmLoadText)
-				tmLoadText->Enabled = true;
+			armLoadTextTimer();
 		});
 	};
 
@@ -4065,8 +4265,7 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
 			ShowMessage("Ошибка запроса: " + US(err));
-			if (tmLoadText)
-				tmLoadText->Enabled = true;
+			armLoadTextTimer();
 		});
 		return;
 	}
@@ -4079,9 +4278,10 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
     TThread::Queue(nullptr, [this, live, op, rowKey, text]() {
 		if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 			return;
+		if (loadTextHeld())
+			return;
 		if (last_loaded_num_ != rowKey) {
-			if (tmLoadText)
-				tmLoadText->Enabled = true;
+			armLoadTextTimer();
             return;
 		}
 
@@ -4110,7 +4310,7 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
 		if (!searchInputActive && dbgEh->CanFocus())
 			dbgEh->SetFocus();
 
-        tmLoadText->Enabled = true;
+        tmLoadText->Enabled = !loadTextHeld();
 		SendMessage(rchEdt->Handle, WM_SETREDRAW, TRUE, 0);
 		rchEdt->Invalidate();
     });
@@ -4229,6 +4429,8 @@ void __fastcall TfMain::onSuccessfulAuthorization(const std::string& user_name, 
 	//tmLoginIn->Enabled = false;
 	tmLoginOut->Enabled = true;
 	ScheduleResponsiveLayout();
+	if (formShown_)
+		scheduleStartupAutoConnect();
 }
 
 void TfMain::queueApplyLocalAuthSources()
@@ -4271,10 +4473,42 @@ void TfMain::applyLocalAuthSources()
 	if (!uiIsLive() || shuttingDown_)
 		return;
 
-	const auto identity = resolveLiveDeviceIdentity();
-	if (identity)
-	{
-		applyResolvedDeviceIdentity(*identity);
+	const auto choices = collectAvailableAuthChoices();
+	refreshAuthUserCombo(choices);
+
+	const AvailableAuthChoice* selected = nullptr;
+	if (!manual_auth_choice_key_.empty()) {
+		for (const auto& choice : choices) {
+			if (choice.key == manual_auth_choice_key_) {
+				selected = &choice;
+				break;
+			}
+		}
+	}
+	if (!selected) {
+		for (const auto& choice : choices) {
+			if (choice.source == LocalAuthSource::Usb) {
+				selected = &choice;
+				break;
+			}
+		}
+	}
+	if (!selected) {
+		for (const auto& choice : choices) {
+			if (choice.source == LocalAuthSource::Computer) {
+				selected = &choice;
+				break;
+			}
+		}
+	}
+	if (!selected && !choices.empty())
+		selected = &choices.front();
+
+	if (selected) {
+		if (selected->source == LocalAuthSource::Admin)
+			applyAdminAuthorization(selected->identity);
+		else
+			applyResolvedDeviceIdentity(selected->identity);
 		return;
 	}
 
@@ -4287,39 +4521,241 @@ void TfMain::applyLocalAuthSources()
 		lbStatus->Caption = L"Статус: отключено от сервера";
 	}
 
-	const std::wstring adminFile = auth_paths::fileBesideExecutable(L"admin984.bin");
-	if (auth_paths::isRegularFile(adminFile))
-	{
-		const std::string adminUtf8 = auth_paths::toUtf8(adminFile);
-		if (auth_ && auth_source_ == LocalAuthSource::Admin && user_ == "admin" &&
-			token_dir_ == adminUtf8)
-		{
-			return;
-		}
-		const bool switched =
-			auth_source_ != LocalAuthSource::Admin || user_ != "admin";
-		if (switched && auth_ && !lostDevice)
-		{
-			clear();
-			message_.attachments.clear();
-			disconnectTransportOnly();
-			lbStatus->Caption = L"Статус: отключено от сервера";
-		}
-
-		onSuccessfulAuthorization("admin", adminUtf8);
-		client_id_.clear();
-		device_type_.clear();
-		device_id_.clear();
-		auth_signature_.clear();
-		auth_source_ = LocalAuthSource::Admin;
-		gCurrentPath = adminUtf8;
-		return;
-	}
-
 	if (!auth_ && auth_source_ == LocalAuthSource::None)
 		return;
 
 	logoutUnauthorizedUi();
+}
+
+std::vector<TfMain::AvailableAuthChoice> TfMain::collectAvailableAuthChoices()
+{
+	std::vector<AvailableAuthChoice> choices;
+	if (flashAuth_) {
+		auto entries = flashAuth_->entries();
+		std::sort(entries.begin(), entries.end(),
+			[](const FlashAuthEntry& a, const FlashAuthEntry& b) {
+				return a.tick > b.tick;
+			});
+		for (const auto& entry : entries) {
+			UsbAuthProbe usb;
+			usb.tokenPath = entry.tokenPath;
+			usb.driveLetter = entry.driveLetter;
+			usb.claimedDeviceId = entry.serial;
+			usb.liveHardwareSerial =
+				UsbHardwareSerial::GetSerialForDriveLetter(entry.driveLetter);
+			const auto identity = TryUsbIdentityFromProbe(usb);
+			if (!identity)
+				continue;
+			AvailableAuthChoice choice;
+			choice.source = LocalAuthSource::Usb;
+			choice.identity = *identity;
+			choice.key = "usb:" + identity->tokenPath;
+			choices.push_back(choice);
+		}
+	}
+
+	const std::string userToken =
+		auth_paths::toUtf8(auth_paths::localAppDataAuthTokenPath());
+	std::string uuid;
+	if (const auto liveUuid = QueryComputerSystemProductUuid())
+		uuid = *liveUuid;
+	if (const auto pc = SelectPcAuthIdentity(userToken, uuid)) {
+		AvailableAuthChoice choice;
+		choice.source = LocalAuthSource::Computer;
+		choice.identity = *pc;
+		choice.key = "pc:" + pc->tokenPath;
+		choices.push_back(choice);
+	}
+
+	const std::wstring adminFile = auth_paths::fileBesideExecutable(L"admin984.bin");
+	if (auth_paths::isRegularFile(adminFile)) {
+		AvailableAuthChoice choice;
+		choice.source = LocalAuthSource::Admin;
+		choice.identity.clientName = "admin";
+		choice.identity.tokenPath = auth_paths::toUtf8(adminFile);
+		choice.key = "admin:" + choice.identity.tokenPath;
+		choices.push_back(choice);
+	}
+	return choices;
+}
+
+void TfMain::refreshAuthUserCombo(const std::vector<AvailableAuthChoice>& choices)
+{
+	auth_choices_ = choices;
+	if (!cmbAuthUser)
+		return;
+	updating_auth_combo_ = true;
+	cmbAuthUser->Items->BeginUpdate();
+	try {
+		cmbAuthUser->Items->Clear();
+		int selected = -1;
+		for (int i = 0; i < static_cast<int>(choices.size()); ++i) {
+			const auto& choice = choices[static_cast<std::size_t>(i)];
+			String caption = US(choice.identity.clientName);
+			if (caption.IsEmpty())
+				caption = L"(без имени)";
+			if (choice.source == LocalAuthSource::Usb)
+				caption += L" (USB)";
+			else if (choice.source == LocalAuthSource::Computer)
+				caption += L" (ПК)";
+			else if (choice.source == LocalAuthSource::Admin)
+				caption += L" (admin)";
+			cmbAuthUser->Items->Add(caption);
+			if (selected < 0) {
+				if (!manual_auth_choice_key_.empty() &&
+					choice.key == manual_auth_choice_key_)
+					selected = i;
+				else if (manual_auth_choice_key_.empty() &&
+					choice.identity.tokenPath == token_dir_ &&
+					choice.source == auth_source_)
+					selected = i;
+			}
+		}
+		cmbAuthUser->Items->Add(kImportTokenCaption);
+		if (selected < 0 && !choices.empty())
+			selected = 0;
+		cmbAuthUser->ItemIndex = selected;
+	}
+	__finally {
+		cmbAuthUser->Items->EndUpdate();
+		updating_auth_combo_ = false;
+	}
+}
+
+void TfMain::applyAdminAuthorization(const DeviceAuthIdentity& identity)
+{
+	const std::string adminUtf8 = identity.tokenPath;
+	if (auth_ && auth_source_ == LocalAuthSource::Admin && user_ == "admin" &&
+		token_dir_ == adminUtf8)
+		return;
+	const bool switched =
+		auth_source_ != LocalAuthSource::Admin || user_ != "admin";
+	if (switched && auth_ && isDeviceAuthSource())
+	{
+		clear();
+		message_.attachments.clear();
+		disconnectTransportOnly();
+		lbStatus->Caption = L"Статус: отключено от сервера";
+	}
+	onSuccessfulAuthorization("admin", adminUtf8);
+	client_id_.clear();
+	device_type_.clear();
+	device_id_.clear();
+	auth_signature_.clear();
+	auth_source_ = LocalAuthSource::Admin;
+	gCurrentPath = adminUtf8;
+}
+
+bool TfMain::registerNewAuthUser()
+{
+	const int kind = askAuthTokenImportKind(this);
+	if (kind == mrYes)
+		return importComputerAuthToken();
+	if (kind == mrNo)
+		return registerUsbAuthToken();
+	return false;
+}
+
+bool TfMain::importComputerAuthToken()
+{
+	const String fileName = pickAuthTokenFile(this);
+	if (fileName.IsEmpty())
+		return false;
+	const std::string sourceUtf8 = utf8FromVcl(fileName);
+	UsbAuthToken token;
+	if (!TryParseAuthToken(sourceUtf8, token)) {
+		ShowMessage(L"Файл не является токеном SearchClient.");
+		return false;
+	}
+	if (token.deviceType != device_identity::kDeviceTypeComputer) {
+		ShowMessage(L"Это не токен компьютера. Выберите «Токен USB-флешки».");
+		return false;
+	}
+	std::string uuid;
+	if (const auto liveUuid = QueryComputerSystemProductUuid())
+		uuid = *liveUuid;
+	UsbAuthToken verified;
+	if (!TryLoadComputerAuthToken(sourceUtf8, uuid, verified)) {
+		ShowMessage(L"Токен не подходит к этому компьютеру (другой device_id).");
+		return false;
+	}
+	const std::wstring destDir = auth_paths::localAppDataSearchEngineDirectory();
+	const std::wstring dest = auth_paths::localAppDataAuthTokenPath();
+	if (destDir.empty() || dest.empty()) {
+		ShowMessage(L"Не удалось определить папку профиля пользователя.");
+		return false;
+	}
+	CreateDirectoryW(destDir.c_str(), nullptr);
+	if (!copyWideFile(std::wstring(fileName.c_str()), dest)) {
+		ShowMessage(L"Не удалось сохранить токен в профиль пользователя.");
+		return false;
+	}
+	manual_auth_choice_key_ = "pc:" + auth_paths::toUtf8(dest);
+	applyLocalAuthSources();
+	return true;
+}
+
+bool TfMain::registerUsbAuthToken()
+{
+	if (!flashAuth_) {
+		ShowMessage(L"USB-авторизация недоступна.");
+		return false;
+	}
+	const String fileName = pickAuthTokenFile(this);
+	if (fileName.IsEmpty())
+		return false;
+	if (fileName.Length() < 2 || fileName[2] != L':') {
+		ShowMessage(L"USB-токен должен лежать на флешке (диск с буквой).");
+		return false;
+	}
+	const std::string sourceUtf8 = utf8FromVcl(fileName);
+	UsbAuthToken token;
+	if (!TryParseAuthToken(sourceUtf8, token)) {
+		ShowMessage(L"Файл не является токеном SearchClient.");
+		return false;
+	}
+	if (token.deviceType != device_identity::kDeviceTypeUsb) {
+		ShowMessage(L"Это не токен флешки. Выберите «Токен этого компьютера».");
+		return false;
+	}
+	const std::string driveLetter = utf8FromVcl(fileName.SubString(1, 2));
+	if (!flashAuth_->registerTokenPath(sourceUtf8, driveLetter)) {
+		ShowMessage(L"Не удалось принять USB-токен. Проверьте, что флешка вставлена и серийный номер совпадает.");
+		return false;
+	}
+	manual_auth_choice_key_ = "usb:" + sourceUtf8;
+	applyLocalAuthSources();
+	return true;
+}
+
+void __fastcall TfMain::cmbAuthUserChange(TObject *Sender)
+{
+	(void)Sender;
+	if (updating_auth_combo_ || !cmbAuthUser)
+		return;
+	const int index = cmbAuthUser->ItemIndex;
+	if (index < 0 || index >= static_cast<int>(auth_choices_.size()))
+		return;
+	const auto& choice = auth_choices_[static_cast<std::size_t>(index)];
+	manual_auth_choice_key_ = choice.key;
+	if (choice.source == LocalAuthSource::Admin)
+		applyAdminAuthorization(choice.identity);
+	else
+		applyResolvedDeviceIdentity(choice.identity);
+}
+
+void __fastcall TfMain::cmbAuthUserCloseUp(TObject *Sender)
+{
+	(void)Sender;
+	if (updating_auth_combo_ || !cmbAuthUser)
+		return;
+	if (cmbAuthUser->ItemIndex != static_cast<int>(auth_choices_.size()))
+		return;
+	const std::string previous = manual_auth_choice_key_;
+	if (!registerNewAuthUser()) {
+		manual_auth_choice_key_ = previous;
+		refreshAuthUserCombo(collectAvailableAuthChoices());
+	}
 }
 
 DeviceAuthIdentity TfMain::currentDeviceIdentity() const
@@ -4342,6 +4778,16 @@ bool TfMain::isDeviceAuthSource() const
 
 std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 {
+	if (!manual_auth_choice_key_.empty()) {
+		for (const auto& choice : collectAvailableAuthChoices()) {
+			if (choice.key != manual_auth_choice_key_)
+				continue;
+			if (choice.source == LocalAuthSource::Admin)
+				return std::nullopt;
+			return choice.identity;
+		}
+	}
+
 	std::vector<UsbAuthProbe> probes;
 	if (flashAuth_)
 	{
@@ -5050,13 +5496,111 @@ void __fastcall TfMain::chkTextClick(TObject *Sender)
 //---------------------------------------------------------------------------
 
 
+bool TfMain::prepareStartupAutoConnect(String& connectionMessage)
+{
+	connectionMessage = L"";
+	if (!auth_) {
+		connectionMessage = L"Нет авторизации. Подключение недоступно.";
+		return false;
+	}
+
+	reloadAvailableYears();
+	if (cmbGod->Items->Count <= 0) {
+		connectionMessage = L"Не выбран год поиска";
+		return false;
+	}
+
+	unsigned short year = 0, month = 0, day = 0;
+	DecodeDate(Date(), year, month, day);
+	const String calendarYear = IntToStr(static_cast<int>(year));
+	const int calendarIndex = cmbGod->Items->IndexOf(calendarYear);
+
+	int enabledServerCount = 0;
+	qrySettings->Close();
+	qrySettings->SQL->Text = L"SELECT COUNT(*) AS cnt FROM servers WHERE enabled <> 0";
+	qrySettings->Open();
+	if (!qrySettings->Eof)
+		enabledServerCount = qrySettings->FieldByName(L"cnt")->AsInteger;
+
+	suppressYearReconnect_ = true;
+	try {
+		if (calendarIndex >= 0)
+			cmbGod->ItemIndex = calendarIndex;
+		else if (enabledServerCount == 1) {
+			if (cmbGod->ItemIndex < 0)
+				cmbGod->ItemIndex = 0;
+		}
+		else {
+			connectionMessage =
+				L"Для текущего года нет настроенных серверов. Выберите год и нажмите «Подключение».";
+			return false;
+		}
+	}
+	__finally {
+		suppressYearReconnect_ = false;
+	}
+
+	if (!configureServersForCurrentYear(&connectionMessage))
+		return false;
+	return serverManager_.serverCount() > 0;
+}
+
+void TfMain::scheduleStartupAutoConnect()
+{
+	if (!startupAutoConnectPending_ || startupAutoConnectQueued_ || shuttingDown_)
+		return;
+	startupAutoConnectQueued_ = true;
+	auto live = uiLive_;
+	auto op = trackBackgroundOp();
+	TThread::Queue(nullptr, [this, live, op]() {
+		if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+			return;
+		runStartupAutoConnect();
+	});
+}
+
+void TfMain::runStartupAutoConnect()
+{
+	startupAutoConnectQueued_ = false;
+	if (shuttingDown_ || !uiIsLive())
+		return;
+	if (!auth_)
+		return;
+	if (hasServerAuthorization()) {
+		startupAutoConnectPending_ = false;
+		return;
+	}
+
+	String connectionMessage;
+	if (!prepareStartupAutoConnect(connectionMessage)) {
+		startupAutoConnectPending_ = false;
+		if (!connectionMessage.IsEmpty())
+			lbStatus->Caption = L"Статус: " + connectionMessage;
+		return;
+	}
+
+	startupAutoConnectPending_ = false;
+	auto wait = makeStartupConnectWaitForm(this, serverManager_.endpointsInOrder());
+	wait->Show();
+	wait->Update();
+	Application->ProcessMessages();
+	try {
+		btnConnectClick(nullptr);
+	}
+	__finally {
+		wait->Hide();
+	}
+}
+
 void __fastcall TfMain::FormShow(TObject *Sender)
 {
 	(void)Sender;
+	formShown_ = true;
 	RestoreDbgEhColumnLayout();
 	dbgEhLayoutReady_ = true;
 	UpdateResponsiveLayout();
 	ScheduleResponsiveLayout();
+	scheduleStartupAutoConnect();
 }
 //---------------------------------------------------------------------------
 
