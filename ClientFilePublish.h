@@ -65,11 +65,18 @@ namespace client_file_publish
 	{
 		auto baseIt = baseAbs.begin();
 		auto candIt = candidateAbs.begin();
-		for (; baseIt != baseAbs.end() && candIt != candidateAbs.end(); ++baseIt, ++candIt) {
+		for (; baseIt != baseAbs.end(); ++baseIt) {
+			// A trailing separator becomes "." in C++Builder's normalized paths.
+			// It names the same directory, rather than another path component.
+			if (baseIt->empty() || *baseIt == ".")
+				continue;
+			if (candIt == candidateAbs.end())
+				return false;
 			if (!EqualsPathNoCase(*baseIt, *candIt))
 				return false;
+			++candIt;
 		}
-		return baseIt == baseAbs.end();
+		return true;
 	}
 
 	inline fs::path LexicalAbsolute(const fs::path& path)

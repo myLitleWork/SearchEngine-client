@@ -677,6 +677,31 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 	}
 
 	{
+		const fs::path base = root / "path-boundary";
+		const fs::path withSeparator(base.wstring() + L"\\");
+		const fs::path expected = client_file_publish::LexicalAbsolute(
+			base / "sub" / "file.bin");
+		for (const auto& candidateBase : {base, withSeparator}) {
+			fs::path resolved;
+			std::wstring error;
+			if (!client_file_publish::ResolveUnderBase(
+					candidateBase, L"sub\\file.bin", resolved, &error) ||
+				!client_file_publish::EqualsPathNoCase(resolved, expected) ||
+				client_file_publish::ResolveUnderBase(
+					candidateBase, L"..\\escape.bin", resolved, &error) ||
+				client_file_publish::ResolveUnderBase(
+					candidateBase, expected, resolved, &error) ||
+				client_file_publish::IsUnderBase(
+					client_file_publish::LexicalAbsolute(candidateBase),
+					client_file_publish::LexicalAbsolute(
+						root / "path-boundary-sibling" / "file.bin"))) {
+				cleanup();
+				return 123;
+			}
+		}
+	}
+
+	{
 		std::map<TelegramAttachmentListKey, int> listKeys;
 		listKeys.emplace(TelegramAttachmentListKey{"server1", 23, 0}, 1);
 		listKeys.emplace(TelegramAttachmentListKey{"server12", 3, 0}, 2);
