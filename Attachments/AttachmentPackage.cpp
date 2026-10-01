@@ -2,6 +2,7 @@
 #include "ClientFilePublish.h"
 
 #include <boost/archive/binary_iarchive.hpp>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -20,6 +21,42 @@ void serialize(Archive& ar, std::filesystem::path& p, const unsigned int)
 }
 
 } // namespace boost::serialization
+
+namespace
+{
+    AttachmentPackage readAttachmentArchive(const std::string& bytes)
+    {
+        std::istringstream input(bytes, std::ios::binary);
+        portable_binary_iarchive archive(input);
+        AttachmentPackage package;
+        archive >> package;
+        return package;
+    }
+
+    bool findServerArchive20Version(
+        const std::vector<std::uint8_t>& bytes,
+        std::size_t& versionOffset)
+    {
+        const std::string signature(boost::archive::BOOST_ARCHIVE_SIGNATURE());
+        const std::size_t signatureOffset = 2;
+        const std::size_t versionSizeOffset = signatureOffset + signature.size();
+        const std::size_t flagsOffset = versionSizeOffset + 2;
+
+        // Only the known portable attachment header is compatible: one-byte
+        // signature length, archive version 20, and default endian flags.
+        if (bytes.size() <= flagsOffset || bytes[0] != 1 ||
+            bytes[1] != signature.size() ||
+            !std::equal(signature.begin(), signature.end(),
+                bytes.begin() + signatureOffset) ||
+            bytes[versionSizeOffset] != 1 ||
+            bytes[versionSizeOffset + 1] != 20 || bytes[flagsOffset] != 0) {
+            return false;
+        }
+
+        versionOffset = versionSizeOffset + 1;
+        return true;
+    }
+} // namespace
 
 void AttachmentPackage::addAttachment(const std::filesystem::path& file_dir)
 {
@@ -118,11 +155,20 @@ AttachmentPackage AttachmentPackage::deserializeFromBytes(
     const std::vector<uint8_t>& bytes)
 {
     std::string str(bytes.begin(), bytes.end());
-    std::istringstream iss(str, std::ios::binary);
-    portable_binary_iarchive ia(iss);
+    try {
+        return readAttachmentArchive(str);
+    } catch (const boost::archive::archive_exception& error) {
+        std::size_t versionOffset = 0;
+        if (error.code != boost::archive::archive_exception::unsupported_version ||
+            static_cast<unsigned>(boost::archive::BOOST_ARCHIVE_VERSION()) != 17 ||
+            !findServerArchive20Version(bytes, versionOffset)) {
+            throw;
+        }
 
-    AttachmentPackage package;
-    ia >> package;
-
-    return package;
+        // Boost 1.85 and C++Builder's Boost 1.70 use the same layout for this
+        // attachment map. Preserve the existing 20 -> 17 compatibility path
+        // here, without changing the caller's bytes or outgoing archives.
+        str[versionOffset] = static_cast<char>(17);
+        return readAttachmentArchive(str);
+    }
 }

@@ -594,13 +594,46 @@ namespace
 		0x41, 0x42, 0x43, 0x01, 0x09, 0x73, 0x75, 0x62, 0x5C, 0x62, 0x2E, 0x62,
 		0x69, 0x6E, 0x01, 0x04, 0x00, 0x00, 0x01, 0xFE, 0xFF};
 
+	// Captured from the existing C++Builder/Boost 1.70 serializer before the
+	// compatibility refactor. Outgoing archive bytes must stay unchanged.
+	const std::vector<std::uint8_t> kClientAttachmentFixture = {
+		0x01, 0x16, 0x73, 0x65, 0x72, 0x69, 0x61, 0x6C, 0x69, 0x7A, 0x61, 0x74,
+		0x69, 0x6F, 0x6E, 0x3A, 0x3A, 0x61, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65,
+		0x01, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x01, 0x05, 0x61, 0x2E, 0x74, 0x78, 0x74, 0x01, 0x03, 0x00,
+		0x41, 0x42, 0x43, 0x01, 0x09, 0x73, 0x75, 0x62, 0x5C, 0x62, 0x2E, 0x62,
+		0x69, 0x6E, 0x01, 0x04, 0x00, 0x00, 0x01, 0xFE, 0xFF};
+
+	bool rejectsAttachmentArchive(const std::vector<std::uint8_t>& bytes)
+	{
+		try {
+			AttachmentPackage::deserializeFromBytes(bytes);
+			return false;
+		} catch (const std::exception&) {
+			return true;
+		}
+	}
+
+	bool rejectsUnsupportedAttachmentVersion(const std::vector<std::uint8_t>& bytes)
+	{
+		try {
+			AttachmentPackage::deserializeFromBytes(bytes);
+			return false;
+		} catch (const boost::archive::archive_exception& error) {
+			return error.code == boost::archive::archive_exception::unsupported_version;
+		} catch (const std::exception&) {
+			return false;
+		}
+	}
+
 	bool ExpectLegacyAttachmentMap(const AttachmentPackage& package)
 	{
 		const std::vector<std::uint8_t> aTxt = {0x41, 0x42, 0x43};
 		const std::vector<std::uint8_t> bBin = {0x00, 0x01, 0xFE, 0xFF};
 		const auto aIt = package.attachments.find(fs::path("a.txt"));
 		const auto bIt = package.attachments.find(fs::path("sub") / "b.bin");
-		return aIt != package.attachments.end() &&
+		return package.attachments.size() == 2 &&
+			aIt != package.attachments.end() &&
 			bIt != package.attachments.end() &&
 			aIt->second == aTxt &&
 			bIt->second == bBin;
@@ -660,19 +693,57 @@ int RunTelegramAttachmentSelfTestFromCommandLine()
 	auto cleanup = [&]() { fs::remove_all(root, ec); };
 
 	{
-		const auto restored =
-			AttachmentPackage::deserializeFromBytes(kLegacyAttachmentFixture);
-		if (!ExpectLegacyAttachmentMap(restored)) {
+		try {
+			auto sourceBytes = kLegacyAttachmentFixture;
+			const auto restored = AttachmentPackage::deserializeFromBytes(sourceBytes);
+			if (!ExpectLegacyAttachmentMap(restored) ||
+				!ExpectLegacyAttachmentMap(
+					AttachmentPackage::deserializeFromBytes(kClientAttachmentFixture))) {
+				cleanup();
+				return 79;
+			}
+			if (sourceBytes != kLegacyAttachmentFixture) {
+				cleanup();
+				return 119;
+			}
+
+			const auto clientBytes = AttachmentPackage::serializeToBytes(restored);
+			if (clientBytes != kClientAttachmentFixture ||
+				!ExpectLegacyAttachmentMap(AttachmentPackage::deserializeFromBytes(clientBytes))) {
+				cleanup();
+				return 78;
+			}
+		} catch (const std::exception&) {
 			cleanup();
 			return 79;
 		}
 
-		AttachmentPackage expected;
-		expected.attachments[fs::path("a.txt")] = {0x41, 0x42, 0x43};
-		expected.attachments[fs::path("sub") / "b.bin"] = {0x00, 0x01, 0xFE, 0xFF};
-		if (AttachmentPackage::serializeToBytes(expected) != kLegacyAttachmentFixture) {
+		auto unknownVersion = kLegacyAttachmentFixture;
+		unknownVersion[25] = 21;
+		auto invalidVersionWidth = kLegacyAttachmentFixture;
+		invalidVersionWidth[24] = 2;
+		auto invalidFlags = kLegacyAttachmentFixture;
+		invalidFlags[26] = 1;
+		if (!rejectsUnsupportedAttachmentVersion(unknownVersion) ||
+			!rejectsUnsupportedAttachmentVersion(invalidVersionWidth) ||
+			!rejectsUnsupportedAttachmentVersion(invalidFlags)) {
 			cleanup();
-			return 78;
+			return 120;
+		}
+
+		auto invalidSignature = kLegacyAttachmentFixture;
+		invalidSignature[2] = 'X';
+		if (!rejectsAttachmentArchive(invalidSignature)) {
+			cleanup();
+			return 121;
+		}
+		for (std::size_t length = 0; length < kLegacyAttachmentFixture.size(); ++length) {
+			const std::vector<std::uint8_t> truncated(
+				kLegacyAttachmentFixture.begin(), kLegacyAttachmentFixture.begin() + length);
+			if (!rejectsAttachmentArchive(truncated)) {
+				cleanup();
+				return 122;
+			}
 		}
 	}
 

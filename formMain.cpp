@@ -5208,15 +5208,6 @@ void __fastcall TfMain::btnLoadRaznClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 #include <stdexcept>
-void normalizeByte(std::vector<uint8_t>& bytes, std::size_t offset, uint8_t value) {
-	// Проверяем, что длина массива байтов позволяет обращаться к смещению
-	if (bytes.size() > offset) {
-		bytes[offset] = value;
-	} else {
-		throw std::runtime_error("Array size too small to normalize byte.");
-	}
-}
-
 void writeBytesToFile(const std::vector<uint8_t>& bytes, const std::filesystem::path& filePath) {
 	std::ofstream outFile(filePath, std::ios::binary);
 	if (!outFile) {
@@ -5370,21 +5361,13 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	progressForm->Show();
 	Application->ProcessMessages();
 
-	auto save_byte = str[25];
-	normalizeByte(str, 25, 0x11);
-
 	const auto save_path = createInnerDirectory(savePath);
 	std::set<std::string> savedKeys;
 	std::vector<String> savedDisplayNames;
 
 	for (;;) {
 		try {
-			try {
-				message_ = AttachmentPackage::deserializeFromBytes(str);
-			} catch (...) {
-				str[25] = save_byte;
-				message_ = AttachmentPackage::deserializeFromBytes(str);
-			}
+			message_ = AttachmentPackage::deserializeFromBytes(str);
 		} catch (const std::exception& e) {
 			ShowMessage(String(L"Ошибка разбора пакета вложений:\n") + String(e.what()));
 			message_.attachments.clear();
