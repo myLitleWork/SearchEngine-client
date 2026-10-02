@@ -78,7 +78,7 @@ $null = & $syncScript @syncArgs
 $before = [IO.File]::ReadAllBytes($projectFile)
 # Clear Pre/Post build events: version was already synced above; packaging runs below.
 # Leaving PreBuild enabled would bump twice and rewrite .cbproj mid-build.
-$command = 'call "' + $rsvarsBat + '" && msbuild "' + $projectFile + '" /t:Build /p:Config=Release /p:Platform=Win32 /p:PreBuildEvent= /p:PostBuildEvent= /v:n /nologo'
+$command = 'call "' + $rsvarsBat + '" && msbuild "' + $projectFile + '" /t:Build /p:Config=Release /p:Platform=Win32 /p:PreBuildEvent= /p:PostBuildEvent= /p:SkipPreflight=true /v:n /nologo'
 & $env:ComSpec /d /s /c $command
 if ($LASTEXITCODE -ne 0) { throw "Release build failed: $LASTEXITCODE" }
 $after = [IO.File]::ReadAllBytes($projectFile)
@@ -138,6 +138,7 @@ if ($cloudRootConfigured -and -not $SkipCloudPublish) {
 $commitHelper = Find-RequiredReleaseHelper -Name 'Commit-VclReleaseVersion.ps1'
 $null = & $commitHelper -ProjectRoot $projectRoot -ProductName 'SearchClient'
 
+$packageResult
 Write-Host 'Release complete'
 }
 finally {
