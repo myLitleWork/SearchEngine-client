@@ -28,6 +28,10 @@
 #include "ClientFilePublish.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
+#include "Database\ServerCatalogSeed.h"
+#ifdef _DEBUG
+#include "Database\ServerCatalogSeedSelfTest.h"
+#endif
 #include <iostream>
 #include <string>
 #include <regex>
@@ -1233,31 +1237,9 @@ std::map<String,String> TfMain::getMapFromQry(TFDQuery* qry, const String& table
 }
 void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 {
-	std::unique_ptr<TFDQuery> q(new TFDQuery(nullptr));
-	q->Connection = ConnectionSettings;
-	q->SQL->Text = L"SELECT COUNT(*) AS cnt FROM servers";
-	q->Open();
-	if (q->FieldByName(L"cnt")->AsInteger > 0)
-		return;
-	TFDCustomConnection* connection = q->Connection;
-	connection->StartTransaction();
-	try {
-		q->Close();
-		q->SQL->Text =
-			L"INSERT INTO servers (server_id, display_name, host, enabled, sort_order) "
-			L"VALUES ('default', 'Основной сервер', :host, 1, 0)";
-		q->ParamByName(L"host")->AsString = fallbackHost;
-		q->ExecSQL();
-		q->SQL->Text =
-			L"INSERT OR IGNORE INTO server_ports (server_id, god, port, enabled) "
-			L"SELECT 'default', god, port, 1 FROM ports";
-		q->ExecSQL();
-		connection->Commit();
-	}
-	catch (...) {
-		connection->Rollback();
-		throw;
-	}
+	unsigned short year = 0, month = 0, day = 0;
+	DecodeDate(Date(), year, month, day);
+	ClientDb::SeedServerCatalog(ConnectionSettings, fallbackHost, year);
 }
 void TfMain::reloadAvailableYears()
 {

@@ -9,6 +9,9 @@
 #include "StreamingUploadSelfTest.h"
 #include "DeviceAuthSelfTest.h"
 #include "AuthPaths.h"
+#ifdef _DEBUG
+int RunServerCatalogSeedSelfTest();
+#endif
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
 USEFORM("formSelectServer.cpp", fSelectServer);
@@ -20,6 +23,8 @@ USEFORM("formSelectServer.cpp", fSelectServer);
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {
 #ifdef _DEBUG
+	if (ParamCount() >= 1 && SameText(ParamStr(1), L"--server-catalog-self-test"))
+		return RunServerCatalogSeedSelfTest();
 	if (IsMultiServerSelfTestInvocation())
 		return RunMultiServerSelfTestFromCommandLine();
 	if (IsTelegramAttachmentSelfTestInvocation())
