@@ -85,6 +85,8 @@
         <VerInfo_Release>1</VerInfo_Release>
         <VerInfo_Build>0</VerInfo_Build>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=4.3.1.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=4.3.1;Comments=</VerInfo_Keys>
+        <RunBCCOutOfProcess>true</RunBCCOutOfProcess>
+        <SubProcessesNumber>28</SubProcessesNumber>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <PackageImports>appanalytics;bcbie;bcbsmp;bindcomp;bindcompdbx;bindcompfmx;bindcompvcl;bindcompvclsmp;bindcompvclwinx;bindengine;CloudService;CustomIPTransport;DataSnapClient;DataSnapCommon;DataSnapConnectors;DatasnapConnectorsFreePascal;DataSnapFireDAC;DataSnapIndy10ServerTransport;DataSnapNativeClient;DataSnapProviderClient;DataSnapServer;DataSnapServerMidas;dbexpress;dbrtl;dbxcds;DbxClientDriver;DbxCommonDriver;DBXDb2Driver;DBXFirebirdDriver;DBXInformixDriver;DBXInterBaseDriver;DBXMSSQLDriver;DBXMySQLDriver;DBXOdbcDriver;DBXOracleDriver;DBXSqliteDriver;DBXSybaseASADriver;DBXSybaseASEDriver;dsnap;dsnapcon;dsnapxml;EhLib280;EhLibDBXDataDrivers280;emsclient;emsclientfiredac;emsedge;emshosting;emsserverresource;FireDAC;FireDACADSDriver;FireDACASADriver;FireDACCommon;FireDACCommonDriver;FireDACCommonODBC;FireDACDb2Driver;FireDACDBXDriver;FireDACDSDriver;FireDACIBDriver;FireDACInfxDriver;FireDACMongoDBDriver;FireDACMSAccDriver;FireDACMSSQLDriver;FireDACMySQLDriver;FireDACODBCDriver;FireDACOracleDriver;FireDACPgDriver;FireDACSqliteDriver;FireDACTDataDriver;fmx;fmxase;fmxdae;fmxFireDAC;fmxobj;FMXTee;FmxTeeUI;frx28;frxADO28;frxcs28;frxDB28;frxDBX28;frxe28;frxFD28;frxHTML28;frxIntIO28;frxIntIOIndy28;frxPDF28;frxTee28;fs28;fsADO28;fsDB28;fsFD28;fsTee28;IndyCore;IndyIPClient;IndyIPCommon;IndyIPServer;IndyProtocols;IndySystem;inet;inetdb;inetdbxpress;RESTBackendComponents;RESTComponents;rtl;soapmidas;soaprtl;soapserver;Tee;TeeDB;TeeUI;tethering;vcl;vclactnband;vcldb;vcldsnap;vcledge;vclFireDAC;vclie;vclimg;VCLRESTComponents;VclSmp;vcltouch;vclwinx;vclx;xmlrtl;$(PackageImports)</PackageImports>
@@ -140,6 +142,7 @@
         <UsePackages>false</UsePackages>
         <LinkPackageStatics>rtl.lib;vcl.lib;VclSmp.lib;vclx.lib;vclimg.lib;vcldb.lib;dbrtl.lib;vclwinx.lib;bindengine.lib;EhLib280.lib;xmlrtl.lib;frx28.lib;fs28.lib;fqb280.lib;fsDB28.lib;frxDB28.lib;dsnap.lib;frxe28.lib;FireDAC.lib;FireDACCommon.lib;FireDACCommonDriver.lib;FireDACSqliteDriver.lib;vclFireDAC.lib</LinkPackageStatics>
         <IncludePath>$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDSINCLUDE)\EhLib\Lib\Win32\Release\;$(BDS)\include\EhLib\Lib\Win32\Debug\;$(BDS)\Components\EhLib\Lib\Win32\Debug\;C:\ehlib_vcl_eva\Common\;C:\Users\user\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28\;C:\Program Files (x86)\FastReport 6 VCL Enterprise\LIBD27\;..\..\..\..\..\Downloads\FastReport\LibD28\;C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release\;C:\Users\Sg\Documents\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;C:\Program Files (x86)\Embarcadero\Studio\22.0\include\EhLib\Lib\Win32\Release;E:\РАЗНОЕ\ПРОГРАММЫ\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(IncludePath)</IncludePath>
+        <BCC_EnableBatchCompilation>true</BCC_EnableBatchCompilation>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
@@ -168,6 +171,7 @@
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PostBuildEvent><![CDATA[call "$(MSBuildProjectDirectory)\scripts\PostBuild-SearchClientPortable.bat"]]></PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
+        <BCC_EnableBatchCompilation>true</BCC_EnableBatchCompilation>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
