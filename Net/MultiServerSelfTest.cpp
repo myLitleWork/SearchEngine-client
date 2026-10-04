@@ -316,11 +316,14 @@ int RunMultiServerSelfTestFromCommandLine()
 		false);
 
 	MultiServerManager manager;
+	// IPv4-only listeners must also work through localhost, including the
+	// second connection used by legacy protocol fallback. Keep numeric IPv4
+	// endpoints in the same test to cover both forms of server configuration.
 	manager.configure({
-		{"first", "First", "127.0.0.1", std::to_string(first.port()), true},
+		{"first", "First", "localhost", std::to_string(first.port()), true},
 		{"second", "Second", "127.0.0.1", std::to_string(second.port()), true},
 		{"typed-error", "Typed error", "127.0.0.1", std::to_string(typedError.port()), true},
-		{"legacy", "Legacy", "127.0.0.1", std::to_string(legacy.port()), true}
+		{"legacy", "Legacy", "localhost", std::to_string(legacy.port()), true}
 	}, "first");
 	manager.setUser("self-test-user");
 

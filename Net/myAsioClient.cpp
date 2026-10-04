@@ -914,9 +914,10 @@ bool MyAsioClient::tryConnect(const std::string& host,
 		socket_ = new tcp::socket(io_context_);
 		resolver_ = new tcp::resolver(io_context_);
 
-		// Разрешаем адрес
+		// SearchEngine listens on IPv4. Resolve only compatible endpoints so
+		// localhost / dual-stack DNS cannot spend the connection timeout on IPv6.
 		boost::system::error_code resolve_ec;
-		auto endpoints = resolver_->resolve(host, port, resolve_ec);
+		auto endpoints = resolver_->resolve(tcp::v4(), host, port, resolve_ec);
 		if (resolve_ec) {
 			errMsg = "Не удалось разрешить адрес сервера: " + resolve_ec.message();
 			if (socket_) { delete socket_; socket_ = nullptr; }
