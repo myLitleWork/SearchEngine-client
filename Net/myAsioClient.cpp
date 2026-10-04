@@ -9,6 +9,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <cstdint>
 #include <filesystem>
@@ -124,6 +125,38 @@ std::string serverErrorUserMessage(std::uint32_t rawCode)
 	if (it == messages.end())
 		return std::string(kUnknown) + std::to_string(rawCode) + ".";
 	return it->second + std::string(kCodeSuffix) + std::to_string(rawCode) + ".";
+}
+
+bool serverErrorCatalogLoaded()
+{
+	return !loadedErrorMessages().empty();
+}
+
+std::string serverErrorCatalogMessage(std::uint32_t rawCode)
+{
+	const auto& messages = loadedErrorMessages();
+	const auto it = messages.find(rawCode);
+	if (it == messages.end())
+		return std::string();
+	return it->second;
+}
+
+bool tryExtractServerErrorCode(const std::string& errUtf8, std::uint32_t& code)
+{
+	static const char kNeedle[] =
+		"\xD0\x9A\xD0\xBE\xD0\xB4\x20\xD0\xBE\xD1\x88\xD0\xB8\xD0\xB1\xD0\xBA\xD0\xB8\x3A\x20";
+	const auto pos = errUtf8.rfind(kNeedle);
+	if (pos == std::string::npos)
+		return false;
+	const char* p = errUtf8.c_str() + pos + (sizeof(kNeedle) - 1);
+	if (*p < '0' || *p > '9')
+		return false;
+	char* end = nullptr;
+	const unsigned long value = std::strtoul(p, &end, 10);
+	if (end == p || value < 1ul || value > 0xfffffffful)
+		return false;
+	code = static_cast<std::uint32_t>(value);
+	return true;
 }
 
 std::string serverErrorCodeName(std::uint32_t rawCode)

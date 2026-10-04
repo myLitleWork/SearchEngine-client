@@ -577,6 +577,7 @@ public:		// User declarations
 	std::list<std::pair<std::string, int>> telegs;
 	void convTelegs(std::vector<Telega>& t);
 	void applyRchEdtText(const String& telegramText, bool highlightQuery);
+	void offerServerErrorDetails(const String& context, const std::string& errUtf8);
 	void setColor(String sS);
 	String searchSaveReport_;
 	int searchSaveAttempted_ = 0;

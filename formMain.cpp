@@ -1168,6 +1168,51 @@ void TfMain::applyRchEdtText(const String& telegramText, bool highlightQuery)
 	}
 }
 
+void TfMain::offerServerErrorDetails(const String& context, const std::string& errUtf8)
+{
+	const String prompt = context.IsEmpty() ? String(L"Ошибка запроса.") : context;
+	if (MessageDlg(
+			prompt + L"\r\n\r\nПосмотреть подробности в панели текста?",
+			mtError,
+			TMsgDlgButtons() << mbYes << mbNo,
+			0) != mrYes)
+		return;
+
+	pauseLoadTextUntilUserSelect();
+
+	std::uint32_t code = 0;
+	const bool hasCode = tryExtractServerErrorCode(errUtf8, code);
+	String details = L"Ошибка запроса\r\n\r\n";
+	if (hasCode) {
+		const std::string catalog = serverErrorCatalogMessage(code);
+		if (!catalog.empty())
+			details += US(catalog) + L"\r\n\r\n";
+		else if (!serverErrorCatalogLoaded())
+			details +=
+				L"Справочник config/server-error-messages.json не загружен.\r\n\r\n";
+		details += L"Код: " + String(static_cast<int>(code)) + L"\r\n";
+		details += L"Имя: " + US(serverErrorCodeName(code)) + L"\r\n";
+		if (catalog.empty())
+			details += L"\r\n" + US(errUtf8);
+	}
+	else {
+		details += US(errUtf8);
+	}
+
+	if (!searchSaveReport_.IsEmpty())
+		details = searchSaveReport_ + L"\r\n\r\n——— ошибка запроса ———\r\n\r\n" + details;
+
+	rchEdt->Lines->BeginUpdate();
+	try {
+		rchEdt->Lines->Text = details;
+	}
+	__finally {
+		rchEdt->Lines->EndUpdate();
+	}
+	if (rchEdt->CanFocus())
+		rchEdt->SetFocus();
+}
+
 void TfMain::loadTextToEditFromServer()
 {
 	if (isDeletedRow(dbgEh->DataSource->DataSet)) {
@@ -1208,7 +1253,7 @@ void TfMain::loadTextToEditFromServer()
 	std::string str;
 	if (!requestTelegramText(
 			serverManager_, currentSourceServerId(), telegramId, telegramType, str, err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		offerServerErrorDetails(L"Ошибка запроса", err);
 		return;
 	}
 
@@ -2634,6 +2679,10 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 		if (!frame)
 			return;
 		frame->BindLife(uiLive_, [this]() { return trackBackgroundOp(); });
+		frame->BindRequestError(
+			[this](const String& context, const std::string& errUtf8) {
+				offerServerErrorDetails(context, errUtf8);
+			});
 	};
 	bindFrameLife(myFrAttachments);
 	bindFrameLife(myFrWay);
@@ -2695,7 +2744,7 @@ void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Ha
 	std::string str;
 	if (!requestTelegramText(
 			serverManager_, currentSourceServerId(), telegramId, telegramType, str, err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		offerServerErrorDetails(L"Ошибка запроса", err);
 		Handled = true;
 		return;
 	}
@@ -3738,7 +3787,7 @@ void __fastcall TfMain::btnUpdateClick(TObject *Sender)
 	if (!serverManager_.requestText(
 			targetServerId, "START update!", COMMAND::START_UPDATE_BASE,
 			str, nullptr, &err)) {
-		ShowMessage("Ошибка запроса: " + US(err));
+		offerServerErrorDetails(L"Не удалось отправить команду обновления базы", err);
 		return;
 	}
 
@@ -4246,7 +4295,7 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
 		TThread::Queue(nullptr, [this, live, op, err]() {
 			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
 				return;
-			ShowMessage("Ошибка запроса: " + US(err));
+			offerServerErrorDetails(L"Ошибка запроса", err);
 			armLoadTextTimer();
 		});
 		return;
@@ -5262,7 +5311,8 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 	if (!serverManager_.requestBinary(
 			primaryServerId(), data_request, COMMAND::GET_ATTACHMENTS, str,
 			nullptr, &err, &serverError)) {
-		ShowMessage(getAttachmentsRequestErrorMessage(serverError, err));
+		offerServerErrorDetails(
+			getAttachmentsRequestErrorMessage(serverError, err), err);
 		return;
 	}
 

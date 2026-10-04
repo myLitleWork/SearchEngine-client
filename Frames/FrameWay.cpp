@@ -132,11 +132,10 @@ void TfrWay::FillDbg()
 			std::string err;
 
 			if (ok && !serverManager.requestText(serverId, number, cmd, jsonStr, nullptr, &err)) {
-				const String message = "Ошибка запроса: " + Utf8ToVcl(err);
-				TThread::Queue(nullptr, [live, message]() {
+				TThread::Queue(nullptr, [this, live, err]() {
 					if (!live || !live->load(std::memory_order_acquire))
 						return;
-					ShowMessage(message);
+					ReportRequestError(L"Ошибка запроса", err);
 				});
 				ok = false;
 			}

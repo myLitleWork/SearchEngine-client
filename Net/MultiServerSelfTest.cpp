@@ -474,6 +474,22 @@ int RunMultiServerSelfTestFromCommandLine()
 			search_protocol::ErrorCode::ArchiveAdminRequired)) != "ArchiveAdminRequired")
 		return 78;
 
+	if (!serverErrorCatalogLoaded())
+		return 81;
+	const auto catalog16 = serverErrorCatalogMessage(
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DatabaseOpenFailed));
+	if (catalog16.empty() || catalog16.find("16") != std::string::npos)
+		return 82;
+	const auto user16 = serverErrorUserMessage(
+		static_cast<std::uint32_t>(search_protocol::ErrorCode::DatabaseOpenFailed));
+	if (user16.find(catalog16) != 0)
+		return 83;
+	std::uint32_t extracted16 = 0;
+	if (!tryExtractServerErrorCode(user16, extracted16) || extracted16 != 16u)
+		return 84;
+	if (serverErrorCodeName(16u) != "DatabaseOpenFailed")
+		return 85;
+
 	FakeAuthRejectServer authReject(search_protocol::ErrorCode::AuthClientIdNotFound);
 	FakeAuthRejectServer authSig(search_protocol::ErrorCode::AuthSignatureInvalid);
 	MultiServerManager authManager;

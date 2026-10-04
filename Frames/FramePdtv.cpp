@@ -110,7 +110,11 @@ void TfrPdtv::FillDbg()
 				if (ok && !serverManager.requestText(
 						serverId, number, cmd, jsonStr, nullptr, &err)) {
 					ok = false;
-					safeShow(L"Ошибка запроса: " + Utf8ToVcl(err));
+					TThread::Queue(nullptr, [this, live, err]() {
+						if (!live || !live->load(std::memory_order_acquire))
+							return;
+						ReportRequestError(L"Ошибка запроса", err);
+					});
 				}
 
 
@@ -376,7 +380,7 @@ void __fastcall TfrPdtv::dbgPdtvRowDetailPanelShow(TCustomDBGridEh *Sender, bool
 			entryIndex,
 			str,
 			err)) {
-		ShowMessage("Ошибка запроса: " + Utf8ToVcl(err));
+		ReportRequestError(L"Ошибка запроса", err);
 		return;
 	}
 

@@ -110,7 +110,7 @@ void TfrAttachments::FillDbg()
 	std::string err;
 	if (!requestTelegramAttachmentList(
 			serverManager, SourceServerId(), id, isIn ? 0 : 1, items, err)) {
-		ShowMessage(L"Ошибка запроса: " + Utf8ToVcl(err));
+		ReportRequestError(L"Ошибка запроса", err);
 		return;
 	}
 

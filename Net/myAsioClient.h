@@ -178,6 +178,9 @@ namespace search_protocol
 
 std::string serverErrorUserMessage(std::uint32_t rawCode);
 std::string serverErrorCodeName(std::uint32_t rawCode);
+std::string serverErrorCatalogMessage(std::uint32_t rawCode);
+bool serverErrorCatalogLoaded();
+bool tryExtractServerErrorCode(const std::string& errUtf8, std::uint32_t& code);
 std::string legacyServerErrorUserMessage();
 std::string busyServerErrorUserMessage();
 bool isAuthRejectionErrorCode(std::uint32_t rawCode) noexcept;

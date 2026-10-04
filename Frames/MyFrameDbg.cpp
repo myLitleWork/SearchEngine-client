@@ -58,6 +58,21 @@ void TFrameDbg::BindLife(
 	trackOp_ = std::move(trackOp);
 }
 
+void TFrameDbg::BindRequestError(
+	std::function<void(const String& context, const std::string& errUtf8)> fn)
+{
+	onRequestError_ = std::move(fn);
+}
+
+void TFrameDbg::ReportRequestError(const String& context, const std::string& errUtf8)
+{
+	if (onRequestError_) {
+		onRequestError_(context, errUtf8);
+		return;
+	}
+	ShowMessage(context + L": " + Utf8ToVcl(errUtf8));
+}
+
 bool TFrameDbg::IsUiLive() const
 {
 	if (detached_.load(std::memory_order_acquire))

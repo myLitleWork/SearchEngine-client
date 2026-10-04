@@ -43,6 +43,7 @@ protected:	// User declarations
 
 	std::shared_ptr<std::atomic_bool> uiLive_;
 	std::function<std::shared_ptr<void>()> trackOp_;
+	std::function<void(const String& context, const std::string& errUtf8)> onRequestError_;
 	std::atomic_bool detached_{false};
 
 	bool IsUiLive() const;
@@ -61,6 +62,9 @@ public:
 	void BindLife(
 		std::shared_ptr<std::atomic_bool> live,
 		std::function<std::shared_ptr<void>()> trackOp);
+	void BindRequestError(
+		std::function<void(const String& context, const std::string& errUtf8)> fn);
+	void ReportRequestError(const String& context, const std::string& errUtf8);
 
 	TMemTableEh *mt = nullptr;
 
