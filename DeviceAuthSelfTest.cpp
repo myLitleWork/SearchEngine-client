@@ -9,6 +9,7 @@
 #include "DeviceAuthSelect.h"
 #include "DeviceIdentity.h"
 #include "UsbAuthToken.h"
+#include "UsbTokenRetrySelfTest.h"
 
 #include <nlohmann/json.hpp>
 
@@ -139,6 +140,8 @@ bool IsDeviceAuthSelfTestInvocation()
 
 int RunDeviceAuthSelfTestFromCommandLine()
 {
+	if (const int retryResult = RunUsbTokenRetrySelfTest())
+		return retryResult;
 	using device_identity::NormalizeComputerUuid;
 	using device_identity::NormalizeUsbDeviceId;
 

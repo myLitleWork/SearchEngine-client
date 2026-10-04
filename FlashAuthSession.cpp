@@ -61,7 +61,10 @@ public:
 };
 
 FlashAuthSession::FlashAuthSession()
-	: watcher_(new WatcherHolder())
+	: retryWorker_(
+		[this](const std::string& serial) { return tryPushFromDrive(serial, std::string()); },
+		[this]() { notifyChanged(); }),
+	  watcher_(new WatcherHolder())
 {
 }
 
@@ -84,6 +87,7 @@ bool FlashAuthSession::start()
 		return false;
 	if (watcher_->watcher.running())
 		return true;
+	retryWorker_.start();
 
 	const bool ok = watcher_->watcher.start(
 		[this](const std::string& serial, const std::string& letter) {
@@ -94,6 +98,8 @@ bool FlashAuthSession::start()
 		});
 	if (ok)
 		scanConnectedDisks();
+	else
+		retryWorker_.stop();
 	return ok;
 }
 
@@ -101,6 +107,7 @@ void FlashAuthSession::stop()
 {
 	if (watcher_)
 		watcher_->watcher.stop();
+	retryWorker_.stop();
 }
 
 void FlashAuthSession::notifyChanged()
@@ -138,9 +145,8 @@ bool FlashAuthSession::tryPushFromDrive(const std::string& serialIn, std::string
 
 	std::string hw = NormalizeFlashSerial(
 		UsbHardwareSerial::GetSerialForDriveLetter(driveLetter));
-	if (hw.empty())
-		hw = serial;
-	if (hw != serial)
+	// A delayed probe must confirm the live hardware, not trust an old event.
+	if (hw.empty() || hw != serial)
 		return false;
 
 	const std::string path = TokenPathForLetter(driveLetter);
@@ -214,11 +220,17 @@ void FlashAuthSession::handleInsert(const std::string& serial, const std::string
 {
 	if (tryPushFromDrive(serial, driveLetter))
 		notifyChanged();
+	else {
+		const std::string key = NormalizeFlashSerial(serial);
+		if (!key.empty() && key != "(UNKNOWN)")
+			retryWorker_.enqueue(key);
+	}
 }
 
 void FlashAuthSession::handleRemove(const std::string& serial)
 {
 	const std::string key = NormalizeFlashSerial(serial);
+	retryWorker_.cancel(key);
 	bool removed = false;
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
@@ -242,6 +254,11 @@ void FlashAuthSession::scanConnectedDisks()
 	{
 		if (tryPushFromDrive(disks[i].Serial, disks[i].DriveLetter))
 			any = true;
+		else {
+			const std::string key = NormalizeFlashSerial(disks[i].Serial);
+			if (!key.empty() && key != "(UNKNOWN)")
+				retryWorker_.enqueue(key);
+		}
 	}
 
 	// Убрать записи, чей токен уже невалиден / диск пропал.

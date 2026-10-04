@@ -4,6 +4,7 @@
 #define FlashAuthSessionH
 
 #include "UsbAuthToken.h"
+#include "UsbTokenRetryWorker.h"
 
 #include <cstdint>
 #include <functional>
@@ -64,6 +65,7 @@ private:
 	std::vector<FlashAuthEntry> stack_;
 	std::uint64_t tick_ = 0;
 	ChangedFn onChanged_;
+	UsbTokenRetryWorker retryWorker_;
 
 	class WatcherHolder;
 	WatcherHolder* watcher_ = nullptr;
