@@ -5,14 +5,14 @@ object fMain: TfMain
   BiDiMode = bdLeftToRight
   BorderWidth = 1
   Caption = 'SearchClient_asio'
-  ClientHeight = 1372
-  ClientWidth = 1944
+  ClientHeight = 883
+  ClientWidth = 1352
   Color = clMoneyGreen
   DefaultMonitor = dmDesktop
   DoubleBuffered = True
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -26
+  Font.Height = -13
   Font.Name = 'Segoe UI'
   Font.Style = []
   ParentBiDiMode = False
@@ -23,111 +23,122 @@ object fMain: TfMain
   OnCreate = FormCreate
   OnResize = FormResize
   OnShow = FormShow
-  PixelsPerInch = 192
-  TextHeight = 36
-  object pnStatusBar: TPanel
-    AlignWithMargins = True
-    Left = 6
-    Top = 1310
-    Width = 1932
-    Height = 56
-    Margins.Left = 6
-    Margins.Top = 0
-    Margins.Right = 6
-    Margins.Bottom = 6
-    Align = alBottom
-    BevelOuter = bvLowered
-    Caption = ''
-    ShowCaption = False
-    TabOrder = 2
-    object lbStatus: TLabel
-      AlignWithMargins = True
-      Left = 8
-      Top = 4
-      Width = 1400
-      Height = 48
-      Margins.Left = 8
-      Margins.Top = 4
-      Margins.Right = 8
-      Margins.Bottom = 4
-      Align = alClient
-      Alignment = taLeftJustify
-      Caption = #1057#1090#1072#1090#1091#1089':'
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clBlack
-      Font.Height = -28
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      Layout = tlCenter
-      ParentFont = False
-    end
-    object lblUser: TLabel
-      AlignWithMargins = True
-      Left = 1424
-      Top = 4
-      Width = 500
-      Height = 48
-      Margins.Left = 8
-      Margins.Top = 4
-      Margins.Right = 8
-      Margins.Bottom = 4
-      Align = alRight
-      Alignment = taRightJustify
-      AutoSize = True
-      Caption = #1053#1077#1090' '#1072#1074#1090#1086#1088#1080#1079#1072#1094#1080#1080'!'
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clMaroon
-      Font.Height = -28
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      Layout = tlCenter
-      ParentFont = False
-    end
-  end
+  TextHeight = 17
   object ggSaveProgress: TGauge
     AlignWithMargins = True
-    Left = 6
-    Top = 1238
-    Width = 1932
-    Height = 66
-    Margins.Left = 6
-    Margins.Top = 6
-    Margins.Right = 6
-    Margins.Bottom = 6
+    Left = 3
+    Top = 816
+    Width = 1346
+    Height = 33
     Align = alBottom
     Enabled = False
     Progress = 0
-    ExplicitTop = 988
-    ExplicitWidth = 1910
+    ExplicitTop = 619
+    ExplicitWidth = 966
+  end
+  object pnStatusBar: TPanel
+    AlignWithMargins = True
+    Left = 3
+    Top = 852
+    Width = 1346
+    Height = 28
+    Margins.Top = 0
+    Align = alBottom
+    BevelOuter = bvLowered
+    ShowCaption = False
+    TabOrder = 2
+    ExplicitTop = 655
+    ExplicitWidth = 966
+    object lbStatus: TLabel
+      AlignWithMargins = True
+      Left = 5
+      Top = 3
+      Width = 1203
+      Height = 22
+      Margins.Left = 4
+      Margins.Top = 2
+      Margins.Right = 4
+      Margins.Bottom = 2
+      Align = alClient
+      Caption = #1057#1090#1072#1090#1091#1089':'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clBlack
+      Font.Height = -14
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      ParentFont = False
+      Layout = tlCenter
+      ExplicitLeft = 4
+      ExplicitTop = 2
+      ExplicitWidth = 48
+      ExplicitHeight = 19
+    end
+    object lblUser: TLabel
+      AlignWithMargins = True
+      Left = 1216
+      Top = 3
+      Width = 125
+      Height = 22
+      Margins.Left = 4
+      Margins.Top = 2
+      Margins.Right = 4
+      Margins.Bottom = 2
+      Align = alRight
+      Alignment = taRightJustify
+      Caption = #1053#1077#1090' '#1072#1074#1090#1086#1088#1080#1079#1072#1094#1080#1080'!'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clMaroon
+      Font.Height = -14
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      ParentFont = False
+      Layout = tlCenter
+      ExplicitLeft = 837
+      ExplicitTop = 2
+      ExplicitHeight = 19
+    end
   end
   object Panel1: TPanel
     AlignWithMargins = True
-    Left = 6
-    Top = 6
-    Width = 1932
-    Height = 76
-    Margins.Left = 6
-    Margins.Top = 6
-    Margins.Right = 6
-    Margins.Bottom = 6
+    Left = 3
+    Top = 3
+    Width = 1346
+    Height = 38
     Align = alTop
     Caption = 'Panel1'
     ShowCaption = False
     TabOrder = 0
+    ExplicitWidth = 966
+    object lblServerEndpoints: TLabel
+      AlignWithMargins = True
+      Left = 217
+      Top = 4
+      Width = 671
+      Height = 30
+      Align = alClient
+      AutoSize = False
+      EllipsisPosition = epEndEllipsis
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -14
+      Font.Name = 'Segoe UI'
+      Font.Style = [fsBold]
+      ParentFont = False
+      ShowAccelChar = False
+      Layout = tlCenter
+      ExplicitWidth = 505
+      ExplicitHeight = 31
+    end
     object Edit2: TEdit
       AlignWithMargins = True
-      Left = 189
-      Top = 7
-      Width = 468
-      Height = 62
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
+      Left = 95
+      Top = 4
+      Width = 234
+      Height = 35
       TabStop = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = -48
+      Font.Height = -24
       Font.Name = 'Courier New'
       Font.Style = [fsBold]
       Font.Quality = fqClearTypeNatural
@@ -140,20 +151,20 @@ object fMain: TfMain
     end
     object btnConnect: TButton
       AlignWithMargins = True
-      Left = 1699
-      Top = 9
-      Width = 224
-      Height = 58
-      Margins.Left = 8
-      Margins.Top = 8
-      Margins.Right = 8
-      Margins.Bottom = 8
+      Left = 1229
+      Top = 5
+      Width = 112
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Align = alRight
       Caption = #1055#1086#1076#1082#1083#1102#1095#1077#1085#1080#1077
       Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = 32
+      Font.Height = 16
       Font.Name = 'Courier New'
       Font.Style = [fsBold]
       ParentFont = False
@@ -161,25 +172,23 @@ object fMain: TfMain
       TabStop = False
       StyleName = 'Windows'
       OnClick = btnConnectClick
+      ExplicitLeft = 849
     end
     object cmbGod: TComboBox
-      Left = 183
+      Left = 92
       Top = 1
-      Width = 244
-      Height = 62
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
+      Width = 122
+      Height = 34
       Margins.Bottom = 0
       Align = alLeft
       Style = csOwnerDrawFixed
       Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = -38
+      Font.Height = -19
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
-      ItemHeight = 56
+      ItemHeight = 28
       ParentFont = False
       TabOrder = 2
       TabStop = False
@@ -187,20 +196,16 @@ object fMain: TfMain
     end
     object btnUpdate: TButton
       AlignWithMargins = True
-      Left = 7
-      Top = 7
-      Width = 170
-      Height = 62
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
+      Left = 4
+      Top = 4
+      Width = 85
+      Height = 30
       Align = alLeft
       Caption = #1054#1073#1085#1086#1074#1083#1077#1085#1080#1077'!'
       Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = -24
+      Font.Height = -12
       Font.Name = 'Segoe UI'
       Font.Style = [fsBold]
       ParentFont = False
@@ -210,20 +215,20 @@ object fMain: TfMain
     end
     object btnDisconnect: TButton
       AlignWithMargins = True
-      Left = 1459
-      Top = 9
-      Width = 224
-      Height = 58
-      Margins.Left = 8
-      Margins.Top = 8
-      Margins.Right = 8
-      Margins.Bottom = 8
+      Left = 1109
+      Top = 5
+      Width = 112
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Align = alRight
       Caption = #1054#1090#1082#1083#1102#1095#1077#1085#1080#1077
       Enabled = False
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = 32
+      Font.Height = 16
       Font.Name = 'Courier New'
       Font.Style = [fsBold]
       ParentFont = False
@@ -231,69 +236,42 @@ object fMain: TfMain
       TabStop = False
       StyleName = 'Windows'
       OnClick = btnDisconnectClick
+      ExplicitLeft = 729
     end
     object cmbAuthUser: TComboBox
       AlignWithMargins = True
-      Left = 1039
-      Top = 7
-      Width = 412
-      Height = 62
-      Margins.Left = 8
-      Margins.Top = 6
-      Margins.Right = 8
-      Margins.Bottom = 6
+      Left = 895
+      Top = 4
+      Width = 206
+      Height = 21
+      Margins.Left = 4
+      Margins.Right = 4
       Align = alRight
       Style = csDropDownList
       DropDownCount = 12
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = -22
+      Font.Height = -11
       Font.Name = 'Segoe UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 5
       OnChange = cmbAuthUserChange
       OnCloseUp = cmbAuthUserCloseUp
-    end
-    object lblServerEndpoints: TLabel
-      AlignWithMargins = True
-      Left = 433
-      Top = 7
-      Width = 1010
-      Height = 62
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
-      Align = alClient
-      Alignment = taLeftJustify
-      Caption = ''
-      EllipsisPosition = epEndEllipsis
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -28
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      Layout = tlCenter
-      ParentFont = False
-      ShowAccelChar = False
+      ExplicitLeft = 515
     end
   end
   object PageControl1: TPageControl
     AlignWithMargins = True
-    Left = 6
-    Top = 94
-    Width = 1932
-    Height = 1132
-    Margins.Left = 6
-    Margins.Top = 6
-    Margins.Right = 6
-    Margins.Bottom = 6
+    Left = 3
+    Top = 47
+    Width = 1346
+    Height = 763
     ActivePage = TabSheet1
     Align = alClient
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
-    Font.Height = -26
+    Font.Height = -13
     Font.Name = 'Segoe UI'
     Font.Style = [fsBold]
     MultiLine = True
@@ -301,27 +279,21 @@ object fMain: TfMain
     TabOrder = 1
     StyleName = 'Windows'
     OnChange = PageControl1Change
+    ExplicitWidth = 966
+    ExplicitHeight = 566
     object TabSheet1: TTabSheet
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
       Caption = #1055#1086#1080#1089#1082
       object Label1: TLabel
         AlignWithMargins = True
-        Left = 66
-        Top = 172
-        Width = 254
-        Height = 54
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Left = 33
+        Top = 86
+        Width = 124
+        Height = 28
         Caption = 'Relative index:'
         Enabled = False
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
-        Font.Height = -40
+        Font.Height = -20
         Font.Name = 'Segoe UI'
         Font.Style = []
         ParentFont = False
@@ -329,63 +301,51 @@ object fMain: TfMain
       end
       object Splitter1: TSplitter
         AlignWithMargins = True
-        Left = 1070
-        Top = 6
-        Width = 36
-        Height = 1118
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Left = 535
+        Top = 3
+        Width = 18
+        Height = 725
         Color = clBtnFace
         ParentColor = False
-        ExplicitLeft = 1118
+        ExplicitHeight = 535
       end
       object Panel7: TPanel
-        Left = 1112
+        Left = 556
         Top = 0
-        Width = 804
-        Height = 1130
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Width = 782
+        Height = 731
         Align = alClient
         AutoSize = True
         Caption = 'Panel7'
         ShowCaption = False
         TabOrder = 0
+        ExplicitWidth = 402
+        ExplicitHeight = 534
         object ListBox1: TListBox
           AlignWithMargins = True
-          Left = 7
-          Top = 205
-          Width = 790
-          Height = 918
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Left = 4
+          Top = 103
+          Width = 774
+          Height = 624
           Align = alClient
           Enabled = False
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
-          Font.Height = -26
+          Font.Height = -13
           Font.Name = 'Segoe UI'
           Font.Style = []
-          ItemHeight = 36
+          ItemHeight = 17
           ParentFont = False
           TabOrder = 0
           Visible = False
+          ExplicitWidth = 394
+          ExplicitHeight = 427
         end
         object dbgEh: TDBGridEh
           Left = 1
-          Top = 199
-          Width = 802
-          Height = 930
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Top = 100
+          Width = 780
+          Height = 630
           Align = alClient
           AutoFitColWidths = True
           Border.ExtendedDraw = False
@@ -402,7 +362,7 @@ object fMain: TfMain
           Flat = True
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
-          Font.Height = -26
+          Font.Height = -13
           Font.Name = 'Segoe UI'
           Font.Style = []
           IndicatorOptions = [gioShowRowIndicatorEh, gioShowRecNoEh, gioShowRowselCheckboxesEh]
@@ -427,7 +387,7 @@ object fMain: TfMain
           TitleParams.FillStyle = cfstGradientEh
           TitleParams.Font.Charset = DEFAULT_CHARSET
           TitleParams.Font.Color = clWindowText
-          TitleParams.Font.Height = -52
+          TitleParams.Font.Height = -7
           TitleParams.Font.Name = 'Segoe UI'
           TitleParams.Font.Style = [fsBold]
           TitleParams.MultiTitle = True
@@ -448,7 +408,7 @@ object fMain: TfMain
               FieldName = 'num'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footer.EndEllipsis = True
@@ -459,10 +419,10 @@ object fMain: TfMain
               Title.Caption = #8470
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 120
+              Width = 60
               WordWrap = False
             end
             item
@@ -473,7 +433,7 @@ object fMain: TfMain
               FieldName = 'tel_num'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -483,10 +443,10 @@ object fMain: TfMain
               Title.Caption = #1058#1077#1083'. '#8470
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 120
+              Width = 60
               WordWrap = False
             end
             item
@@ -497,7 +457,7 @@ object fMain: TfMain
               FieldName = 'date'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -507,10 +467,10 @@ object fMain: TfMain
               Title.Caption = #1044#1072#1090#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 120
+              Width = 60
               WordWrap = False
             end
             item
@@ -524,7 +484,7 @@ object fMain: TfMain
               FieldName = 'podp_num'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -534,10 +494,10 @@ object fMain: TfMain
               Title.Caption = #1055#1086#1076#1087#1080#1089#1085#1086#1081' '#1085#1086#1084#1077#1088
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 200
+              Width = 100
               WordWrap = False
             end
             item
@@ -549,7 +509,7 @@ object fMain: TfMain
               FieldName = 'date_podp'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -559,10 +519,10 @@ object fMain: TfMain
               Title.Caption = #1044#1072#1090#1072' '#1087#1086#1076#1087'.'
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 200
+              Width = 100
               WordWrap = False
             end
             item
@@ -573,17 +533,17 @@ object fMain: TfMain
               FieldName = 'kr'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
               Title.Caption = #1050#1088#1072#1090#1082#1086#1077' '#1089#1086#1076#1077#1088#1078#1072#1085#1080#1077
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 500
+              Width = 250
             end
             item
               Alignment = taCenter
@@ -593,7 +553,7 @@ object fMain: TfMain
               FieldName = 'isp'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -603,10 +563,10 @@ object fMain: TfMain
               Title.Caption = #1048#1089#1087#1086#1083#1085#1080#1083'/ '#1087#1086#1076#1087#1080#1089#1072#1083
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 168
+              Width = 84
               WordWrap = False
             end
             item
@@ -618,7 +578,7 @@ object fMain: TfMain
               FieldName = 'type'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -632,10 +592,10 @@ object fMain: TfMain
               Title.Caption = #1058#1080#1087
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 110
+              Width = 55
               WordWrap = False
             end
             item
@@ -645,7 +605,7 @@ object fMain: TfMain
               FieldName = 'from_to'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -655,10 +615,10 @@ object fMain: TfMain
               Title.Caption = #1054#1090#1082#1091#1076#1072'/'#1082#1091#1076#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 200
+              Width = 100
               WordWrap = False
             end
             item
@@ -670,10 +630,10 @@ object fMain: TfMain
               Title.Caption = #1042#1099#1076#1072#1085#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -24
+              Title.Font.Height = -12
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 200
+              Width = 100
             end
             item
               CellButtons = <>
@@ -684,7 +644,7 @@ object fMain: TfMain
               FieldName = 'rel'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -693,11 +653,11 @@ object fMain: TfMain
               TextEditing = False
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
               Visible = False
-              Width = 110
+              Width = 55
               WordWrap = False
             end
             item
@@ -707,7 +667,7 @@ object fMain: TfMain
               FieldName = 'dir'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = []
               Footers = <>
@@ -717,11 +677,11 @@ object fMain: TfMain
               Title.Caption = #1044#1080#1088#1077#1082#1090#1086#1088#1080#1103' '#1092#1072#1081#1083#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
               Visible = False
-              Width = 200
+              Width = 100
               WordWrap = False
             end
             item
@@ -733,10 +693,10 @@ object fMain: TfMain
               Title.Caption = #1056#1072#1079#1085#1086#1089#1082#1072
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -24
+              Title.Font.Height = -12
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 200
+              Width = 100
             end
             item
               CellButtons = <>
@@ -747,11 +707,11 @@ object fMain: TfMain
               Title.Caption = #1059#1095'.'#1083'.('#1048#1089#1093')/'#1044#1086#1083#1078#1085#1086#1089#1090#1100'('#1042#1093')'
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -24
+              Title.Font.Height = -12
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
               Visible = False
-              Width = 200
+              Width = 100
             end
             item
               Alignment = taCenter
@@ -766,10 +726,10 @@ object fMain: TfMain
               Title.Caption = #1057#1090#1072#1090#1091#1089
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 90
+              Width = 70
             end
             item
               Alignment = taCenter
@@ -781,10 +741,10 @@ object fMain: TfMain
               TextEditing = False
               Title.Font.Charset = DEFAULT_CHARSET
               Title.Font.Color = clWindowText
-              Title.Font.Height = -22
+              Title.Font.Height = -11
               Title.Font.Name = 'Segoe UI'
               Title.Font.Style = [fsBold]
-              Width = 140
+              Width = 70
             end>
           object RowDetailData: TRowDetailPanelControlEh
             Margins.Left = 24
@@ -794,12 +754,8 @@ object fMain: TfMain
             object dbgMenu: TDBGridEh
               Left = 0
               Top = 0
-              Width = 691
+              Width = 709
               Height = 398
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
               Align = alClient
               AutoFitColWidths = True
               DynProps = <>
@@ -815,7 +771,7 @@ object fMain: TfMain
                   FieldName = 'menu'
                   Footers = <>
                   Title.Caption = #1052#1077#1085#1102':'
-                  Width = 120
+                  Width = 60
                 end>
               object RowDetailData: TRowDetailPanelControlEh
                 Margins.Left = 6
@@ -828,34 +784,32 @@ object fMain: TfMain
         end
         object searchOptPanel: TPanel
           AlignWithMargins = True
-          Left = 13
-          Top = 13
-          Width = 778
-          Height = 174
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 7
+          Width = 768
+          Height = 87
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alTop
           Caption = 'searchOptPanel'
           Color = clMoneyGreen
           ParentBackground = False
           ShowCaption = False
           TabOrder = 2
+          ExplicitWidth = 388
           object lbFilter: TLabel
             AlignWithMargins = True
-            Left = 666
-            Top = 7
-            Width = 244
-            Height = 30
-            Margins.Left = 6
-            Margins.Top = 40
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 333
+            Top = 4
+            Width = 130
+            Height = 13
+            Margins.Top = 20
             Caption = #1042#1082#1083#1102#1095#1077#1085#1072' '#1092#1080#1083#1100#1090#1088#1072#1094#1080#1103'!'
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clMaroon
-            Font.Height = -21
+            Font.Height = -11
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
@@ -863,32 +817,29 @@ object fMain: TfMain
           end
           object grpSaveOptions: TGroupBox
             AlignWithMargins = True
-            Left = 13
-            Top = 7
-            Width = 218
-            Height = 160
-            Margins.Left = 12
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 7
+            Top = 4
+            Width = 109
+            Height = 79
+            Margins.Left = 6
             Align = alLeft
             Caption = #1057#1086#1093#1088#1072#1085#1077#1085#1080#1077
             TabOrder = 0
             object chkPril: TCheckBox
-              Left = 2
-              Top = 30
-              Width = 210
-              Height = 60
+              Left = 1
+              Top = 15
+              Width = 105
+              Height = 30
               Hint = 'Ctrl+Alt+P'
-              Margins.Left = 12
-              Margins.Top = 12
-              Margins.Right = 12
-              Margins.Bottom = 12
+              Margins.Left = 6
+              Margins.Top = 6
+              Margins.Right = 6
+              Margins.Bottom = 6
               Align = alCustom
               Caption = #1055#1088#1080#1083#1086#1078#1077#1085#1080#1077
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -897,20 +848,20 @@ object fMain: TfMain
               TabOrder = 0
             end
             object chkText: TCheckBox
-              Left = 2
-              Top = 74
-              Width = 95
-              Height = 56
+              Left = 1
+              Top = 37
+              Width = 48
+              Height = 28
               Hint = 'Ctrl+Alt+T'
-              Margins.Left = 12
-              Margins.Top = 12
-              Margins.Right = 12
-              Margins.Bottom = 12
+              Margins.Left = 6
+              Margins.Top = 6
+              Margins.Right = 6
+              Margins.Bottom = 6
               Align = alCustom
               Caption = 'tlg'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -920,19 +871,19 @@ object fMain: TfMain
               OnClick = chkTextClick
             end
             object chkDocx: TCheckBox
-              Left = 90
-              Top = 74
-              Width = 94
-              Height = 56
-              Margins.Left = 12
-              Margins.Top = 12
-              Margins.Right = 12
-              Margins.Bottom = 12
+              Left = 45
+              Top = 37
+              Width = 47
+              Height = 28
+              Margins.Left = 6
+              Margins.Top = 6
+              Margins.Right = 6
+              Margins.Bottom = 6
               Align = alCustom
               Caption = 'docx'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -944,31 +895,23 @@ object fMain: TfMain
           end
           object GroupBox3: TGroupBox
             AlignWithMargins = True
-            Left = 243
-            Top = 7
-            Width = 334
-            Height = 160
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 122
+            Top = 4
+            Width = 167
+            Height = 79
             Align = alLeft
             Caption = #1044#1080#1088#1077#1082#1090#1086#1088#1080#1103
             TabOrder = 1
             object edtSaveDir: TEdit
               AlignWithMargins = True
-              Left = 8
-              Top = 98
-              Width = 318
-              Height = 38
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
+              Left = 4
+              Top = 49
+              Width = 159
+              Height = 19
               AutoSize = False
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -18
+              Font.Height = -9
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -980,15 +923,11 @@ object fMain: TfMain
             end
             object btnSave: TButton
               AlignWithMargins = True
-              Left = 8
-              Top = 44
-              Width = 200
-              Height = 42
+              Left = 4
+              Top = 22
+              Width = 100
+              Height = 21
               Hint = 'Ctrl+S'
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
               Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100
               DropDownMenu = popSaveButton
               ParentShowHint = False
@@ -998,10 +937,14 @@ object fMain: TfMain
               OnClick = btnSaveClick
             end
             object btnCancelSave: TButton
-              Left = 216
-              Top = 44
-              Width = 110
-              Height = 42
+              Left = 108
+              Top = 22
+              Width = 55
+              Height = 21
+              Margins.Left = 2
+              Margins.Top = 2
+              Margins.Right = 2
+              Margins.Bottom = 2
               Caption = #1054#1090#1084#1077#1085#1072
               Enabled = False
               TabOrder = 2
@@ -1009,18 +952,14 @@ object fMain: TfMain
             end
           end
           object Button2: TButton
-            Left = 589
-            Top = 43
-            Width = 182
-            Height = 50
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 295
+            Top = 22
+            Width = 91
+            Height = 25
             Caption = #1069#1082#1089#1087#1086#1088#1090' '#1086#1090#1095#1077#1090#1072
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -21
+            Font.Height = -11
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
@@ -1029,18 +968,14 @@ object fMain: TfMain
             OnClick = Button2Click
           end
           object btnEditColumns: TButton
-            Left = 589
-            Top = 99
-            Width = 182
-            Height = 42
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 295
+            Top = 50
+            Width = 91
+            Height = 21
             Caption = #1053#1072#1073#1086#1088' '#1082#1086#1083#1086#1085#1086#1082
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -16
+            Font.Height = -8
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
@@ -1048,17 +983,13 @@ object fMain: TfMain
             OnClick = btnEditColumnsClick
           end
           object edtLatency: TEdit
-            Left = 589
-            Top = 145
-            Width = 81
-            Height = 29
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 295
+            Top = 73
+            Width = 40
+            Height = 19
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -16
+            Font.Height = -8
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
@@ -1070,48 +1001,37 @@ object fMain: TfMain
       end
       object Panel8: TPanel
         AlignWithMargins = True
-        Left = 6
-        Top = 6
-        Width = 1052
-        Height = 1118
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Left = 3
+        Top = 3
+        Width = 526
+        Height = 725
         Align = alLeft
         Caption = 'Panel8'
         Color = clMoneyGreen
         ParentBackground = False
         TabOrder = 1
+        ExplicitHeight = 528
         object Panel9: TPanel
           Left = 1
           Top = 1
-          Width = 1050
-          Height = 194
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Width = 524
+          Height = 97
           Align = alTop
           Caption = 'searchOptPanel'
           ShowCaption = False
           TabOrder = 0
           object rgTypeT: TRadioGroup
             AlignWithMargins = True
-            Left = 323
-            Top = 7
-            Width = 126
-            Height = 180
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 162
+            Top = 4
+            Width = 63
+            Height = 89
             Align = alLeft
             Caption = #1058#1080#1087
             Enabled = False
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -22
+            Font.Height = -11
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ItemIndex = 0
@@ -1123,30 +1043,26 @@ object fMain: TfMain
           end
           object grpSqlParam: TGroupBox
             AlignWithMargins = True
-            Left = 461
-            Top = 7
-            Width = 340
-            Height = 180
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 231
+            Top = 4
+            Width = 170
+            Height = 89
             Align = alLeft
             Caption = #1055#1072#1088#1072#1084#1077#1090#1088#1099' '#1079#1072#1087#1088#1086#1089#1072
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -22
+            Font.Height = -11
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
             TabOrder = 1
             object grdParam: TGridPanel
               Left = 2
-              Top = 32
-              Width = 336
-              Height = 146
+              Top = 15
+              Width = 166
+              Height = 72
               Margins.Left = 1
-              Margins.Top = 2
+              Margins.Top = 1
               Margins.Right = 1
               Margins.Bottom = 1
               Align = alClient
@@ -1195,62 +1111,52 @@ object fMain: TfMain
               TabStop = True
               object Label2: TLabel
                 AlignWithMargins = True
-                Left = 6
-                Top = 6
-                Width = 324
-                Height = 19
-                Margins.Left = 6
-                Margins.Top = 6
-                Margins.Right = 6
-                Margins.Bottom = 6
+                Left = 3
+                Top = 3
+                Width = 160
+                Height = 9
                 Align = alClient
                 Caption = #1055#1086#1083#1077':'
                 Font.Charset = DEFAULT_CHARSET
                 Font.Color = clWindowText
-                Font.Height = -16
+                Font.Height = -8
                 Font.Name = 'Segoe UI'
                 Font.Style = [fsBold]
                 ParentFont = False
-                ExplicitWidth = 45
-                ExplicitHeight = 21
+                ExplicitWidth = 22
+                ExplicitHeight = 11
               end
               object Label3: TLabel
                 AlignWithMargins = True
-                Left = 6
-                Top = 79
-                Width = 324
-                Height = 19
-                Margins.Left = 6
-                Margins.Top = 6
-                Margins.Right = 6
-                Margins.Bottom = 6
+                Left = 3
+                Top = 39
+                Width = 160
+                Height = 9
                 Align = alClient
                 Caption = #1052#1072#1082#1089#1080#1084#1072#1083#1100#1085#1086#1077' '#1095#1080#1089#1083#1086' '#1086#1090#1074#1077#1090#1086#1074':'
                 Font.Charset = DEFAULT_CHARSET
                 Font.Color = clWindowText
-                Font.Height = -16
+                Font.Height = -8
                 Font.Name = 'Segoe UI'
                 Font.Style = [fsBold]
                 ParentFont = False
-                ExplicitWidth = 241
-                ExplicitHeight = 21
+                ExplicitTop = 40
+                ExplicitWidth = 120
+                ExplicitHeight = 11
               end
               object cmbMaxReq: TComboBox
                 AlignWithMargins = True
-                Left = 6
-                Top = 110
-                Width = 324
-                Height = 33
-                Margins.Left = 6
-                Margins.Top = 6
-                Margins.Right = 6
-                Margins.Bottom = 14
+                Left = 3
+                Top = 54
+                Width = 160
+                Height = 20
+                Margins.Bottom = 7
                 Align = alClient
                 Ctl3D = False
                 Enabled = False
                 Font.Charset = DEFAULT_CHARSET
                 Font.Color = clWindowText
-                Font.Height = -19
+                Font.Height = -10
                 Font.Name = 'Segoe UI'
                 Font.Style = [fsBold]
                 ImeName = 'Russian'
@@ -1272,21 +1178,17 @@ object fMain: TfMain
               end
               object cmbField: TComboBox
                 AlignWithMargins = True
-                Left = 6
-                Top = 37
-                Width = 324
-                Height = 33
-                Margins.Left = 6
-                Margins.Top = 6
-                Margins.Right = 6
-                Margins.Bottom = 6
+                Left = 3
+                Top = 18
+                Width = 160
+                Height = 20
                 Align = alClient
                 Ctl3D = False
                 DropDownCount = 11
                 Enabled = False
                 Font.Charset = DEFAULT_CHARSET
                 Font.Color = clWindowText
-                Font.Height = -19
+                Font.Height = -10
                 Font.Name = 'Segoe UI'
                 Font.Style = [fsBold]
                 ImeName = 'Russian'
@@ -1314,33 +1216,25 @@ object fMain: TfMain
           end
           object grpSql: TGroupBox
             AlignWithMargins = True
-            Left = 7
-            Top = 7
-            Width = 304
-            Height = 180
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 4
+            Width = 152
+            Height = 89
             Align = alLeft
             Caption = 'SQL'
             TabOrder = 2
             object chkExc: TCheckBox
               AlignWithMargins = True
-              Left = 8
-              Top = 100
-              Width = 288
-              Height = 72
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
+              Left = 5
+              Top = 48
+              Width = 142
+              Height = 36
               Align = alBottom
               Caption = #1058#1086#1095#1085#1086#1077' '#1089#1086#1074#1087#1072#1076#1077#1085#1080#1077
               Enabled = False
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -1348,19 +1242,15 @@ object fMain: TfMain
             end
             object chkSQL: TCheckBox
               AlignWithMargins = True
-              Left = 8
-              Top = 44
-              Width = 288
-              Height = 58
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
+              Left = 5
+              Top = 22
+              Width = 142
+              Height = 29
               Align = alTop
               Caption = 'SQL'
               Font.Charset = DEFAULT_CHARSET
               Font.Color = clWindowText
-              Font.Height = -22
+              Font.Height = -11
               Font.Name = 'Segoe UI'
               Font.Style = [fsBold]
               ParentFont = False
@@ -1370,33 +1260,25 @@ object fMain: TfMain
           end
           object GroupBox1: TGroupBox
             AlignWithMargins = True
-            Left = 813
-            Top = 7
-            Width = 230
-            Height = 180
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 407
+            Top = 4
+            Width = 113
+            Height = 89
             Align = alClient
             Caption = #1064#1072#1073#1083#1086#1085#1099
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -22
+            Font.Height = -11
             Font.Name = 'Segoe UI'
             Font.Style = [fsBold]
             ParentFont = False
             TabOrder = 3
             object Button1: TButton
               AlignWithMargins = True
-              Left = 8
-              Top = 108
-              Width = 214
-              Height = 58
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
+              Left = 5
+              Top = 53
+              Width = 103
+              Height = 29
               Align = alTop
               Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100
               TabOrder = 0
@@ -1404,14 +1286,10 @@ object fMain: TfMain
             end
             object Button3: TButton
               AlignWithMargins = True
-              Left = 8
-              Top = 38
-              Width = 214
-              Height = 58
-              Margins.Left = 6
-              Margins.Top = 6
-              Margins.Right = 6
-              Margins.Bottom = 6
+              Left = 5
+              Top = 18
+              Width = 103
+              Height = 29
               Align = alTop
               Caption = #1055#1086#1082#1072#1079#1072#1090#1100'/'#1089#1082#1088#1099#1090#1100
               TabOrder = 1
@@ -1421,14 +1299,10 @@ object fMain: TfMain
         end
         object pnShablons: TPanel
           AlignWithMargins = True
-          Left = 777
-          Top = 201
-          Width = 268
-          Height = 910
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Left = 388
+          Top = 101
+          Width = 134
+          Height = 620
           Align = alRight
           Caption = 'pnShablons'
           Color = clMoneyGreen
@@ -1436,44 +1310,36 @@ object fMain: TfMain
           ShowCaption = False
           TabOrder = 1
           Visible = False
+          ExplicitHeight = 423
           object Label5: TLabel
             AlignWithMargins = True
-            Left = 7
-            Top = 7
-            Width = 232
-            Height = 36
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 4
+            Width = 126
+            Height = 17
             Align = alTop
             Caption = #1043#1088#1091#1087#1087#1072' '#1096#1072#1073#1083#1086#1085#1086#1074':'
+            ExplicitWidth = 118
           end
           object Label6: TLabel
             AlignWithMargins = True
-            Left = 7
-            Top = 589
-            Width = 132
-            Height = 36
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 294
+            Width = 126
+            Height = 17
             Align = alTop
             Caption = #1064#1072#1073#1083#1086#1085#1099':'
+            ExplicitTop = 295
+            ExplicitWidth = 67
           end
           object lstShGroups: TListBox
             AlignWithMargins = True
-            Left = 7
-            Top = 55
-            Width = 254
-            Height = 522
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 27
+            Width = 126
+            Height = 261
             Align = alTop
-            ItemHeight = 36
+            ItemHeight = 17
             PopupMenu = PopupMenu2
             Sorted = True
             TabOrder = 0
@@ -1481,100 +1347,85 @@ object fMain: TfMain
           end
           object lstTemplates: TListBox
             AlignWithMargins = True
-            Left = 7
-            Top = 637
-            Width = 254
-            Height = 266
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 317
+            Width = 126
+            Height = 299
             Align = alClient
             ImeName = 'lstTemplates'
-            ItemHeight = 36
+            ItemHeight = 17
             PopupMenu = popMenu
             Sorted = True
             TabOrder = 1
             OnClick = lstTemplatesClick
             OnDblClick = lstTemplatesDblClick
+            ExplicitHeight = 102
           end
         end
         object Panel11: TPanel
           Left = 1
-          Top = 195
-          Width = 770
-          Height = 922
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Top = 98
+          Width = 384
+          Height = 626
           Align = alClient
           Caption = 'Panel11'
           TabOrder = 2
+          ExplicitHeight = 429
           object btnSearch: TButton
             AlignWithMargins = True
-            Left = 7
-            Top = 82
-            Width = 756
-            Height = 56
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 45
+            Width = 376
+            Height = 28
             Align = alTop
             Caption = #1055#1086#1080#1089#1082
             Enabled = False
             TabOrder = 1
             TabStop = False
             OnClick = btnSearchClick
+            ExplicitTop = 71
           end
           object chkOEM: TCheckBox
             AlignWithMargins = True
-            Left = 7
-            Top = 196
-            Width = 756
-            Height = 34
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 102
+            Width = 376
+            Height = 17
             TabStop = False
             Align = alTop
             Caption = 'OEM-866'
             Checked = True
             State = cbChecked
             TabOrder = 2
+            ExplicitTop = 128
           end
           object chkUpper: TCheckBox
             AlignWithMargins = True
-            Left = 7
-            Top = 150
-            Width = 756
-            Height = 34
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 79
+            Width = 376
+            Height = 17
             TabStop = False
             Align = alTop
             Caption = #1059#1095#1080#1090#1099#1074#1072#1090#1100' '#1088#1077#1075#1080#1089#1090#1088' '#1089#1080#1084#1074#1086#1083#1086#1074
             TabOrder = 3
             Visible = False
+            ExplicitTop = 105
           end
           object cmbReq: TComboBox
             AlignWithMargins = True
-            Left = 9
-            Top = 9
-            Width = 752
-            Height = 59
-            Margins.Left = 8
-            Margins.Top = 8
-            Margins.Right = 8
-            Margins.Bottom = 8
+            Left = 5
+            Top = 5
+            Width = 374
+            Height = 33
+            Margins.Left = 4
+            Margins.Top = 4
+            Margins.Right = 4
+            Margins.Bottom = 4
             Align = alTop
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -38
+            Font.Height = -19
             Font.Name = 'Segoe UI'
             Font.Style = []
             ParentFont = False
@@ -1585,14 +1436,10 @@ object fMain: TfMain
           end
           object rchEdt: TRichEdit
             AlignWithMargins = True
-            Left = 7
-            Top = 242
-            Width = 756
-            Height = 673
-            Margins.Left = 6
-            Margins.Top = 6
-            Margins.Right = 6
-            Margins.Bottom = 6
+            Left = 4
+            Top = 125
+            Width = 376
+            Height = 497
             Align = alClient
             Enabled = False
             Font.Charset = RUSSIAN_CHARSET
@@ -1605,82 +1452,86 @@ object fMain: TfMain
             ScrollBars = ssVertical
             TabOrder = 4
             OnClick = rchEdtClick
+            ExplicitTop = 151
+            ExplicitHeight = 274
           end
         end
       end
     end
     object tbLoad: TTabSheet
-      Margins.Left = 12
-      Margins.Top = 12
-      Margins.Right = 12
-      Margins.Bottom = 12
+      Margins.Left = 6
+      Margins.Top = 6
+      Margins.Right = 6
+      Margins.Bottom = 6
       Caption = #1047#1072#1075#1088#1091#1079#1082#1072
       ImageIndex = 2
       OnShow = tbLoadShow
       object Panel10: TPanel
         AlignWithMargins = True
-        Left = 12
-        Top = 12
-        Width = 1014
-        Height = 1106
-        Margins.Left = 12
-        Margins.Top = 12
-        Margins.Right = 12
-        Margins.Bottom = 12
+        Left = 6
+        Top = 6
+        Width = 507
+        Height = 522
+        Margins.Left = 6
+        Margins.Top = 6
+        Margins.Right = 6
+        Margins.Bottom = 6
         Align = alLeft
         Caption = 'Panel10'
         TabOrder = 0
+        ExplicitHeight = 529
         object Label7: TLabel
           AlignWithMargins = True
-          Left = 13
-          Top = 261
-          Width = 988
-          Height = 45
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 131
+          Width = 493
+          Height = 21
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alTop
           Caption = #1060#1072#1081#1083#1099' '#1076#1083#1103' '#1079#1072#1075#1088#1091#1079#1082#1080':'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
-          Font.Height = -32
+          Font.Height = -16
           Font.Name = 'Segoe UI'
           Font.Style = [fsBold]
           ParentFont = False
-          ExplicitWidth = 328
+          ExplicitWidth = 166
         end
         object btnLoadOnServerFiles: TButton
           AlignWithMargins = True
-          Left = 13
-          Top = 137
-          Width = 988
-          Height = 100
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 69
+          Width = 493
+          Height = 50
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alTop
           Caption = #1047#1072#1075#1088#1091#1079#1080#1090#1100' '#1092#1072#1081#1083#1099' '#1085#1072' '#1086#1090#1087#1088#1072#1074#1082#1091
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
-          Font.Height = -38
+          Font.Height = -19
           Font.Name = 'Segoe UI'
           Font.Style = [fsBold]
           ParentFont = False
           TabOrder = 0
           OnClick = btnLoadOnServerFilesClick
+          ExplicitWidth = 494
         end
         object memLogLoad: TMemo
           AlignWithMargins = True
-          Left = 13
-          Top = 966
-          Width = 988
-          Height = 127
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 482
+          Width = 493
+          Height = 33
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alClient
           Lines.Strings = (
             'memLogLoad')
@@ -1689,67 +1540,65 @@ object fMain: TfMain
         end
         object lstFiles: TListBox
           AlignWithMargins = True
-          Left = 13
-          Top = 330
-          Width = 988
-          Height = 612
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 164
+          Width = 493
+          Height = 306
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alTop
           ImeName = 'lst'
-          ItemHeight = 36
+          ItemHeight = 18
           PopupMenu = popListFilesLoad
           TabOrder = 2
         end
         object btnAddFilesLoad: TButton
           AlignWithMargins = True
-          Left = 13
-          Top = 13
-          Width = 988
-          Height = 100
-          Margins.Left = 12
-          Margins.Top = 12
-          Margins.Right = 12
-          Margins.Bottom = 12
+          Left = 7
+          Top = 7
+          Width = 493
+          Height = 50
+          Margins.Left = 6
+          Margins.Top = 6
+          Margins.Right = 6
+          Margins.Bottom = 6
           Align = alTop
           Caption = #1044#1086#1073#1072#1074#1080#1090#1100' '#1092#1072#1081#1083#1099
           DisabledImageName = 'btnAddFilesLoad'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
-          Font.Height = -38
+          Font.Height = -19
           Font.Name = 'Segoe UI'
           Font.Style = [fsBold]
           ParentFont = False
           TabOrder = 3
           OnClick = btnAddFilesLoadClick
+          ExplicitWidth = 494
         end
       end
       object pnlRaznoska: TPanel
         AlignWithMargins = True
-        Left = 1044
-        Top = 6
-        Width = 654
-        Height = 1118
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Left = 522
+        Top = 3
+        Width = 327
+        Height = 725
         Align = alLeft
         Caption = 'pnlRaznoska'
         ShowCaption = False
         TabOrder = 1
+        ExplicitHeight = 535
         object btnSaveOpisBase: TButton
           AlignWithMargins = True
-          Left = 5
-          Top = 223
-          Width = 644
-          Height = 100
-          Margins.Left = 4
-          Margins.Top = 4
-          Margins.Right = 4
-          Margins.Bottom = 4
+          Left = 3
+          Top = 112
+          Width = 322
+          Height = 50
+          Margins.Left = 2
+          Margins.Top = 2
+          Margins.Right = 2
+          Margins.Bottom = 2
           Align = alTop
           Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100' '#1073#1072#1079#1091' '#1076#1083#1103' '#1086#1087#1080#1089#1077#1081
           TabOrder = 0
@@ -1757,14 +1606,14 @@ object fMain: TfMain
         end
         object btnLoadRazn: TButton
           AlignWithMargins = True
-          Left = 5
-          Top = 5
-          Width = 644
-          Height = 102
-          Margins.Left = 4
-          Margins.Top = 4
-          Margins.Right = 4
-          Margins.Bottom = 4
+          Left = 3
+          Top = 3
+          Width = 322
+          Height = 51
+          Margins.Left = 2
+          Margins.Top = 2
+          Margins.Right = 2
+          Margins.Bottom = 2
           Align = alTop
           Caption = #1047#1072#1075#1088#1091#1079#1080#1090#1100' '#1088#1072#1079#1085#1086#1089#1082#1091
           TabOrder = 1
@@ -1772,14 +1621,14 @@ object fMain: TfMain
         end
         object btnAttachSave: TButton
           AlignWithMargins = True
-          Left = 5
-          Top = 115
-          Width = 644
-          Height = 100
-          Margins.Left = 4
-          Margins.Top = 4
-          Margins.Right = 4
-          Margins.Bottom = 4
+          Left = 3
+          Top = 58
+          Width = 322
+          Height = 50
+          Margins.Left = 2
+          Margins.Top = 2
+          Margins.Right = 2
+          Margins.Bottom = 2
           Align = alTop
           Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100' '#1087#1088#1080#1083#1086#1078#1077#1085#1080#1103
           TabOrder = 2
@@ -1788,34 +1637,22 @@ object fMain: TfMain
       end
     end
     object tbSettings: TTabSheet
-      Margins.Left = 6
-      Margins.Top = 6
-      Margins.Right = 6
-      Margins.Bottom = 6
       Caption = #1053#1072#1089#1090#1088#1086#1081#1082#1080
       ImageIndex = 2
       object tbcSettings: TTabControl
         AlignWithMargins = True
-        Left = 6
-        Top = 6
-        Width = 1904
-        Height = 1118
-        Margins.Left = 6
-        Margins.Top = 6
-        Margins.Right = 6
-        Margins.Bottom = 6
+        Left = 3
+        Top = 3
+        Width = 952
+        Height = 559
         Align = alClient
         TabOrder = 0
         OnChange = tbcSettingsChange
         object dbghSettings: TDBGridEh
-          Left = 8
-          Top = 10
-          Width = 1888
-          Height = 1100
-          Margins.Left = 6
-          Margins.Top = 6
-          Margins.Right = 6
-          Margins.Bottom = 6
+          Left = 4
+          Top = 6
+          Width = 1324
+          Height = 715
           Align = alClient
           AutoFitColWidths = True
           DataSource = srcSettings
