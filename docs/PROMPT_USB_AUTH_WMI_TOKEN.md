@@ -38,7 +38,7 @@ API уже в проекте: `UsbHardwareSerial.h` / `UsbHardwareSerial.cpp`.
 | Лейбл | `lblUser` в `formMain` |
 | Состояние | `formMain.h`: `auth_`, `user_`, `token_dir_`, `gTokens`, `gTick`, таймеры `tmLoginIn` / `tmLoginOut` |
 
-Документация текущего UX: `tutorials/functions/01_CONNECTION_AND_AUTH.md`, `docs/TECHNICAL_NOTES.md` (раздел временной авторизации).
+Документация текущего UX: `tutorials/Краткие_инструкции/01_Подключение_и_авторизация.html`, `docs/TECHNICAL_NOTES.md` (раздел временной авторизации).
 
 Референс WMI watcher (события, не polling):
 

@@ -31,7 +31,7 @@ object fSelectServer: TfSelectServer
     Margins.Right = 16
     Margins.Bottom = 8
     Align = alTop
-    Caption = 
+    Caption =
       'Several servers are configured for this year. Choose where to se' +
       'nd the database update command.'
     Font.Charset = DEFAULT_CHARSET
@@ -109,6 +109,55 @@ object fSelectServer: TfSelectServer
       Default = True
       TabOrder = 0
       OnClick = btnOkClick
+    end
+  end
+  object pnOpis: TPanel
+    Left = 0
+    Top = 150
+    Width = 460
+    Height = 150
+    Align = alBottom
+    BevelOuter = bvNone
+    TabOrder = 2
+    Visible = False
+    object lblOpisYear: TLabel
+      Left = 16
+      Top = 8
+      Width = 170
+      Height = 20
+      Caption = 'Opis file year:'
+    end
+    object edtOpisYear: TEdit
+      Left = 190
+      Top = 4
+      Width = 80
+      Height = 25
+      MaxLength = 4
+      NumbersOnly = True
+      ShowHint = True
+      TabOrder = 0
+      OnChange = OpisOptionsChange
+    end
+    object lblOpisPath: TLabel
+      Left = 16
+      Top = 38
+      Width = 428
+      Height = 52
+      Anchors = [akLeft, akTop, akRight]
+      AutoSize = False
+      ShowHint = True
+      WordWrap = True
+    end
+    object chkReplaceOpis: TCheckBox
+      Left = 16
+      Top = 96
+      Width = 428
+      Height = 40
+      Anchors = [akLeft, akTop, akRight]
+      Caption = 'Replace existing database after download'
+      TabOrder = 1
+      WordWrap = True
+      OnClick = OpisOptionsChange
     end
   end
 end

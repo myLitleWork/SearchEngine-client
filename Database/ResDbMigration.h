@@ -9,6 +9,7 @@
 
 #include "SqliteDb.h"
 #include "UserFileReplace.h"
+#include "ServerGroupSettings.h"
 
 // ---------------------------------------------------------------------------
 // Header-only module: splitting legacy Res.db3 into Settings.db3 + SearchRes.db3.
@@ -55,7 +56,7 @@ namespace ResDbDetail
 			"CREATE TABLE \"ports\" (\"port\" integer NOT NULL, \"god\" VARCHAR NOT NULL, PRIMARY KEY (\"port\", \"god\"));"
 			"DROP TABLE IF EXISTS \"server_ports\";"
 			"CREATE TABLE \"server_ports\" (\"server_id\" VARCHAR NOT NULL, \"god\" VARCHAR NOT NULL, "
-			"\"port\" INTEGER NOT NULL, \"enabled\" INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (\"server_id\", \"god\"));"
+			"\"port\" INTEGER NOT NULL, \"enabled\" INTEGER NOT NULL DEFAULT 1, \"server_year\" INTEGER, PRIMARY KEY (\"server_id\", \"god\"));"
 			"DROP TABLE IF EXISTS \"servers\";"
 			"CREATE TABLE \"servers\" (\"server_id\" VARCHAR NOT NULL PRIMARY KEY, \"display_name\" VARCHAR NOT NULL, "
 			"\"host\" VARCHAR NOT NULL, \"enabled\" INTEGER NOT NULL DEFAULT 1, \"sort_order\" INTEGER NOT NULL DEFAULT 0);"
@@ -208,6 +209,7 @@ namespace ResDbDetail
 					L"CREATE TABLE IF NOT EXISTS server_ports ("
 					L"server_id VARCHAR NOT NULL, god VARCHAR NOT NULL, port INTEGER NOT NULL, "
 					L"enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (server_id, god))");
+				ServerGroups::EnsureYearColumn(con.get(), settingsDbPath);
 				if (!tableExists(con.get(), L"servers")) {
 					if (errorMsg)
 						*errorMsg =

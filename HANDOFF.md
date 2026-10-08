@@ -54,8 +54,9 @@ N2Click A; P1/P2 A…; rare: file no-replace, 1GiB, InitDbgDS; admin984 B risk).
   `uiFilePath`/`uiOk`; `ShowMessage` только в UI-потоке; финальный
   `componentsEnable(true)` обязателен.
 - **Поиск и `tmLoadTextTimer`:** callback проверяет live-token.
-- **Документация:** `tutorials/functions/02_SEARCH.md`, `07_UPLOAD_AND_ADMIN.md`,
-  `PROGRAM_OVERVIEW.md`.
+- **Документация:** `tutorials/Краткие_инструкции/02_Поиск.html`,
+  `tutorials/Краткие_инструкции/07_Загрузка_и_служебные_операции.html`,
+  `tutorials/Обзор_программы.html`.
 
 ## Что устранено 2026-08-16 — блокер 5 (вариант A)
 
@@ -68,7 +69,7 @@ N2Click A; P1/P2 A…; rare: file no-replace, 1GiB, InitDbgDS; admin984 B risk).
 - **Повтор:** вход в миграцию, пока есть `Res.db3` и `Settings.db3` неполный
   (нет таблиц или число строк не совпало с legacy). Частичный Settings больше
   не считается успехом.
-- **Документация:** `tutorials/DATA_AND_FILES.md`, `tutorials/TROUBLESHOOTING.md`,
+- **Документация:** `tutorials/Данные_и_файлы.html`, `tutorials/Решение_проблем.html`,
   `docs/TECHNICAL_NOTES.md`.
 
 ## Что устранено 2026-08-16 — блокеры 3 и 4 (вариант A+A)
@@ -83,7 +84,7 @@ N2Click A; P1/P2 A…; rare: file no-replace, 1GiB, InitDbgDS; admin984 B risk).
 - **`ExtZip` / `SaveFileIsh`:** структурированный итог; частичная распаковка
   больше не маскируется под полный успех; целевые и archive-пути валидируются.
 - **`Message::saveToDirectory`:** containment + `WriteNewFile`.
-- **Документация:** `tutorials/functions/04_SAVE_FILES.md`.
+- **Документация:** `tutorials/Краткие_инструкции/04_Сохранение_файлов.html`.
 
 ## Что устранено 2026-08-16 — блокер 1 (вариант B)
 
@@ -99,8 +100,8 @@ N2Click A; P1/P2 A…; rare: file no-replace, 1GiB, InitDbgDS; admin984 B risk).
 - **`rel`:** параметр `ftFloat`, значение без `(int)`.
 - **Автозагрузка текста:** `applyRchEdtText` сохраняет блок диагностики над
   текстом телеграммы (`——— текст телеграммы ———`).
-- **Документация:** `tutorials/functions/02_SEARCH.md`,
-  `tutorials/TROUBLESHOOTING.md`, `tutorials/MULTI_SERVER_SEARCH.md`.
+- **Документация:** `tutorials/Краткие_инструкции/02_Поиск.html`,
+  `tutorials/Решение_проблем.html`, `tutorials/Многосерверный_поиск.html`.
 
 Не вошло: остаток блокера 6 (пакетное сохранение файлов / attach package, если
 ещё без gate); остальные P1/P2; редкие сценарии (в т.ч. no-replace

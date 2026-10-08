@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SearchClient: назначение и обычный порядок работы</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html" aria-current="page">Обзор программы</a>
+<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
+<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>SearchClient: назначение и обычный порядок работы</h1><aside class="toc" aria-label="Содержание"><strong>В этом руководстве</strong><ol><li><a href="#section-1">Для чего нужна программа</a></li><li><a href="#section-2">Что нужно перед первым запуском</a></li><li><a href="#section-3">Как устроено главное окно</a></li><li><a href="#section-4">Первый рабочий поиск</a></li><li><a href="#section-5">Что сохраняется между запусками</a></li><li><a href="#section-6">Как завершить работу</a></li><li><a href="#section-7">Небольшие темы для видео</a></li></ol></aside>
+<p>Руководство для пользователя. Сверено с исходниками клиента 4.3.66 и сервера 0.1.91. Все темы: <a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>.</p>
+<h2 id="section-1">1. Для чего нужна программа</h2>
+<p>SearchClient — программа Windows для поиска входящих и исходящих телеграмм на поисковых серверах. Она помогает найти документ по содержимому или учётным сведениям, прочитать текст, посмотреть маршрут, приложения и подтверждения, сохранить нужные файлы и подготовить отчёт.</p>
+<p>Клиент обращается к серверу. На сервере находятся индекс текстов, базы AutoPad и сами документы. На компьютере пользователя находятся настройки, шаблоны запросов и временная таблица результатов. Устанавливать сюда серверные базы для обычной работы не требуется.</p>
+<p>Одна программа может искать одновременно на нескольких серверах. Выбор группы определяет, к каким службам и портам обращаться. Старый замороженный год можно просматривать тем же клиентом, если архивная служба запущена, добавлена в настройки и разрешает вам доступ.</p>
+<h2 id="section-2">2. Что нужно перед первым запуском</h2>
+<ol>
+<li>Распакованный комплект клиента в локальную папку с правом записи. Запускайте <code>app\SearchClient_asio.exe</code>, сохранив остальные файлы комплекта.</li>
+<li>Адрес сервера, год и фактический TCP-порт от специалиста, который установил сервер.</li>
+<li>Для удалённого сервера — выданный подписанный токен ПК или USB-флешки и разрешение на этом сервере. Для локальной службы на том же компьютере в комплекте предусмотрен <code>admin984.bin</code>.</li>
+<li>Для DOCX дополнительно нужны Microsoft Word и поставляемый <code>sht.docm</code>. Для поиска, скачивания исходного текста и приложений Word не требуется.</li>
+</ol>
+<p><strong>Надпись «Авторизация : …» подтверждает местный вход.</strong> Возможность искать появляется после отдельной успешной авторизации на сервере. Файл <code>admin984.bin</code> обеспечивает местный режим admin; текущий сервер принимает его только при соединении с <code>127.0.0.1</code>. Он не заменяет токен для работы по сети.</p>
+<h2 id="section-3">3. Как устроено главное окно</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Область</th>
+<th>Что здесь делать</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Верхняя панель</td>
+<td>Выбрать пользователя/токен и подключение в списке <strong>Сервер / группа</strong>, подключиться, проверить статус и список адресов с портами, отключиться</td>
+</tr>
+<tr>
+<td><strong>Поиск</strong></td>
+<td>Ввести запрос, выбрать режим, читать результаты и текст, открыть детали, использовать шаблоны, сохранить файлы или отчёт</td>
+</tr>
+<tr>
+<td><strong>Загрузка</strong></td>
+<td>Передать подготовленные файлы на отправку или разноску, получить опись или пакет приложений пользователя</td>
+</tr>
+<tr>
+<td><strong>Настройки</strong></td>
+<td>Настроить каталог серверов и портов, разрешить панель деталей; остальные словари обычно уже заполнены организацией</td>
+</tr>
+</tbody></table></div>
+<p>Обычный пользователь большую часть времени работает на вкладке <strong>Поиск</strong>. Кнопка <strong>Обновление!</strong> запрашивает обновление индекса на основном сервере; для каждого поиска нажимать её не нужно.</p>
+<h2 id="section-4">4. Первый рабочий поиск</h2>
+<ol>
+<li>Запустите клиент. Выберите нужный токен в верхнем списке, если их несколько.</li>
+<li>Проверьте группу серверов. Нажмите <strong>Подключение</strong>, если автоматическое подключение ещё не выполнено.</li>
+<li>Дождитесь статуса <code>авторизовано серверов K/N</code>. Для полноценной выборки нужны все ожидаемые серверы; при <code>K &lt; N</code> поиск охватит только принявшие авторизацию.</li>
+<li>Для поиска слов в документе снимите <strong>SQL</strong>, оставьте <strong>OEM-866</strong> включённым и введите слова без внешних точек и кавычек. Для поиска номера или другого поля включите <strong>SQL</strong>, выберите <strong>Вх.</strong> либо <strong>Исх.</strong>, поле и значение.</li>
+<li>Нажмите <strong>Поиск</strong> или <code>Ctrl+F</code>. Дождитесь завершения и прочитайте статус: пустой успешный ответ и ошибка сервера означают разное.</li>
+<li>Щёлкните найденную строку и прочитайте текст. При необходимости откройте плюсик у строки: <strong>Путь:</strong>, <strong>Приложения:</strong>, <strong>Подтверждения:</strong> для исходящих.</li>
+<li>Для скачивания отметьте нужные строки галочками слева, выберите <strong>Приложение</strong>, <strong>tlg</strong> или <strong>docx</strong>, папку и нажмите <strong>Сохранить</strong>.</li>
+<li>Проверьте итоговый журнал и файлы в папке. Для табличного отчёта используйте <strong>Экспорт отчета</strong>.</li>
+</ol>
+<p>Подробные правила двух режимов: <a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">поиск и шаблоны</a>. Просмотр и отчёты: <a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">работа с результатами</a>. Получение документов: <a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">сохранение файлов</a>.</p>
+<h2 id="section-5">5. Что сохраняется между запусками</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Данные</th>
+<th>Где сохраняются</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Серверы, порты, словари, <code>use_f12</code></td>
+<td><code>Settings.db3</code> рядом с EXE</td>
+</tr>
+<tr>
+<td>Именованные запросы</td>
+<td><code>Templates.json</code> рядом с EXE</td>
+</tr>
+<tr>
+<td>Сохранённая видимость и ширина колонок</td>
+<td><code>DbgEhColumns.ini</code> рядом с EXE, после пункта <strong>Сохранить</strong> в меню колонок</td>
+</tr>
+<tr>
+<td>Токен этого ПК</td>
+<td><code>%LOCALAPPDATA%\SearchEngine\searchclient-auth-token.json</code> текущего пользователя Windows</td>
+</tr>
+<tr>
+<td>Токен USB</td>
+<td>На выданной флешке; обычно файл в корне</td>
+</tr>
+<tr>
+<td>Размер и положение окна</td>
+<td>Профиль пользователя Windows</td>
+</tr>
+<tr>
+<td>Скачанные файлы и отчёты</td>
+<td>Выбранные вами папки</td>
+</tr>
+</tbody></table></div>
+<p><code>SearchRes.db3</code> содержит временные результаты. Новый поиск, новое подключение и следующий запуск очищают прежнюю выборку. История строк запроса содержит до девяти последних запросов только в текущем сеансе. Год, режим, лимит и папку сохранения проверяйте перед операцией; шаблон запроса сохраняет лишь часть параметров.</p>
+<p>При обновлении клиента сохраните свою <code>Settings.db3</code>, <code>Templates.json</code> и <code>DbgEhColumns.ini</code>. Не заменяйте рабочие настройки пустой конфигурацией из нового комплекта. ПК-токен находится в профиле Windows, поэтому простое копирование папки клиента на другой ПК не переносит авторизацию.</p>
+<h2 id="section-6">6. Как завершить работу</h2>
+<p>Дождитесь окончания поиска и сохранения. Для прекращения пакетного сохранения нажмите <strong>Отмена</strong>, дождитесь завершения текущей операции и прочитайте журнал. Уже полученные файлы остаются в папке.</p>
+<p>После этого можно закрыть клиент. <strong>Отключение</strong> разрывает соединения с серверами, но местное имя пользователя может оставаться в окне. Для следующего поиска потребуется подключиться снова.</p>
+<h2 id="section-7">Небольшие темы для видео</h2>
+<ul>
+<li>Назначение программы и расположение основных действий.</li>
+<li>Первый поиск: подключение → запрос → чтение → сохранение одного документа.</li>
+<li>Где находятся настройки и что сохранить при обновлении клиента.</li>
+</ul>
+
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>

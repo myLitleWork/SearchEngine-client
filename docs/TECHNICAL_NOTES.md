@@ -53,7 +53,7 @@
 
 | Файл | Назначение |
 |---|---|
-| `Settings.db3` | `servers`, `server_ports`, `ports`, `settings`, `map*` |
+| `Settings.db3` | `servers`, `server_ports` (god = группа, server_year = год службы), `ports`, `settings`, `map*` |
 | `SearchRes.db3` | `res` — текущие результаты |
 | Legacy `Res.db3` | миграция в пару Settings/SearchRes: сначала временные файлы `_SCM-set-`/`_SCM-res-`, публикация только после проверки таблиц и числа строк; `Res.db3` удаляется последним |
 
@@ -64,7 +64,7 @@
 - Boost.Asio TCP
 - Кадр: заголовок с размером и командой + тело
 - Многосерверный fan-out поиска, merge без dedup
-- Админ-операции — только primary server
+- Загрузка/разноска/пользовательский пакет — primary; обновление и опись — выбранный источник
 
 ## Внешние зависимости (пользовательская среда)
 

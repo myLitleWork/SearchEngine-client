@@ -103,7 +103,7 @@ object fMain: TfMain
     Left = 3
     Top = 3
     Width = 1346
-    Height = 38
+    Height = 50
     Align = alTop
     Caption = 'Panel1'
     ShowCaption = False
@@ -174,25 +174,62 @@ object fMain: TfMain
       OnClick = btnConnectClick
       ExplicitLeft = 849
     end
-    object cmbGod: TComboBox
-      Left = 92
-      Top = 1
-      Width = 122
-      Height = 34
-      Margins.Bottom = 0
+    object pnServerChoice: TPanel
+      AlignWithMargins = True
+      Left = 96
+      Top = 4
+      Width = 156
+      Height = 42
+      Margins.Left = 4
+      Margins.Right = 4
       Align = alLeft
-      Style = csOwnerDrawFixed
-      Enabled = False
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -19
-      Font.Name = 'Segoe UI'
-      Font.Style = [fsBold]
-      ItemHeight = 28
-      ParentFont = False
+      BevelOuter = bvNone
+      ShowCaption = False
       TabOrder = 2
-      TabStop = False
-      OnChange = cmbGodChange
+      object lblServerGroup: TLabel
+        Left = 0
+        Top = 0
+        Width = 156
+        Height = 15
+        Align = alTop
+        AutoSize = False
+        Caption = #1057#1077#1088#1074#1077#1088' / '#1075#1088#1091#1087#1087#1072
+        FocusControl = cmbServerGroup
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Segoe UI'
+        Font.Style = []
+        ParentFont = False
+        ShowAccelChar = False
+        Layout = tlCenter
+      end
+      object cmbServerGroup: TComboBox
+        AlignWithMargins = True
+        Left = 0
+        Top = 17
+        Width = 156
+        Height = 25
+        Margins.Left = 0
+        Margins.Top = 2
+        Margins.Right = 0
+        Margins.Bottom = 0
+        Align = alTop
+        Style = csDropDownList
+        DropDownCount = 16
+        Enabled = False
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Segoe UI'
+        Font.Style = [fsBold]
+        Hint = #1042#1099#1073#1077#1088#1080#1090#1077' '#1086#1076#1080#1085' '#1089#1077#1088#1074#1077#1088' '#1080#1083#1080' '#1075#1088#1091#1087#1087#1091' '#1089#1077#1088#1074#1077#1088#1086#1074
+        ParentFont = False
+        ShowHint = True
+        TabOrder = 0
+        TabStop = False
+        OnChange = cmbServerGroupChange
+      end
     end
     object btnUpdate: TButton
       AlignWithMargins = True
@@ -238,27 +275,59 @@ object fMain: TfMain
       OnClick = btnDisconnectClick
       ExplicitLeft = 729
     end
-    object cmbAuthUser: TComboBox
+    object pnAuthChoice: TPanel
       AlignWithMargins = True
       Left = 895
       Top = 4
       Width = 206
-      Height = 21
+      Height = 42
       Margins.Left = 4
       Margins.Right = 4
       Align = alRight
-      Style = csDropDownList
-      DropDownCount = 12
-      Font.Charset = DEFAULT_CHARSET
-      Font.Color = clWindowText
-      Font.Height = -11
-      Font.Name = 'Segoe UI'
-      Font.Style = []
-      ParentFont = False
+      BevelOuter = bvNone
+      ShowCaption = False
       TabOrder = 5
-      OnChange = cmbAuthUserChange
-      OnCloseUp = cmbAuthUserCloseUp
-      ExplicitLeft = 515
+      object lblAuthorization: TLabel
+        Left = 0
+        Top = 0
+        Width = 206
+        Height = 15
+        Align = alTop
+        AutoSize = False
+        Caption = #1040#1074#1090#1086#1088#1080#1079#1072#1094#1080#1103
+        FocusControl = cmbAuthUser
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Segoe UI'
+        Font.Style = []
+        ParentFont = False
+        ShowAccelChar = False
+        Layout = tlCenter
+      end
+      object cmbAuthUser: TComboBox
+        AlignWithMargins = True
+        Left = 0
+        Top = 17
+        Width = 206
+        Height = 21
+        Margins.Left = 0
+        Margins.Top = 2
+        Margins.Right = 0
+        Margins.Bottom = 0
+        Align = alTop
+        Style = csDropDownList
+        DropDownCount = 12
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'Segoe UI'
+        Font.Style = []
+        ParentFont = False
+        TabOrder = 0
+        OnChange = cmbAuthUserChange
+        OnCloseUp = cmbAuthUserCloseUp
+      end
     end
   end
   object PageControl1: TPageControl
@@ -2001,6 +2070,7 @@ object fMain: TfMain
     Top = 952
   end
   object qrySettings: TFDQuery
+    BeforePost = qrySettingsBeforePost
     Connection = ConnectionSettings
     FetchOptions.AssignedValues = [evMode]
     FetchOptions.Mode = fmAll

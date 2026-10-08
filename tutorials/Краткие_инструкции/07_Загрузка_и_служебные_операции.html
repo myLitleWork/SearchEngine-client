@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Загрузка файлов и служебные операции</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="../00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="../%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
+<a href="../%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="../%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
+<a href="../%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="../%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>Загрузка файлов и служебные операции</h1>
+<p>Местный и серверный вход описаны в <a href="../%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>. Обычное сохранение приложений выбранных карточек — в <a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a>; кнопка <strong>Сохранить приложения</strong> на вкладке <strong>Загрузка</strong> получает другой, пользовательский пакет.</p>
+<h3 id="section-1">Назначение</h3>
+<p>Вкладка <strong>Загрузка</strong> объединяет операции, которые обычно нужны для передачи файлов на основной сервер и получения служебных данных пользователя:</p>
+<ul>
+<li>загрузить файлы «на отправку»;</li>
+<li>загрузить разноску;</li>
+<li>сохранить базу для описей;</li>
+<li>сохранить пакет приложений пользователя;</li>
+<li>(с верхней панели) запросить обновление базы на выбранном сервере.</li>
+</ul>
+<h3 id="section-2">Когда её использовать</h3>
+<ul>
+<li>нужно отправить подготовленные файлы на сервер;</li>
+<li>нужно загрузить файл(ы) разноски;</li>
+<li>нужно выгрузить базу описи за год выбранной службы в каталог авторизационного файла;</li>
+<li>нужно забрать пакет приложений, связанный с пользователем;</li>
+<li>администратор запускает обновление поисковой базы.</li>
+</ul>
+<h3 id="section-3">Где она находится</h3>
+<ul>
+<li>Вкладка <strong>Загрузка</strong> — кнопки и список файлов;</li>
+<li>Верхняя панель — <strong>Обновление!</strong></li>
+</ul>
+<p>Загрузка файлов, разноски и пакета пользователя выполняется через основной сервер. Для описи отдельно выбирается источник, а обновление при нескольких источниках предлагает выбор сервера.</p>
+<h3 id="section-4">Что нужно подготовить</h3>
+<ol>
+<li>Авторизацию и подключение.</li>
+<li>Выбранную группу серверов; для описи — нужный источник и год файла.</li>
+<li>Файлы для загрузки/разноски.</li>
+<li>Для описи — доступный каталог активного авторизационного файла (файл <code>&amp;lt;год&amp;gt;.db</code> пишется туда).</li>
+<li>Для пакета приложений — папку назначения.</li>
+</ol>
+<p>Для ПК-токена опись сохраняется в <code>%LOCALAPPDATA%\SearchEngine\</code>, для USB — рядом с принятым токеном на флешке, для admin — рядом с EXE. Имя файла — <code>&lt;год&gt;.db</code>; папка должна разрешать запись. Загрузка и пакет пользователя требуют авторизации основного сервера. Опись и обновление требуют доступа к выбранному источнику; успех поиска на другом сервере не обеспечивает их доступность.</p>
+<h3 id="section-5">Пошаговое использование</h3>
+<h4>Загрузить файлы на отправку</h4>
+<ol>
+<li>Откройте вкладку <strong>Загрузка</strong>.</li>
+<li>Нажмите <strong>Добавить файлы</strong> и выберите один или несколько файлов.</li>
+<li>При необходимости удалите лишнее через ПКМ → <strong>Удалить</strong> / <strong>Очистить</strong>.</li>
+<li>Нажмите <strong>Загрузить файлы на отправку</strong>.</li>
+<li>Следите за журналом и прогрессом: успешные файлы помечаются в логе и убираются из списка.</li>
+<li>Если сеть оборвётся на одном файле, кнопки снова включатся; в журнале будет <code>не удалось загрузить</code>, диалог ошибки — в UI-потоке. Не закрывайте программу, пока загрузка идёт: закрытие ждёт окончания фоновой задачи.</li>
+</ol>
+<h4>Загрузить разноску</h4>
+<ol>
+<li>Нажмите <strong>Загрузить разноску</strong>.</li>
+<li>Выберите файл(ы) в диалоге.</li>
+<li>Проверьте строки журнала: <code>успешно загружен</code> или <code>не удалось загрузить</code> с текстом ошибки.</li>
+</ol>
+<h4>Сохранить базу для описей</h4>
+<p>Пошаговый отдельный урок: <a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>.</p>
+<ol>
+<li>Подключитесь к нужной группе и нажмите <strong>Сохранить базу для описей</strong>.</li>
+<li>Выберите авторизованный источник и проверьте предложенный год файла. Он берётся из <code>server_year</code>; при неизвестном годе предлагается текущий.</li>
+<li>Проверьте путь. Если файл существует, разрешите замену, если она нужна.</li>
+<li>Нажмите <strong>Сохранить</strong> и дождитесь сообщения об успехе. Год имени файла не переключает год базы на сервере.</li>
+</ol>
+<h4>Сохранить приложения (пакет пользователя)</h4>
+<ol>
+<li>Нажмите <strong>Сохранить приложения</strong>.</li>
+<li>Выберите папку назначения (по умолчанию предлагается каталог активного авторизационного файла).</li>
+<li>Дождитесь окна прогресса и сообщения об успехе.</li>
+<li>Результат будет в подпапке вида <code>Приложения к шт. ДД.ММ.ГГ</code>.</li>
+<li>При ошибке программа предложит повторить попытку.</li>
+</ol>
+<h4>Обновление базы на сервере</h4>
+<ol>
+<li>На верхней панели нажмите <strong>Обновление!</strong>; при нескольких источниках выберите сервер.</li>
+<li>При ошибке программа предложит посмотреть подробности в панели текста.</li>
+<li>Во время обновления поиск может отвечать <code>Идёт обновление базы</code>.</li>
+</ol>
+<h3 id="section-6">Параметры функции</h3>
+<p>Отдельных сложных настроек на вкладке нет. Важны:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Параметр</th>
+<th>Влияние</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Текущий пользователь</td>
+<td>Имя уходит в операцию пакета приложений; файлы на отправку префиксуются именем пользователя</td>
+</tr>
+<tr>
+<td>Сервер / группа</td>
+<td>Один поисковый источник или набор источников</td>
+</tr>
+<tr>
+<td>Год файла описи</td>
+<td>Отдельный год имени <code>&amp;lt;год&amp;gt;.db</code>; данные приходят с выбранной службы</td>
+</tr>
+<tr>
+<td>Основной сервер</td>
+<td>Загрузка файлов, разноски и пользовательского пакета; исходный выбор в остальных операциях</td>
+</tr>
+<tr>
+<td>Папка назначения</td>
+<td>Куда сохранить пакет приложений</td>
+</tr>
+</tbody></table></div>
+<h3 id="section-7">Пример</h3>
+<p>Пользователь добавляет два файла на вкладке <strong>Загрузка</strong>, нажимает <strong>Загрузить файлы на отправку</strong> и в журнале видит <code>… - успешно загружен :)</code> по каждому файлу; список очищается от успешно переданных.</p>
+<h3 id="section-8">Что происходит после запуска</h3>
+<p>Клиент передаёт бинарные данные на основной сервер соответствующими командами протокола и показывает локальный журнал/диалоги результата. Для описи новый файл публикуется только после полной записи; пакет приложений создаёт локальные файлы на диске пользователя.</p>
+<h3 id="section-9">Как понять, что операция завершилась успешно</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Операция</th>
+<th>Признак успеха</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Загрузка на отправку</td>
+<td>Строки <code>успешно загружен</code> в журнале, файлы исчезли из списка</td>
+</tr>
+<tr>
+<td>Разноска</td>
+<td><code>успешно загружен</code> в журнале</td>
+</tr>
+<tr>
+<td>Опись</td>
+<td><code>База успешно сохранена - …</code></td>
+</tr>
+<tr>
+<td>Пакет приложений</td>
+<td><code>Сохранение завершено успешно!</code> + путь папки</td>
+</tr>
+<tr>
+<td>Обновление</td>
+<td>Нет окна ошибки запроса</td>
+</tr>
+</tbody></table></div>
+<h3 id="section-10">Возможные проблемы</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Сообщение</th>
+<th>Что проверить</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Ошибка получения базы!</code> / <code>Ошибка при сохранении базы!</code></td>
+<td>Связь с выбранным источником описи, права на каталог активного авторизационного файла</td>
+</tr>
+<tr>
+<td><code>Не удалось открыть файл для записи!</code></td>
+<td>Путь/права</td>
+</tr>
+<tr>
+<td><code>Папка для сохранения не выбрана.</code></td>
+<td>Повторить выбор папки</td>
+</tr>
+<tr>
+<td><code>Ошибка чтения: …</code></td>
+<td>Сеть/сервер при загрузке файлов</td>
+</tr>
+<tr>
+<td><code>Ошибка данных: …</code></td>
+<td>Некорректный/короткий ответ пакета приложений</td>
+</tr>
+</tbody></table></div>
+<h3 id="section-11">Важные замечания и ограничения</h3>
+<ul>
+<li><p>Клиент не ограничивает эти операции по локальным группам. Сервер обязан
+проверить пользователя и отклонить недопустимую операцию.</p>
+</li>
+<li><p>Для описи и обновления действует выбранный источник; загрузка файлов, разноски и пакета пользователя использует основной.</p>
+</li>
+<li><p>Сохранение описи заменяет существующий <code>&amp;lt;год&amp;gt;.db</code> в каталоге активного авторизационного файла только после полной записи нового файла; при сбое прежняя база сохраняется.</p>
+</li>
+<li><p>При открытии вкладки <strong>Загрузка</strong> список файлов и журнал очищаются.</p>
+</li>
+<li><p>Обновление базы может временно блокировать поиск на сервере.</p>
+</li>
+</ul>
+<h3 id="section-12">Связанные настройки</h3>
+<p>Группа, источники, основной сервер, год службы и активный токен/admin — <a href="../%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B8_%D0%BA%D0%BB%D0%B8%D0%B5%D0%BD%D1%82%D0%B0.html">Настройки клиента</a>.
+Пути файлов — <a href="../%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5_%D0%B8_%D1%84%D0%B0%D0%B9%D0%BB%D1%8B.html">Данные и файлы</a>.</p>
+<h3 id="section-13">Техническое подтверждение</h3>
+<ul>
+<li><code>formMain.cpp</code>: <code>btnAddFilesLoadClick</code>, <code>btnLoadOnServerFilesClick</code>, <code>btnLoadRaznClick</code>, <code>btnSaveOpisBaseClick</code>, <code>btnAttachSaveClick</code>, <code>btnUpdateClick</code>, <code>tbLoadShow</code></li>
+<li>команды: <code>LOAD_TLG_TO_SEND</code>, <code>LOAD_RAZN</code>, <code>GET_OPIS_BASE</code>, <code>GET_ATTACHMENTS</code>, <code>START_UPDATE_BASE</code></li>
+</ul>
+
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>

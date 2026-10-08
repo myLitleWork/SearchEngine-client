@@ -5,6 +5,7 @@
 
 #include "formSelectServer.h"
 #include "utils.h"
+#include "Database/ServerGroupSettings.h"
 #include <algorithm>
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -30,7 +31,7 @@ void __fastcall TfSelectServer::FormCreate(TObject *Sender)
 	(void)Sender;
 	Caption = L"Обновление базы";
 	lbHint->Caption =
-		L"Для выбранного года настроено несколько серверов.\r\n"
+		L"Для выбранной группы настроено несколько серверов.\r\n"
 		L"Выберите, на какой сервер отправить команду обновления базы.";
 	btnOk->Caption = L"Отправить";
 	btnCancel->Caption = L"Отмена";
@@ -99,6 +100,62 @@ void TfSelectServer::SyncOkEnabled()
 {
 	btnOk->Enabled = lstServers->ItemIndex >= 0 &&
 		lstServers->ItemIndex < static_cast<int>(serverIds_.size());
+	if (opisMode_) {
+		const bool valid = ServerGroups::IsYear(SelectedOpisYear());
+		const String path = valid ? OpisPath() : String();
+		lblOpisPath->Caption = valid ? L"Файл: " + path : L"Укажите четырёхзначный год.";
+		lblOpisPath->Hint = lblOpisPath->Caption;
+		chkReplaceOpis->Visible = valid && FileExists(path);
+		btnOk->Enabled = btnOk->Enabled && valid &&
+			(!chkReplaceOpis->Visible || chkReplaceOpis->Checked);
+	}
+}
+
+String TfSelectServer::OpisPath() const
+{
+	return IncludeTrailingPathDelimiter(opisDirectory_) + SelectedOpisYear() + L".db";
+}
+
+String TfSelectServer::SelectedOpisYear() const
+{
+	return Trim(edtOpisYear->Text);
+}
+
+void TfSelectServer::SetOpisMode(const String& directory, const String& currentYear)
+{
+	opisMode_ = true;
+	opisDirectory_ = directory;
+	currentYear_ = currentYear;
+	Caption = L"Сохранение базы для описей";
+	btnOk->Caption = L"Сохранить";
+	lbHint->Caption = L"Выберите сервер-источник. Сервер отдаёт опись своего года.\r\n"
+		L"Год ниже задаёт имя локального файла; он не переключает год сервера.";
+	lblOpisYear->Caption = L"Год файла описи:";
+	chkReplaceOpis->Caption = L"Заменить существующую базу после успешной загрузки";
+	pnOpis->Visible = true;
+	ClientHeight += pnOpis->Height;
+	Constraints->MinHeight += pnOpis->Height;
+}
+
+void TfSelectServer::UpdateOpisSource()
+{
+	if (!opisMode_) return;
+	chkReplaceOpis->Checked = false;
+	const int index = lstServers->ItemIndex;
+	if (index >= 0 && index < static_cast<int>(endpoints_.size())) {
+		const String configuredYear(endpoints_[index].year.c_str());
+		edtOpisYear->Text = ServerGroups::IsYear(configuredYear) ? configuredYear : currentYear_;
+		edtOpisYear->Hint = ServerGroups::IsYear(configuredYear)
+			? L"Предложен год из настроек клиента. Проверьте соответствие выбранной службе."
+			: L"Год службы неизвестен. Предложен текущий календарный год; проверьте его.";
+	}
+	SyncOkEnabled();
+}
+
+void __fastcall TfSelectServer::OpisOptionsChange(TObject *Sender)
+{
+	if (Sender == edtOpisYear) chkReplaceOpis->Checked = false;
+	SyncOkEnabled();
 }
 //---------------------------------------------------------------------------
 
@@ -107,6 +164,7 @@ void TfSelectServer::SetServers(
 	const std::string& preferredServerId)
 {
 	serverIds_.clear();
+	endpoints_ = endpoints;
 	lstServers->Items->BeginUpdate();
 	try {
 		lstServers->Clear();
@@ -127,6 +185,8 @@ void TfSelectServer::SetServers(
 			}
 
 			String line = title;
+			if (opisMode_)
+				line += ep.year.empty() ? L" (год службы неизвестен)" : L" (год " + String(ep.year.c_str()) + L")";
 			if (!detail.IsEmpty())
 				line += L"  —  " + detail;
 			if (!ep.id.empty() && title != String(ep.id.c_str()))
@@ -145,6 +205,7 @@ void TfSelectServer::SetServers(
 	__finally {
 		lstServers->Items->EndUpdate();
 	}
+	UpdateOpisSource();
 	SyncOkEnabled();
 }
 //---------------------------------------------------------------------------
@@ -161,6 +222,7 @@ std::string TfSelectServer::SelectedServerId() const
 void __fastcall TfSelectServer::lstServersClick(TObject *Sender)
 {
 	(void)Sender;
+	UpdateOpisSource();
 	SyncOkEnabled();
 }
 //---------------------------------------------------------------------------
@@ -168,7 +230,7 @@ void __fastcall TfSelectServer::lstServersClick(TObject *Sender)
 void __fastcall TfSelectServer::lstServersDblClick(TObject *Sender)
 {
 	(void)Sender;
-	if (btnOk->Enabled)
+	if (btnOk->Enabled && !opisMode_)
 		ModalResult = mrOk;
 }
 //---------------------------------------------------------------------------
@@ -176,6 +238,8 @@ void __fastcall TfSelectServer::lstServersDblClick(TObject *Sender)
 void __fastcall TfSelectServer::btnOkClick(TObject *Sender)
 {
 	(void)Sender;
+	SyncOkEnabled();
+	if (!btnOk->Enabled) return;
 	if (SelectedServerId().empty()) {
 		ModalResult = mrNone;
 		ShowMessage(L"Выберите сервер из списка.");

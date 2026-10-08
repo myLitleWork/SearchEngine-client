@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подключение и авторизация</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="../00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="../%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
+<a href="../%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="../%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
+<a href="../%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="../%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="../%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>Подключение и авторизация</h1>
+<p>Подробное руководство: <a href="../%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">подключение, токены и серверы</a>.</p>
+<ol>
+<li>Выберите выданный токен ПК/USB; для службы на том же ПК допустим местный admin через <code>127.0.0.1</code>.</li>
+<li>Проверьте группу и адреса с портами.</li>
+<li>Нажмите <strong>Подключение</strong> и проверьте <code>авторизовано серверов K/N</code>.</li>
+<li>Если токен ещё не импортирован, используйте <strong>+ Импортировать подписанный токен...</strong> и выберите тип по его привязке.</li>
+<li>После смены пользователя, настроек или группы проверяйте серверный статус заново.</li>
+</ol>
+<p>Зелёное местное имя не подтверждает доступ сервера. Импорт готового токена не создаёт удалённое разрешение. ПК-токен находится в профиле текущего пользователя Windows; USB должен оставаться доступным. Мастер Setup-Access для начальной настройки описан в серверном комплекте.</p>
+
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>

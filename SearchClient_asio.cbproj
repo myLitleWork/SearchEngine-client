@@ -182,8 +182,27 @@
         <IncludePath>C:\Program Files (x86)\Embarcadero\Studio\22.0\Components\EhLib\Lib\Win32\Release;D:\Libs\FastReport 2022-1-3 VCL Enterprise for D11.1 and 11.1.5\LibD28;$(IncludePath)</IncludePath>
     </PropertyGroup>
     <ItemGroup>
+        <CppCompile Include="Attachments\AttachmentPackage.cpp">
+            <DependentOn>Attachments\AttachmentPackage.h</DependentOn>
+            <BuildOrder>22</BuildOrder>
+        </CppCompile>
         <None Include="AuthPaths.h">
             <BuildOrder>25</BuildOrder>
+        </None>
+        <CppCompile Include="BinaryFileLoad\FileData.cpp">
+            <BuildOrder>13</BuildOrder>
+        </CppCompile>
+        <None Include="BinaryFileLoad\FileData.h">
+            <BuildOrder>14</BuildOrder>
+        </None>
+        <CppCompile Include="BinaryFileLoad\portable_binary_iarchive.cpp">
+            <BuildOrder>21</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="BinaryFileLoad\portable_binary_oarchive.cpp">
+            <BuildOrder>22</BuildOrder>
+        </CppCompile>
+        <None Include="ClientFilePublish.h">
+            <BuildOrder>36</BuildOrder>
         </None>
         <CppCompile Include="ComputerIdentity.cpp">
             <DependentOn>ComputerIdentity.h</DependentOn>
@@ -192,6 +211,10 @@
         <None Include="ComputerIdentity.h">
             <BuildOrder>42</BuildOrder>
         </None>
+        <CppCompile Include="Database\SqliteDb.cpp">
+            <DependentOn>Database\SqliteDb.h</DependentOn>
+            <BuildOrder>9</BuildOrder>
+        </CppCompile>
         <CppCompile Include="DeviceAuthSelect.cpp">
             <DependentOn>DeviceAuthSelect.h</DependentOn>
             <BuildOrder>43</BuildOrder>
@@ -209,25 +232,6 @@
         <None Include="DeviceIdentity.h">
             <BuildOrder>47</BuildOrder>
         </None>
-        <CppCompile Include="BinaryFileLoad\FileData.cpp">
-            <BuildOrder>13</BuildOrder>
-        </CppCompile>
-        <None Include="BinaryFileLoad\FileData.h">
-            <BuildOrder>14</BuildOrder>
-        </None>
-        <CppCompile Include="BinaryFileLoad\portable_binary_iarchive.cpp">
-            <BuildOrder>21</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="BinaryFileLoad\portable_binary_oarchive.cpp">
-            <BuildOrder>22</BuildOrder>
-        </CppCompile>
-        <None Include="ClientFilePublish.h">
-            <BuildOrder>36</BuildOrder>
-        </None>
-        <CppCompile Include="Database\SqliteDb.cpp">
-            <DependentOn>Database\SqliteDb.h</DependentOn>
-            <BuildOrder>9</BuildOrder>
-        </CppCompile>
         <CppCompile Include="DocxConversionWorker.cpp">
             <DependentOn>WordBatchProcessor.h</DependentOn>
             <BuildOrder>34</BuildOrder>
@@ -283,10 +287,6 @@
             <DependentOn>Frames\MyFrameDbg.h</DependentOn>
             <BuildOrder>30</BuildOrder>
         </CppCompile>
-        <CppCompile Include="Attachments\AttachmentPackage.cpp">
-            <DependentOn>Attachments\AttachmentPackage.h</DependentOn>
-            <BuildOrder>22</BuildOrder>
-        </CppCompile>
         <CppCompile Include="myJson.cpp">
             <DependentOn>myJson.h</DependentOn>
             <BuildOrder>8</BuildOrder>
@@ -303,9 +303,6 @@
             <DependentOn>mySomeFunc.h</DependentOn>
             <BuildOrder>23</BuildOrder>
         </CppCompile>
-        <None Include="OutgoingArchiveZip.h">
-            <BuildOrder>37</BuildOrder>
-        </None>
         <None Include="MyStrings\myConverter.h">
             <BuildOrder>18</BuildOrder>
         </None>
@@ -332,21 +329,6 @@
             <DependentOn>Net\MultiServerSelfTest.h</DependentOn>
             <BuildOrder>30</BuildOrder>
         </CppCompile>
-        <CppCompile Include="Net\TelegramAttachmentClient.cpp">
-            <DependentOn>Net\TelegramAttachmentClient.h</DependentOn>
-        </CppCompile>
-        <None Include="Net\TelegramAttachmentClient.h">
-        </None>
-        <CppCompile Include="Net\TelegramAttachmentSelfTest.cpp">
-            <DependentOn>Net\TelegramAttachmentSelfTest.h</DependentOn>
-        </CppCompile>
-        <None Include="Net\TelegramAttachmentSelfTest.h">
-        </None>
-        <CppCompile Include="Net\StreamingUploadSelfTest.cpp">
-            <DependentOn>Net\StreamingUploadSelfTest.h</DependentOn>
-        </CppCompile>
-        <None Include="Net\StreamingUploadSelfTest.h">
-        </None>
         <CppCompile Include="Net\myAsioClient.cpp">
             <DependentOn>Net\myAsioClient.h</DependentOn>
             <BuildOrder>29</BuildOrder>
@@ -355,6 +337,30 @@
             <DependentOn>Net\SocketFileSaver.h</DependentOn>
             <BuildOrder>25</BuildOrder>
         </CppCompile>
+        <CppCompile Include="Net\StreamingUploadSelfTest.cpp">
+            <DependentOn>Net\StreamingUploadSelfTest.h</DependentOn>
+            <BuildOrder>4</BuildOrder>
+        </CppCompile>
+        <None Include="Net\StreamingUploadSelfTest.h">
+            <BuildOrder>14</BuildOrder>
+        </None>
+        <CppCompile Include="Net\TelegramAttachmentClient.cpp">
+            <DependentOn>Net\TelegramAttachmentClient.h</DependentOn>
+            <BuildOrder>0</BuildOrder>
+        </CppCompile>
+        <None Include="Net\TelegramAttachmentClient.h">
+            <BuildOrder>3</BuildOrder>
+        </None>
+        <CppCompile Include="Net\TelegramAttachmentSelfTest.cpp">
+            <DependentOn>Net\TelegramAttachmentSelfTest.h</DependentOn>
+            <BuildOrder>6</BuildOrder>
+        </CppCompile>
+        <None Include="Net\TelegramAttachmentSelfTest.h">
+            <BuildOrder>5</BuildOrder>
+        </None>
+        <None Include="OutgoingArchiveZip.h">
+            <BuildOrder>37</BuildOrder>
+        </None>
         <CppCompile Include="RecentComboHistory.cpp">
             <DependentOn>RecentComboHistory.h</DependentOn>
             <BuildOrder>26</BuildOrder>
@@ -401,11 +407,11 @@
             <BuildOrder>27</BuildOrder>
         </CppCompile>
         <FormResources Include="Frames\MyFrameDbg.dfm"/>
-        <FormResources Include="formMain.dfm"/>
-        <FormResources Include="formSelectServer.dfm"/>
-        <FormResources Include="Frames\FrameAttachments.dfm"/>
-        <FormResources Include="Frames\FramePdtv.dfm"/>
         <FormResources Include="Frames\FrameWay.dfm"/>
+        <FormResources Include="Frames\FramePdtv.dfm"/>
+        <FormResources Include="Frames\FrameAttachments.dfm"/>
+        <FormResources Include="formSelectServer.dfm"/>
+        <FormResources Include="formMain.dfm"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -4,6 +4,7 @@
 #include <FireDAC.Comp.Client.hpp>
 #include <FireDAC.Stan.Param.hpp>
 #include <memory>
+#include "ServerGroupSettings.h"
 
 namespace ClientDb
 {
@@ -39,19 +40,36 @@ inline void SeedServerCatalog(TFDConnection* connection, const String& fallbackH
         q->Close();
         if (emptyCatalog || needsPorts) {
             q->SQL->Text =
-                L"INSERT OR IGNORE INTO server_ports (server_id, god, port, enabled) "
-                L"SELECT 'default', god, port, 1 FROM ports";
+                L"INSERT OR IGNORE INTO server_ports (server_id, god, port, enabled, server_year) "
+                L"SELECT 'default', god, port, 1, CASE WHEN trim(god) GLOB '[1-9][0-9][0-9][0-9]' THEN CAST(trim(god) AS INTEGER) END FROM ports";
             q->ExecSQL();
         }
         if (needsPorts && calendarYear >= 2000 && calendarYear <= 2099) {
             q->SQL->Text =
-                L"INSERT INTO server_ports (server_id, god, port, enabled) "
-                L"SELECT 'default', :god, :port, 1 "
+                L"INSERT INTO server_ports (server_id, god, port, enabled, server_year) "
+                L"SELECT 'default', :god, :port, 1, :server_year "
                 L"WHERE NOT EXISTS (SELECT 1 FROM server_ports) "
                 L"AND NOT EXISTS (SELECT 1 FROM ports)";
             q->ParamByName(L"god")->AsString = IntToStr(calendarYear);
             q->ParamByName(L"port")->AsInteger = 15000 + calendarYear % 10;
+            q->ParamByName(L"server_year")->AsInteger = calendarYear;
             q->ExecSQL();
+        }
+        // Establish the initial group once; subsequent calendar rollovers do
+        // not alter a configured catalog or the user's selected group.
+        if (ServerGroups::ReadSetting(connection, L"default_server_group").IsEmpty()) {
+            q->SQL->Text = L"SELECT DISTINCT p.god FROM server_ports p JOIN servers s ON s.server_id=p.server_id "
+                L"WHERE p.enabled<>0 AND s.enabled<>0 ORDER BY p.god DESC";
+            q->Open();
+            String preferred;
+            int count = 0;
+            while (!q->Eof) {
+                const String group = q->Fields->Fields[0]->AsString;
+                if (++count == 1) preferred = group;
+                q->Next();
+            }
+            q->Close();
+            if (count == 1) ServerGroups::WriteSetting(connection, L"default_server_group", preferred);
         }
         connection->Commit();
     }

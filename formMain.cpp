@@ -29,6 +29,7 @@
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
 #include "Database\ServerCatalogSeed.h"
+#include "Database\ServerGroupSettings.h"
 #ifdef _DEBUG
 #include "Database\ServerCatalogSeedSelfTest.h"
 #endif
@@ -187,7 +188,7 @@ std::unique_ptr<TForm> makeStartupConnectWaitForm(
 	hint->AutoSize = true;
 	hint->WordWrap = true;
 	hint->Caption =
-		L"Подключение к серверам выбранного года.\r\nДождитесь ответа сети.";
+		L"Подключение к серверам выбранной группы.\r\nДождитесь ответа сети.";
 
 	auto* list = new TListBox(form.get());
 	list->Parent = form.get();
@@ -474,6 +475,26 @@ const int MAIN_FORM_DESIGN_PPI = 192;
 const int MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI = 1932;
 const int MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI = 1194;
 const int RESPONSIVE_LAYOUT_INTERVAL_MS = 75;
+
+void SetSettingsColumnCaptions(TFDQuery* query, const String& tableName)
+{
+	const bool fieldMap = tableName == L"map" || tableName == L"map_vh" || tableName == L"map_ish";
+	for (int i = 0; i < query->Fields->Count; ++i) {
+		TField* field = query->Fields->Fields[i];
+		const String name = LowerCase(field->FieldName);
+		if (name == L"server_id") field->DisplayLabel = L"Код сервера";
+		else if (name == L"display_name") field->DisplayLabel = L"Название сервера";
+		else if (name == L"host") field->DisplayLabel = L"Адрес сервера";
+		else if (name == L"enabled") field->DisplayLabel = L"Включён";
+		else if (name == L"sort_order") field->DisplayLabel = L"Порядок";
+		else if (name == L"port") field->DisplayLabel = L"TCP-порт";
+		else if (name == L"server_year") field->DisplayLabel = L"Год службы";
+		else if (name == L"god") field->DisplayLabel = tableName == L"ports"
+			? L"Год (старый формат)" : L"Сервер / группа";
+		else if (name == L"key") field->DisplayLabel = fieldMap ? L"Поле базы данных" : L"Настройка";
+		else if (name == L"value") field->DisplayLabel = fieldMap ? L"Название для поиска" : L"Значение";
+	}
+}
 
 void EqualizeSettingsColumnWidths(TDBGridEh* grid)
 {
@@ -1286,29 +1307,31 @@ void TfMain::ensureServerCatalogSeeded(const String& fallbackHost)
 	DecodeDate(Date(), year, month, day);
 	ClientDb::SeedServerCatalog(ConnectionSettings, fallbackHost, year);
 }
-void TfMain::reloadAvailableYears()
+void TfMain::reloadAvailableServerGroups()
 {
-	cmbGod->Items->BeginUpdate();
-	try {
-		const String selected = cmbGod->Text;
-		cmbGod->Items->Clear();
-		mapPorts.clear();
-		qrySettings->Close();
-		qrySettings->SQL->Text =
-			L"SELECT DISTINCT god FROM server_ports WHERE enabled <> 0 ORDER BY god DESC";
-		qrySettings->Open();
-		while (!qrySettings->Eof) {
-			const String year = qrySettings->FieldByName(L"god")->AsString;
-			cmbGod->Items->Add(year);
-			qrySettings->Next();
-		}
-		const int oldIndex = cmbGod->Items->IndexOf(selected);
-		cmbGod->ItemIndex = oldIndex >= 0 ? oldIndex : (cmbGod->Items->Count > 0 ? 0 : -1);
-	}
-	__finally {
-		cmbGod->Items->EndUpdate();
-	}
-	updateServerEndpointsLabel();
+    const String selected = cmbServerGroup->Text;
+    const String last = ServerGroups::ReadSetting(ConnectionSettings, L"last_server_group");
+    const String preferred = ServerGroups::ReadSetting(ConnectionSettings, L"default_server_group");
+    cmbServerGroup->Items->BeginUpdate();
+    try {
+        cmbServerGroup->Items->Clear();
+        qrySettings->Close();
+        qrySettings->SQL->Text =
+            L"SELECT DISTINCT p.god FROM server_ports p JOIN servers s ON s.server_id=p.server_id "
+            L"WHERE p.enabled<>0 AND s.enabled<>0 AND trim(p.god)<>'' ORDER BY p.god DESC";
+        qrySettings->Open();
+        while (!qrySettings->Eof) {
+            cmbServerGroup->Items->Add(qrySettings->FieldByName(L"god")->AsString);
+            qrySettings->Next();
+        }
+        const int oldIndex = selected.IsEmpty() ? -1 : cmbServerGroup->Items->IndexOf(selected);
+        cmbServerGroup->ItemIndex = oldIndex >= 0 ? oldIndex :
+            ServerGroups::PreferredIndex(cmbServerGroup->Items, last, preferred);
+    } __finally {
+        cmbServerGroup->Items->EndUpdate();
+    }
+    cmbServerGroup->Hint = L"Сервер / группа: " + cmbServerGroup->Text;
+    updateServerEndpointsLabel();
 }
 void TfMain::updateServerEndpointsLabel()
 {
@@ -1316,14 +1339,14 @@ void TfMain::updateServerEndpointsLabel()
 		return;
 
 	String text;
-	if (!cmbGod->Text.IsEmpty()) {
+	if (!cmbServerGroup->Text.IsEmpty()) {
 		qrySettings->Close();
 		qrySettings->SQL->Text =
 			L"SELECT s.host, p.port "
 			L"FROM servers s JOIN server_ports p ON p.server_id = s.server_id "
 			L"WHERE s.enabled <> 0 AND p.enabled <> 0 AND p.god = :god "
 			L"ORDER BY s.sort_order, s.display_name, s.server_id";
-		qrySettings->ParamByName(L"god")->AsString = cmbGod->Text;
+		qrySettings->ParamByName(L"god")->AsString = cmbServerGroup->Text;
 		qrySettings->Open();
 		while (!qrySettings->Eof) {
 			const String host = Trim(qrySettings->FieldByName(L"host")->AsString);
@@ -1338,39 +1361,59 @@ void TfMain::updateServerEndpointsLabel()
 	}
 	lblServerEndpoints->Caption = text;
 }
-bool TfMain::configureServersForCurrentYear(String* errorMessage)
+bool TfMain::configureServersForCurrentGroup(String* errorMessage)
 {
-	if (cmbGod->Text.IsEmpty()) {
-		if (errorMessage) *errorMessage = L"Не выбран год поиска";
+	if (cmbServerGroup->Text.IsEmpty()) {
+		if (errorMessage) *errorMessage = L"Не выбрана группа серверов";
 		updateServerEndpointsLabel();
 		return false;
 	}
 	std::vector<ServerEndpoint> endpoints;
 	qrySettings->Close();
 	qrySettings->SQL->Text =
-		L"SELECT s.server_id, s.display_name, s.host, p.port "
+		L"SELECT s.server_id, s.display_name, s.host, p.port, p.server_year "
 		L"FROM servers s JOIN server_ports p ON p.server_id = s.server_id "
 		L"WHERE s.enabled <> 0 AND p.enabled <> 0 AND p.god = :god "
 		L"ORDER BY s.sort_order, s.display_name, s.server_id";
-	qrySettings->ParamByName(L"god")->AsString = cmbGod->Text;
+	qrySettings->ParamByName(L"god")->AsString = cmbServerGroup->Text;
 	qrySettings->Open();
 	while (!qrySettings->Eof) {
 		ServerEndpoint endpoint;
 		endpoint.id = AnsiString(qrySettings->FieldByName(L"server_id")->AsString).c_str();
 		endpoint.displayName = UTF8String(qrySettings->FieldByName(L"display_name")->AsString).c_str();
-		endpoint.host = AnsiString(qrySettings->FieldByName(L"host")->AsString).c_str();
+		endpoint.host = AnsiString(Trim(qrySettings->FieldByName(L"host")->AsString)).c_str();
 		endpoint.port = AnsiString(qrySettings->FieldByName(L"port")->AsString).c_str();
+        endpoint.year = AnsiString(qrySettings->FieldByName(L"server_year")->AsString).c_str();
+        const String host = Trim(String(endpoint.host.c_str()));
+        int port = 0;
+        if (host.IsEmpty() || !TryStrToInt(String(endpoint.port.c_str()), port) || port < 1 || port > 65535) {
+            if (errorMessage) *errorMessage = L"Проверьте адрес и порт источника «" +
+                qrySettings->FieldByName(L"display_name")->AsString + L"».";
+            return false;
+        }
+        if (!endpoint.year.empty() && !ServerGroups::IsYear(String(endpoint.year.c_str()))) {
+            if (errorMessage) *errorMessage = L"Проверьте год службы (server_year) источника «" +
+                qrySettings->FieldByName(L"display_name")->AsString + L"».";
+            return false;
+        }
+        for (const auto& existing : endpoints) {
+            if (SameText(Trim(String(existing.host.c_str())), host) && existing.port == endpoint.port) {
+                if (errorMessage) *errorMessage = L"В группе повторяется один адрес и порт под разными server_id.";
+                return false;
+            }
+        }
 		endpoint.enabled = true;
 		endpoints.push_back(endpoint);
 		qrySettings->Next();
 	}
 	if (endpoints.empty()) {
 		if (errorMessage)
-			*errorMessage = L"Для " + cmbGod->Text + L" года не настроено ни одного сервера";
+			*errorMessage = L"Для группы «" + cmbServerGroup->Text + L"» не настроено ни одного сервера";
 		updateServerEndpointsLabel();
 		return false;
 	}
 	serverManager_.configure(endpoints, endpoints.front().id);
+	ServerGroups::WriteSetting(ConnectionSettings, L"last_server_group", cmbServerGroup->Text);
 	serverManager_.setUser(user_);
 	Edit2->Text = String(endpoints.front().host.c_str());
 
@@ -1400,18 +1443,20 @@ bool TfMain::applyRuntimeSettings(String* errorMessage)
 	}
 
 	applyingRuntimeSettings_ = true;
-	suppressYearReconnect_ = true;
+	suppressGroupReconnect_ = true;
 	runtimeSettingsApplyPending_ = false;
 	bool ok = false;
 	try {
+        if (qrySettings->State == dsEdit || qrySettings->State == dsInsert) qrySettings->Post();
+        clear();
 		SqlCondition::map = getMapFromQry(qrySettings, "map");
 		SqlCondition::mapVh = getMapFromQry(qrySettings, "map_vh");
 		SqlCondition::mapIsh = getMapFromQry(qrySettings, "map_ish");
 		if (!useF12Control())
 			dbgEh->RowDetailPanel->Active = false;
-		reloadAvailableYears();
+		reloadAvailableServerGroups();
 		String configError;
-		ok = configureServersForCurrentYear(&configError);
+		ok = configureServersForCurrentGroup(&configError);
 		disconnectTransportOnly();
 		unauthorizedSearchSkipNotified_ = false;
 		if (auth_) {
@@ -1423,7 +1468,7 @@ bool TfMain::applyRuntimeSettings(String* errorMessage)
 	}
 	__finally {
 		applyingRuntimeSettings_ = false;
-		suppressYearReconnect_ = false;
+		suppressGroupReconnect_ = false;
 	}
 	return ok;
 }
@@ -1735,7 +1780,7 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 	const std::vector<std::string> allServerIds = serverManager_.serverIds();
 	if (allServerIds.empty()) {
 		searchSuccess = false;
-		searchError = "Для выбранного года нет настроенных серверов";
+		searchError = "Для выбранной группы нет настроенных серверов";
 		lastSender = Sender;
 		finishSearch();
 		return;
@@ -1943,7 +1988,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 	}
 
 	try {
-		lbStatus->Caption = "Статус: подключение к серверам, " + cmbGod->Text + " год ...";
+		lbStatus->Caption = L"Статус: подключение к группе «" + cmbServerGroup->Text + L"» ...";
 
 		clear();
 		disconnectTransportOnly();
@@ -2122,7 +2167,7 @@ void TfMain::applyServerAuthUiStatus()
 	}
 	lbStatus->Caption =
 		L"Статус: авторизовано серверов " + String(ok) + L"/" + String(total) +
-		L", " + cmbGod->Text + L" год";
+		L", группа «" + cmbServerGroup->Text + L"»";
 }
 
 
@@ -2218,25 +2263,25 @@ void __fastcall TfMain::componentsEnable(bool b)
 		if (!auth_) {
 			btnConnect->Enabled = false;
 			btnDisconnect->Enabled = false;
-			cmbGod->Enabled = false;
+			cmbServerGroup->Enabled = false;
 		}
 		else if (!b && serverOk) {
 			// Busy while still server-authorized (search/save/load).
 			btnConnect->Enabled = false;
 			btnDisconnect->Enabled = false;
-			cmbGod->Enabled = false;
+			cmbServerGroup->Enabled = false;
 		}
 		else if (!serverOk) {
 			// Authorized locally but no server-auth (after disconnect / AuthFailed).
 			btnConnect->Enabled = true;
 			btnDisconnect->Enabled = false;
-			cmbGod->Enabled = true;
+			cmbServerGroup->Enabled = true;
 		}
 		else {
 			// Local + server-auth, session UI enabled.
 			btnConnect->Enabled = true;
 			btnDisconnect->Enabled = true;
-			cmbGod->Enabled = true;
+			cmbServerGroup->Enabled = true;
 		}
 		if (cmbAuthUser)
 			cmbAuthUser->Enabled = true;
@@ -2635,9 +2680,9 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	delete sl;
 
 	ensureServerCatalogSeeded(Edit2->Text);
-	reloadAvailableYears();
+	reloadAvailableServerGroups();
 	String serverConfigError;
-	if (!configureServersForCurrentYear(&serverConfigError) && !serverConfigError.IsEmpty())
+	if (!configureServersForCurrentGroup(&serverConfigError) && !serverConfigError.IsEmpty())
 		lbStatus->Caption = L"Статус: " + serverConfigError;
 
 
@@ -2771,6 +2816,7 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
 
 
 	if (PageControl1->ActivePage->Name == "tbSettings") {
+		settingsPageWasActive_ = true;
 
 
         try {
@@ -2797,7 +2843,8 @@ void __fastcall TfMain::PageControl1Change(TObject *Sender)
 
 		tbcSettingsChange(Sender);
 	}
-	else {
+	else if (settingsPageWasActive_) {
+		settingsPageWasActive_ = false;
 		String applyError;
 		if (!applyRuntimeSettings(&applyError) && !applyError.IsEmpty())
 			ShowMessage(applyError);
@@ -2861,38 +2908,19 @@ void __fastcall TfMain::dbgEhDrawColumnCell(TObject *Sender, const TRect &Rect,
 	grid->DefaultDrawColumnCell(Rect, DataCol, Column, State);
 }
 //---------------------------------------------------------------------------
-void __fastcall TfMain::cmbGodChange(TObject *Sender)
+void __fastcall TfMain::cmbServerGroupChange(TObject *Sender)
 {
-	if (gSearchProcessing.load(std::memory_order_acquire))
-		return;
-	if (!auth_) {
-		updateServerEndpointsLabel();
-		cmbGod->Enabled = false;
-		return;
-	}
-
-	updateServerEndpointsLabel();
-	cmbGod->Enabled = false;
-
-	static String last_base;
-
-	try
-	{
-		if(last_base != cmbGod->Text && auth_)
-		{
-			last_base = cmbGod->Text;
-			if (!suppressYearReconnect_ && !applyingRuntimeSettings_)
-				btnConnectClick(Sender);
-		}
-	}
-	catch(...){};
-
-	const bool busy =
-		gSearchProcessing.load(std::memory_order_acquire) ||
-		saveRunning.load(std::memory_order_acquire);
-	componentsEnable(!busy);
+    if (gSearchProcessing.load(std::memory_order_acquire) || saveRunning.load(std::memory_order_acquire)) return;
+    cmbServerGroup->Hint = L"Сервер / группа: " + cmbServerGroup->Text;
+    updateServerEndpointsLabel();
+    if (suppressGroupReconnect_ || applyingRuntimeSettings_) return;
+    if (!cmbServerGroup->Text.IsEmpty())
+        ServerGroups::WriteSetting(ConnectionSettings, L"last_server_group", cmbServerGroup->Text);
+    clear();
+    disconnectTransportOnly();
+    if (auth_) btnConnectClick(Sender);
 }
-
+//---------------------------------------------------------------------------
 
 int TfMain::SaveFileVh2(const std::string& out_dir,
 					   const TelegramAttachmentRequest& f,
@@ -5132,32 +5160,35 @@ void __fastcall TfMain::btnSaveOpisBaseClick(TObject *Sender)
 		componentsEnable(false);
 		return;
 	}
-	const String yearText = Trim(cmbGod->Text);
-	bool yearOk = !yearText.IsEmpty();
-	for (int i = 1; yearOk && i <= yearText.Length(); ++i) {
-		const wchar_t ch = yearText[i];
-		if (ch < L'0' || ch > L'9')
-			yearOk = false;
-	}
-	if (!yearOk) {
-		ShowMessage("Ошибка при сохранении базы!");
-		return;
-	}
-
-	const std::wstring tokenPath = toW(token_dir_);
-	const std::wstring dir = user_file_replace::ParentDirectory(tokenPath);
-	const std::wstring fullFileName = dir + L"\\" + std::wstring(yearText.c_str()) + L".db";
+    std::vector<ServerEndpoint> sources;
+    for (const auto& ep : serverManager_.endpointsInOrder())
+        if (serverManager_.isServerAuthorized(ep.id)) sources.push_back(ep);
+    if (sources.empty()) {
+        ShowMessage(L"Нет авторизованного сервера для получения описи. Нажмите «Подключение».");
+        return;
+    }
+    const std::wstring dir = user_file_replace::ParentDirectory(toW(token_dir_));
+    unsigned short year = 0, month = 0, day = 0;
+    DecodeDate(Date(), year, month, day);
+    std::unique_ptr<TfSelectServer> dialog(new TfSelectServer(this));
+    dialog->PopupParent = this;
+    dialog->SetOpisMode(String(dir.c_str()), IntToStr(static_cast<int>(year)));
+    dialog->SetServers(sources, primaryServerId());
+    if (dialog->ShowModal() != mrOk) return;
+    const std::string targetServerId = dialog->SelectedServerId();
+    const String yearText = dialog->SelectedOpisYear();
+    const std::wstring fullFileName = dir + L"\\" + std::wstring(yearText.c_str()) + L".db";
 
 	componentsEnable(false);
 
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
-	System::Threading::TTask::Run([this, fullFileName, live, op]() {
+	System::Threading::TTask::Run([this, targetServerId, fullFileName, live, op]() {
 		try {
 			std::vector<BYTE> str;
 			std::string err;
 			if (!serverManager_.requestBinary(
-					primaryServerId(), std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE,
+					targetServerId, std::vector<uint8_t>{0}, COMMAND::GET_OPIS_BASE,
 					str, nullptr, &err) || str.empty()) {
 				TThread::Queue(nullptr, [this, live, op]() {
 					(void)live;
@@ -5470,19 +5501,30 @@ void __fastcall TfMain::btnAttachSaveClick(TObject *Sender)
 
 //---------------------------------------------------------------------------
 
+void __fastcall TfMain::qrySettingsBeforePost(TDataSet *DataSet)
+{
+    if (DataSet->FindField(L"server_year") && DataSet->FindField(L"god"))
+        ServerGroups::ValidatePortRow(DataSet, ConnectionSettings);
+    else if (DataSet->FindField(L"host") && DataSet->FindField(L"server_id")) {
+        const String id = DataSet->FieldByName(L"server_id")->AsString;
+        if (Trim(id).IsEmpty() || id != Trim(id) || Trim(DataSet->FieldByName(L"host")->AsString).IsEmpty())
+            throw Exception(L"Укажите server_id без пробелов по краям и непустой адрес сервера.");
+    }
+}
+
 void __fastcall TfMain::tbcSettingsChange(TObject *Sender)
 {
-     try {
-        // Получаем имя выбранной вкладки
-        String selectedTab = tbcSettings->Tabs->Strings[tbcSettings->TabIndex];
-        // Формируем запрос для открытия таблицы
+    try {
+        if (tbcSettings->TabIndex < 0) return;
+        if (qrySettings->State == dsEdit || qrySettings->State == dsInsert) qrySettings->Post();
+        const String selectedTab = tbcSettings->Tabs->Strings[tbcSettings->TabIndex];
         qrySettings->Close();
-        qrySettings->SQL->Text = "SELECT * FROM " + selectedTab;
+        qrySettings->SQL->Text = L"SELECT * FROM \"" + selectedTab + L"\"";
         qrySettings->Open();
-		EqualizeSettingsColumnWidths(dbghSettings);
-      //  ShowMessage("Таблица \"" + selectedTab + "\" успешно загружена.");
-    } catch (const Exception &e) {
-        ShowMessage("Ошибка при загрузке таблицы: " + e.Message);
+        SetSettingsColumnCaptions(qrySettings, selectedTab);
+        EqualizeSettingsColumnWidths(dbghSettings);
+    } catch (const Exception& e) {
+        ShowMessage(L"Ошибка при открытии настроек: " + e.Message);
     }
 }
 //---------------------------------------------------------------------------
@@ -5519,43 +5561,18 @@ bool TfMain::prepareStartupAutoConnect(String& connectionMessage)
 		return false;
 	}
 
-	reloadAvailableYears();
-	if (cmbGod->Items->Count <= 0) {
-		connectionMessage = L"Не выбран год поиска";
+	reloadAvailableServerGroups();
+	if (cmbServerGroup->Items->Count <= 0) {
+		connectionMessage = L"Не выбрана группа серверов";
 		return false;
 	}
 
-	unsigned short year = 0, month = 0, day = 0;
-	DecodeDate(Date(), year, month, day);
-	const String calendarYear = IntToStr(static_cast<int>(year));
-	const int calendarIndex = cmbGod->Items->IndexOf(calendarYear);
+    if (cmbServerGroup->ItemIndex < 0) {
+        connectionMessage = L"Выберите группу серверов и нажмите «Подключение».";
+        return false;
+    }
 
-	int enabledServerCount = 0;
-	qrySettings->Close();
-	qrySettings->SQL->Text = L"SELECT COUNT(*) AS cnt FROM servers WHERE enabled <> 0";
-	qrySettings->Open();
-	if (!qrySettings->Eof)
-		enabledServerCount = qrySettings->FieldByName(L"cnt")->AsInteger;
-
-	suppressYearReconnect_ = true;
-	try {
-		if (calendarIndex >= 0)
-			cmbGod->ItemIndex = calendarIndex;
-		else if (enabledServerCount == 1) {
-			if (cmbGod->ItemIndex < 0)
-				cmbGod->ItemIndex = 0;
-		}
-		else {
-			connectionMessage =
-				L"Для текущего года нет настроенных серверов. Выберите год и нажмите «Подключение».";
-			return false;
-		}
-	}
-	__finally {
-		suppressYearReconnect_ = false;
-	}
-
-	if (!configureServersForCurrentYear(&connectionMessage))
+	if (!configureServersForCurrentGroup(&connectionMessage))
 		return false;
 	return serverManager_.serverCount() > 0;
 }
@@ -5856,7 +5873,7 @@ bool TfMain::tryConnect()
 		qrySettings->ParamByName(L"host")->AsString = Edit2->Text;
 		qrySettings->ExecSQL();
 		String configError;
-		if (!configureServersForCurrentYear(&configError)) {
+		if (!configureServersForCurrentGroup(&configError)) {
 			ShowMessage(configError);
 			lbStatus->Caption = "Статус: ошибка конфигурации";
 			componentsEnable(false);
@@ -5884,7 +5901,7 @@ bool TfMain::tryConnect()
 		// Do not enable search/load here: caller finishes server-auth first.
 		const int serverCount = static_cast<int>(serverManager_.serverCount());
 		lbStatus->Caption = "Статус: настройка серверов (" + String(serverCount) +
-			"), ожидание авторизации, " + cmbGod->Text + " год";
+			L"), ожидание авторизации, группа «" + cmbServerGroup->Text + L"»";
         return true;
     }
     catch (const Exception& e) {

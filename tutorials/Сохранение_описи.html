@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сохранение базы для описей: источник, год и файл</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
+<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html" aria-current="page">Сохранение описи</a>
+<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>Сохранение базы для описей: источник, год и файл</h1><aside class="toc" aria-label="Содержание"><strong>В этом руководстве</strong><ol><li><a href="#section-1">Подготовка</a></li><li><a href="#section-2">Последовательное сохранение</a></li><li><a href="#section-3">Куда записывается база</a></li><li><a href="#section-4">Пример для видео: архивная опись из группы «Все года»</a></li><li><a href="#section-5">Если сохранить не получилось</a></li></ol></aside>
+<p>Кнопка <strong>Сохранить базу для описей</strong> на вкладке <strong>Загрузка</strong> получает базу с выбранной поисковой службы. Это отдельная операция; она не сохраняет найденные документы и не объединяет описи нескольких серверов.</p>
+<p>Все темы: <a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>. Подключения: <a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">группы серверов</a>. Остальные операции вкладки: <a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/07_%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0_%D0%B8_%D1%81%D0%BB%D1%83%D0%B6%D0%B5%D0%B1%D0%BD%D1%8B%D0%B5_%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%86%D0%B8%D0%B8.html">загрузка и служебные операции</a>.</p>
+<h2 id="section-1">1. Подготовка</h2>
+<ol>
+<li>В списке <strong>Сервер / группа</strong> выберите нужное подключение и подключитесь.</li>
+<li>Проверьте авторизацию источника, с которого нужна опись.</li>
+<li>Узнайте год этой службы. Если в настройках заполнен <code>server_ports.server_year</code>, клиент предложит его в окне сохранения. Это год, указанный в клиенте, а не автоматически прочитанный с сервера.</li>
+</ol>
+<p>Сервер отдаёт свой файл <code>&lt;год службы&gt;.db</code> из настроенного каталога описи. Выбор группы «Все года» не заставляет одну службу отдавать базы всех лет.</p>
+<h2 id="section-2">2. Последовательное сохранение</h2>
+<ol>
+<li>Откройте <strong>Загрузка → Сохранить базу для описей</strong>.</li>
+<li>Выберите <strong>сервер-источник</strong> из авторизованных подключений текущей группы. По умолчанию выбран основной; если он не авторизован, выбирается первый доступный.</li>
+<li>Проверьте <strong>Год файла описи</strong>. При смене источника клиент заново подставляет его <code>server_year</code>. Если год неизвестен, предлагает текущий календарный год — проверьте и исправьте его.</li>
+<li>Прочитайте показанный полный путь файла. Четырёхзначный год задаёт имя, например <code>2024.db</code>.</li>
+<li>Если такой файл существует, отметьте <strong>Заменить существующую базу после успешной загрузки</strong>, если намерены заменить его. До этого кнопка <strong>Сохранить</strong> недоступна.</li>
+<li>Нажмите <strong>Сохранить</strong>, дождитесь сообщения об успехе и проверьте файл по указанному пути.</li>
+</ol>
+<p><strong>Ввод года меняет имя локального файла, но не выбирает другой год на сервере.</strong> Для получения описи 2024 года выберите службу, которая действительно обслуживает 2024 год. Если её нет в группе, добавьте подключение либо переключите группу.</p>
+<p>При ошибке получения или записи прежняя база сохраняется. Источник и путь фиксируются перед фоновой загрузкой. Не закрывайте клиент и не отключайте носитель до её завершения.</p>
+<h2 id="section-3">3. Куда записывается база</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Активный способ входа</th>
+<th>Каталог файла <code>&lt;год&gt;.db</code></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Токен ПК</td>
+<td><code>%LOCALAPPDATA%\SearchEngine\</code> текущего пользователя Windows</td>
+</tr>
+<tr>
+<td>Токен USB</td>
+<td>Рядом с используемым токеном на флешке</td>
+</tr>
+<tr>
+<td>Местный admin</td>
+<td>Рядом с запущенным EXE</td>
+</tr>
+</tbody></table></div>
+<p>Это не папка обычного сохранения документов. Каталог должен разрешать запись. Имя группы не используется в имени описи.</p>
+<p>Два сервера одного года могут содержать разные базы, но предложить одинаковое имя <code>2024.db</code>. Сохранение второго заменит первый файл только при выбранном разрешении на замену. Если нужны оба, предварительно сохраните первый экземпляр отдельно и подпишите его источником.</p>
+<h2 id="section-4">4. Пример для видео: архивная опись из группы «Все года»</h2>
+<p>Подготовьте группу с текущей и архивной службами, для архива укажите <code>server_year = 2024</code>. Данные должны быть учебными.</p>
+<ol>
+<li>Выберите <strong>Все года</strong>, подключитесь и проверьте статус источников.</li>
+<li>Откройте сохранение описи. Покажите, какой источник выбран по умолчанию.</li>
+<li>Переключите источник на <strong>Архив 2024</strong>. Покажите автоматическую подстановку <code>2024</code> и путь <code>2024.db</code>.</li>
+<li>Сохраните и проверьте файл.</li>
+<li>Повторно откройте окно: покажите требование разрешить замену уже существующей базы. Для демонстрации достаточно отменить окно.</li>
+</ol>
+<p>Отдельный короткий пример: оставьте год службы пустым в учебной настройке. Окно предложит текущий год; объясните, почему для архива его нужно исправить. Изменение имени файла не преобразует данные базы.</p>
+<h2 id="section-5">5. Если сохранить не получилось</h2>
+<ul>
+<li>Нет источников в окне: подключитесь и проверьте разрешение на нужной службе.</li>
+<li>Кнопка недоступна: укажите четырёхзначный год; проверьте, требуется ли разрешить замену.</li>
+<li>Ошибка получения: проверьте сервер, его файл описи и права доступа.</li>
+<li>Ошибка записи: проверьте каталог активного токена, свободное место и доступность флешки.</li>
+</ul>
+<p>Передайте специалисту имя сервера, фактический год службы и сообщение ошибки. Успешный поиск на другом источнике не означает, что опись выбранного сервера доступна.</p>
+
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>

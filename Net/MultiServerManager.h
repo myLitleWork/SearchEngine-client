@@ -19,6 +19,7 @@ struct ServerEndpoint
 	std::string host;
 	std::string port;
 	bool enabled{true};
+	std::string year; // Client-configured service year; never sent in search requests.
 };
 
 // Local flash uses AUTHENTICATE_V1; admin984.bin stays on USER_REGISTRY.
@@ -557,7 +558,7 @@ public:
 			errMsg);
 	}
 
-	// Device Connect: AUTHENTICATE_V1 on every enabled server for the year.
+	// Device Connect: AUTHENTICATE_V1 on every enabled server for the selected group.
 	std::vector<ServerAuthAttempt> authenticateAllV1(
 		const std::string& clientName,
 		const std::string& clientId,
@@ -585,7 +586,7 @@ public:
 		return attempts;
 	}
 
-	// Admin Connect: USER_REGISTRY on every enabled server for the year.
+	// Admin Connect: USER_REGISTRY on every enabled server for the selected group.
 	// Does not use AUTHENTICATE_V1. Partial success is allowed.
 	std::vector<ServerAuthAttempt> authenticateAllLegacy(const std::string& user)
 	{

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Настройки клиента: краткий справочник</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
+<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
+<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>Настройки клиента: краткий справочник</h1>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Настройка</th>
+<th>Влияние и применение</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>servers.server_id</code></td>
+<td>Уникальный постоянный идентификатор, на него ссылаются порты</td>
+</tr>
+<tr>
+<td><code>display_name</code>, <code>host</code></td>
+<td>Понятное имя и IP/DNS сервера</td>
+</tr>
+<tr>
+<td><code>servers.enabled</code>, <code>server_ports.enabled</code></td>
+<td>Для участия нужны оба ненулевых значения</td>
+</tr>
+<tr>
+<td><code>sort_order</code></td>
+<td>Первый включённый сервер выбранной группы становится основным; при равенстве — порядок имени и идентификатора</td>
+</tr>
+<tr>
+<td><code>server_ports.god</code>, <code>port</code></td>
+<td>Имя группы и фактический TCP-порт службы</td>
+</tr>
+<tr>
+<td><code>server_ports.server_year</code></td>
+<td>Год данных службы для подсказки при сохранении описи; пусто — неизвестен</td>
+</tr>
+<tr>
+<td><code>settings.last_server_group</code></td>
+<td>Последняя выбранная группа; запоминается клиентом</td>
+</tr>
+<tr>
+<td><code>settings.default_server_group</code></td>
+<td>Точное имя группы по умолчанию; используется, если последняя недоступна</td>
+</tr>
+<tr>
+<td><code>ports</code></td>
+<td>Старый формат; новый каталог настраивайте в <code>server_ports</code></td>
+</tr>
+<tr>
+<td><code>settings.use_f12 = yes</code></td>
+<td>Разрешает обычную панель деталей; не изменяет права сервера</td>
+</tr>
+<tr>
+<td><code>map</code>, <code>map_vh</code>, <code>map_ish</code></td>
+<td>Связь пользовательских названий полей с полями AutoPad; поставляются заполненными</td>
+</tr>
+<tr>
+<td>Адреса с портами наверху</td>
+<td>Показывают подключения выбранной группы; поле ручного IP в текущей форме скрыто, меняйте адрес через <code>servers</code></td>
+</tr>
+<tr>
+<td><strong>Сервер / группа</strong> наверху</td>
+<td>Список под подписью выбирает один источник или группу; смена выбора очищает выборку и выполняет переподключение</td>
+</tr>
+<tr>
+<td><strong>SQL</strong>, <strong>Тип</strong>, <strong>Поле</strong></td>
+<td>Режим и источник поиска</td>
+</tr>
+<tr>
+<td><strong>Точное совпадение</strong></td>
+<td>Равенство целого поля AutoPad; не меняет режим всех слов текстового поиска</td>
+</tr>
+<tr>
+<td><strong>Максимальное число ответов</strong></td>
+<td>Положительное число, SQL-лимит отдельно на каждый сервер по всем его базам</td>
+</tr>
+<tr>
+<td><strong>OEM-866</strong></td>
+<td>Штатная кодировка текстового запроса; выключена в SQL</td>
+</tr>
+<tr>
+<td>Шаблон запроса</td>
+<td>Сохраняет текст, поле, тип, SQL и точность; не сохраняет группу серверов/лимит/OEM</td>
+</tr>
+<tr>
+<td><strong>Набор колонок</strong> → <strong>Сохранить</strong></td>
+<td>Явно сохраняет ширины и видимость; порядок колонок не записывается</td>
+</tr>
+<tr>
+<td><strong>Приложение</strong>, <strong>tlg</strong>, <strong>docx</strong></td>
+<td>Получаемое содержимое; tlg/docx взаимоисключающие</td>
+</tr>
+<tr>
+<td>Папка, <strong>Сделать отдельную папку</strong></td>
+<td>Куда сохранять пакет; подпапка по запросу для нескольких отмеченных строк</td>
+</tr>
+</tbody></table></div>
+<p>Завершите редактирование строки настроек и перейдите на <strong>Поиск</strong>. Клиент перечитает таблицы; прежнее соединение отключается, поэтому нажмите <strong>Подключение</strong>. Во время поиска/сохранения применение может быть отложено до завершения операции.</p>
+<p>Столбцы таблиц подписаны по-русски. <strong>Код сервера</strong> — <code>server_id</code>, <strong>Название сервера</strong> — <code>display_name</code>, <strong>Адрес сервера</strong> — <code>host</code>, <strong>Включён</strong> — <code>enabled</code> (1 — да, 0 — нет), <strong>Порядок</strong> — <code>sort_order</code>, <strong>Сервер / группа</strong> — <code>god</code>, <strong>Год службы</strong> — <code>server_year</code>. В словарях <code>map*</code> показаны <strong>Название для поиска</strong> и <strong>Поле базы данных</strong>, в <code>settings</code> — <strong>Настройка</strong> и <strong>Значение</strong>. В старой таблице <code>ports</code> год подписан <strong>Год (старый формат)</strong>. Внутренние имена полей базы остаются прежними.</p>
+<p>При обновлении старой схемы <code>server_year</code> добавляется автоматически с резервной копией. Проверьте перенесённые из числового <code>god</code> годы по реальным службам. Подробнее: <a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">группы и миграция</a>, <a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">опись</a>.</p>
+<p>Пошаговые примеры: <a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">подключение</a>, <a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">поиск</a>, <a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">детали и колонки</a>, <a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">сохранение</a>.</p>
+
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>

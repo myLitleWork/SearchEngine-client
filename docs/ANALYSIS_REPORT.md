@@ -9,7 +9,7 @@
 | Точка входа / версия | `SearchClient_asio.cpp`, `Version.h`, `app-version.json`, `.cbproj` |
 | Главный UI | `formMain.dfm/.h/.cpp` |
 | Фреймы деталей | `Frames/FrameWay.*`, `FrameAttachments.*`, `FramePdtv.*`, `MyFrameDbg.*` |
-| Сеть | `Net/myAsioClient.*`, `MultiServerManager.*`, `SocketFileSaver.*`, `tutorials/MULTI_SERVER_SEARCH.md` |
+| Сеть | `Net/myAsioClient.*`, `MultiServerManager.*`, `SocketFileSaver.*`, `tutorials/Многосерверный_поиск.html` |
 | БД | `Database/ResDbMigration.h`, `SqliteDb.*`, схемы DDL |
 | Поиск/JSON | `SqlCondition.*`, `myRequest.*`, `my_json/*` |
 | DOCX | `DocxConversionWorker.cpp`, `WordBatchProcessor.*` |
@@ -40,15 +40,15 @@
 
 | Файл | Назначение |
 |---|---|
-| `tutorials/PROGRAM_OVERVIEW.md` | Обзор программы |
-| `tutorials/GETTING_STARTED.md` | Первый запуск |
-| `tutorials/SETTINGS_REFERENCE.md` | Справочник настроек |
-| `tutorials/TROUBLESHOOTING.md` | Проблемы и сообщения |
-| `tutorials/DATA_AND_FILES.md` | Данные и файлы |
-| `tutorials/CONNECTION_GUIDE.md` | Практика подключения |
-| `tutorials/SEARCH_GUIDE.md` | Практика поиска |
-| `tutorials/functions/` | Подробные сценарии по функциям |
-| `tutorials/MULTI_SERVER_SEARCH.md` | Многосерверный поиск |
+| `tutorials/Обзор_программы.html` | Обзор программы |
+| `tutorials/Быстрый_старт.html` | Первый запуск |
+| `tutorials/Настройки_клиента.html` | Справочник настроек |
+| `tutorials/Решение_проблем.html` | Проблемы и сообщения |
+| `tutorials/Данные_и_файлы.html` | Данные и файлы |
+| `tutorials/Подключение_и_авторизация.html` | Практика подключения |
+| `tutorials/Поиск_и_шаблоны.html` | Практика поиска |
+| `tutorials/Краткие_инструкции/` | Подробные сценарии по функциям |
+| `tutorials/Многосерверный_поиск.html` | Многосерверный поиск |
 | `docs/TECHNICAL_NOTES.md` | Техническая карта |
 | `docs/RELEASE_PACKAGE.md` | Состав и границы релизного пакета |
 | `docs/ANALYSIS_REPORT.md` | Этот отчёт |

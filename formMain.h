@@ -183,7 +183,9 @@ __published:	// IDE-managed Components
 	TPrintDBGridEh *dbp;
 	TPanel *pnStatusBar;
 	TLabel *lbStatus;
-	TComboBox *cmbGod;
+	TComboBox *cmbServerGroup;
+	TLabel *lblServerGroup;
+	TPanel *pnServerChoice;
 	TFDQuery *qrySettings;
 	TIntegerField *memTblnum;
 	TDateField *memTbldate;
@@ -228,6 +230,8 @@ __published:	// IDE-managed Components
 	TTimer *tmLoginOut;
 	TLabel *lblUser;
 	TComboBox *cmbAuthUser;
+	TPanel *pnAuthChoice;
+	TLabel *lblAuthorization;
 	TPopupMenu *popListFilesLoad;
 	TMenuItem *popItemClearFilesOnLoad;
 	TMenuItem *delFileLoad;
@@ -327,7 +331,7 @@ __published:	// IDE-managed Components
 	void __fastcall dbgEhCellClick(TColumnEh *Column);
 	void __fastcall dbgEhDrawColumnCell(TObject *Sender, const TRect &Rect, int DataCol,
 		TColumnEh *Column, Gridseh::TGridDrawState State);
-	void __fastcall cmbGodChange(TObject *Sender);
+	void __fastcall cmbServerGroupChange(TObject *Sender);
 	void __fastcall btnSaveClick(TObject *Sender);
 	void __fastcall btnCancelSaveClick(TObject *Sender);
 	void __fastcall chkSQLClick(TObject *Sender);
@@ -367,6 +371,7 @@ __published:	// IDE-managed Components
 	void __fastcall btnLoadRaznClick(TObject *Sender);
 	void __fastcall btnAttachSaveClick(TObject *Sender);
 	void __fastcall tbcSettingsChange(TObject *Sender);
+	void __fastcall qrySettingsBeforePost(TDataSet *DataSet);
 	void __fastcall chkDocxClick(TObject *Sender);
 	void __fastcall chkTextClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
@@ -436,11 +441,12 @@ private:	// User declarations
 	bool dbgEhLayoutBusy_ = false;
 	bool dbgEhLayoutReady_ = false;
 	bool applyingRuntimeSettings_ = false;
+	bool settingsPageWasActive_ = false;
 	bool runtimeSettingsApplyPending_ = false;
 	bool formShown_ = false;
 	bool startupAutoConnectPending_ = true;
 	bool startupAutoConnectQueued_ = false;
-	bool suppressYearReconnect_ = false;
+	bool suppressGroupReconnect_ = false;
 	TTimer* responsiveLayoutTimer_ = nullptr;
 	TScrollBox* responsiveScrollHost_ = nullptr;
 	int responsiveLayoutPassesRemaining_ = 0;
@@ -466,9 +472,9 @@ private:	// User declarations
 	bool unauthorizedSearchSkipNotified_ = false;
 	TObject* lastSender = nullptr;
 	void ensureServerCatalogSeeded(const String& fallbackHost);
-	void reloadAvailableYears();
+	void reloadAvailableServerGroups();
 	void updateServerEndpointsLabel();
-	bool configureServersForCurrentYear(String* errorMessage = nullptr);
+	bool configureServersForCurrentGroup(String* errorMessage = nullptr);
 	bool applyRuntimeSettings(String* errorMessage = nullptr);
 	bool prepareStartupAutoConnect(String& connectionMessage);
 	void scheduleStartupAutoConnect();
@@ -584,7 +590,6 @@ public:		// User declarations
 	int searchSaveInserted_ = 0;
 	int searchSaveFailed_ = 0;
 	bool searchSavePartial_ = false;
-	std::map<String, String> mapPorts;
 	const String f12_dir = "D:\\F12\\";
 	bool saveToFile();
 	void loadTextToEditFromServer();

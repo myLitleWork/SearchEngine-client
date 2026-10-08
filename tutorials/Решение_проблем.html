@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Быстрые проверки проблем</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
+h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
+h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
+a { color: #175a8a; text-underline-offset: .15em; }
+code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
+pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre code { padding: 0; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+th { background: #eef5fb; }
+td { min-width: 7rem; }
+li { margin: .35rem 0; }
+.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
+.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
+.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
+@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
+@page { size: A4; margin: 16mm; }
+@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
+/* Keep field names readable; narrow screens scroll the table. */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+table th:first-child, table td:first-child {
+  width: 22%;
+  min-width: 12rem;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+table th:first-child code, table td:first-child code {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+@media print {
+  table th:first-child, table td:first-child { min-width: 0; }
+  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
+<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
+<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
+<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
+<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
+<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
+<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<main>
+<h1>Быстрые проверки проблем</h1>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Симптом</th>
+<th>Первое действие</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Нет местного имени</td>
+<td>Проверьте выданный токен, привязку и носитель; для локального admin — файл рядом с фактическим EXE</td>
+</tr>
+<tr>
+<td>Имя зелёное, поиск недоступен</td>
+<td>Нажмите <strong>Подключение</strong>, проверьте серверную авторизацию</td>
+</tr>
+<tr>
+<td>admin не принят</td>
+<td>Используйте <code>127.0.0.1</code> на том же ПК; для удалённого сервера нужен подписанный токен</td>
+</tr>
+<tr>
+<td>Для группы нет источников</td>
+<td>Проверьте <code>server_id</code>, <code>god</code>, порт и оба <code>enabled</code></td>
+</tr>
+<tr>
+<td>В подписанном режиме не подключается к нескольким серверам</td>
+<td>Сначала проверьте основной: до проверки остальных выполняется его соединение</td>
+</tr>
+<tr>
+<td>Авторизована/ответила только часть серверов</td>
+<td>Прочитайте список отказов; выборка пока неполная</td>
+</tr>
+<tr>
+<td>Текстовый поиск не находит</td>
+<td>Проверьте целые формы слов, все слова при all, внешние точки в запросе, год, индекс сервера</td>
+</tr>
+<tr>
+<td>AutoPad даёт слишком много/мало</td>
+<td>Проверьте поле, Вх./Исх., точность и лимит; точность сравнивает всё поле</td>
+</tr>
+<tr>
+<td>Результаты исчезли после фильтра</td>
+<td>Очистите локальные условия в заголовках колонок</td>
+</tr>
+<tr>
+<td>Нет плюсиков</td>
+<td>Проверьте выбранную строку и <code>settings.use_f12 = yes</code>; вернитесь на <strong>Поиск</strong></td>
+</tr>
+<tr>
+<td>Строка помечена как удалённая</td>
+<td>Карточка сохранилась, исходный файл отсутствует; скачивание пропускается</td>
+</tr>
+<tr>
+<td>«Ничего не выбрано!»</td>
+<td>Поставьте галочки строк, одного курсора недостаточно</td>
+</tr>
+<tr>
+<td>«Не выбрано что сохранять!»</td>
+<td>Включите Приложение, tlg или docx</td>
+</tr>
+<tr>
+<td>Исходящее приложение доступно, но не сохраняется</td>
+<td>«Да» подтверждает ZIP; проверьте ошибку обязательной записи/формата и порядок имён</td>
+</tr>
+<tr>
+<td>DOCX не создаётся</td>
+<td>Word, <code>sht.docm</code>, возможность выполнить поставляемый макрос, журнал конкретного файла</td>
+</tr>
+<tr>
+<td>Ширины не восстановились</td>
+<td>После настройки нажмите <strong>Сохранить</strong> в меню колонок; проверьте запись в папку клиента</td>
+</tr>
+<tr>
+<td>Excel сообщает о формате</td>
+<td>Клиент использует XLS-экспортёр с расширением xlsx в диалоге; проверьте открытие и пересохраните в нужный формат</td>
+</tr>
+<tr>
+<td>Опись не записалась</td>
+<td>Папка активного токена должна разрешать запись; это не папка обычного сохранения</td>
+</tr>
+</tbody></table></div>
+<p>Если сервер предлагает подробности ошибки, откройте их. Для обращения к специалисту достаточно года, сервера, номера документа, сообщения/кода и ожидаемого результата. Завершённый прогресс сохранения не заменяет чтение журнала.</p>
+<p>Порядок действий по каждой теме: <a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>.</p>
+
+<h2>После перевыпуска ключа издателя</h2><p>Если администратор сменил ключ проверки сервера, прежний токен будет отклонён при новой авторизации, даже при сохранённом разрешении устройства. Получите новый токен с прежней привязкой к ПК или флешке, согласуйте переключение серверов и подключитесь заново. Отключённая запись автоматически не включается; переустановка клиента не нужна.</p><p><a href="Замена_токена_после_перевыпуска_ключей.html">Как заменить токен ПК или флешки</a>.</p>
+</main>
+<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+</body>
+</html>
