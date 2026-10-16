@@ -399,6 +399,7 @@ __published:	// IDE-managed Components
 private:	// User declarations
 	void RestoreTelegramFontSize();
 	void ApplyTelegramFontSize(int size);
+	int telegramFontSize_ = 9;
 
 	enum class ROW_MENU
 	{

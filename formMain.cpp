@@ -476,8 +476,7 @@ const int MAIN_FORM_DESIGN_PPI = 192;
 const int MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI = 1932;
 const int MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI = 1194;
 const int RESPONSIVE_LAYOUT_INTERVAL_MS = 75;
-// The previous Font.Height = -19 corresponds to 14 points at 96 PPI.
-const int TELEGRAM_FONT_DEFAULT_SIZE = 11;
+const int TELEGRAM_FONT_DEFAULT_SIZE = 9;
 const int TELEGRAM_FONT_MIN_SIZE = 8;
 const int TELEGRAM_FONT_MAX_SIZE = 36;
 const wchar_t* const TELEGRAM_FONT_SIZE_SETTING = L"telegram_text_font_size";
@@ -1122,7 +1121,10 @@ void __fastcall TfMain::GridColumnMenuClick(TObject *Sender)
 void TfMain::ApplyTelegramFontSize(int size)
 {
 	const bool modified = rchEdt->Modified;
+	rchEdt->ParentFont = false;
 	rchEdt->Font->Size = size;
+	rchEdt->DefAttributes->Size = size;
+	rchEdt->Zoom = 100;
 	// Update existing text as well as the default for the next telegram.
 	// Only change size, preserving search highlighting and the selection.
 	CHARFORMAT2W format = {};
@@ -1132,6 +1134,7 @@ void TfMain::ApplyTelegramFontSize(int size)
 	SendMessage(rchEdt->Handle, EM_SETCHARFORMAT, SCF_ALL,
 		reinterpret_cast<LPARAM>(&format));
 	rchEdt->Modified = modified;
+	telegramFontSize_ = size;
 	cmbTelegramFontSize->ItemIndex = size - TELEGRAM_FONT_MIN_SIZE;
 }
 
@@ -1154,7 +1157,7 @@ void __fastcall TfMain::cmbTelegramFontSizeChange(TObject *Sender)
 		ServerGroups::WriteSetting(ConnectionSettings,
 			TELEGRAM_FONT_SIZE_SETTING, IntToStr(size));
 	} catch (const Exception& error) {
-		cmbTelegramFontSize->ItemIndex = rchEdt->Font->Size - TELEGRAM_FONT_MIN_SIZE;
+		cmbTelegramFontSize->ItemIndex = telegramFontSize_ - TELEGRAM_FONT_MIN_SIZE;
 		ShowMessage(L"Не удалось сохранить размер шрифта: " + error.Message);
 		return;
 	}
@@ -1225,6 +1228,7 @@ void TfMain::applyRchEdtText(const String& telegramText, bool highlightQuery)
 	rchEdt->Lines->BeginUpdate();
 	try {
 		rchEdt->Lines->Text = text;
+		ApplyTelegramFontSize(telegramFontSize_);
 		if (highlightQuery) {
 			std::unique_ptr<TStringList> sl(new TStringList());
 			sl->DelimitedText = chkUpper->Checked ? cmbReq->Text : cmbReq->Text.UpperCase();
@@ -4207,6 +4211,8 @@ void __fastcall TfMain::FormAfterMonitorDpiChanged(TObject* Sender, int OldDPI, 
 	(void)Sender;
 	(void)OldDPI;
 	(void)NewDPI;
+	if (cmbTelegramFontSize && cmbTelegramFontSize->Items->Count > 0)
+		ApplyTelegramFontSize(telegramFontSize_);
 	ScheduleResponsiveLayout();
 }
 //---------------------------------------------------------------------------

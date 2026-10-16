@@ -1454,20 +1454,6 @@ object fMain: TfMain
             OnClick = btnSearchClick
             ExplicitTop = 71
           end
-          object chkOEM: TCheckBox
-            AlignWithMargins = True
-            Left = 4
-            Top = 102
-            Width = 376
-            Height = 17
-            TabStop = False
-            Align = alTop
-            Caption = 'OEM-866'
-            Checked = True
-            State = cbChecked
-            TabOrder = 2
-            ExplicitTop = 128
-          end
           object chkUpper: TCheckBox
             AlignWithMargins = True
             Left = 4
@@ -1506,58 +1492,81 @@ object fMain: TfMain
           object pnTelegramFont: TPanel
             AlignWithMargins = True
             Left = 4
-            Top = 125
+            Top = 102
             Width = 376
-            Height = 32
+            Height = 28
             Align = alTop
             BevelOuter = bvNone
             ShowCaption = False
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
-            Font.Height = -13
+            Font.Height = -12
             Font.Name = 'Segoe UI'
             Font.Style = []
             ParentFont = False
-            TabOrder = 4
+            TabOrder = 2
+            object chkOEM: TCheckBox
+              AlignWithMargins = True
+              Left = 0
+              Top = 3
+              Width = 100
+              Height = 22
+              Margins.Left = 0
+              Align = alLeft
+              TabStop = False
+              Caption = 'OEM-866'
+              Checked = True
+              ParentFont = True
+              State = cbChecked
+              TabOrder = 0
+            end
             object lblTelegramFontSize: TLabel
-              Left = 8
-              Top = 8
-              Width = 126
-              Height = 17
-              Caption = #1056#1072#1079#1084#1077#1088' '#1096#1088#1080#1092#1090#1072':'
+              AlignWithMargins = True
+              Left = 249
+              Top = 3
+              Width = 58
+              Height = 22
+              Align = alRight
+              AutoSize = False
+              Caption = #1064#1088#1080#1092#1090':'
               FocusControl = cmbTelegramFontSize
+              Layout = tlCenter
+              ParentFont = True
             end
             object cmbTelegramFontSize: TComboBox
-              Left = 142
+              AlignWithMargins = True
+              Left = 313
               Top = 3
-              Width = 66
-              Height = 25
+              Width = 60
+              Height = 23
+              Align = alRight
               Style = csDropDownList
               DropDownCount = 12
               Hint = #1056#1072#1079#1084#1077#1088' '#1096#1088#1080#1092#1090#1072' '#1090#1077#1082#1089#1090#1072' '#1074' '#1087#1091#1085#1082#1090#1072#1093'. '#1057#1086#1093#1088#1072#1085#1103#1077#1090#1089#1103' '#1072#1074#1090#1086#1084#1072#1090#1080#1095#1077#1089#1082#1080'.'
               ParentShowHint = False
+              ParentFont = True
               ShowHint = True
-              TabOrder = 0
+              TabOrder = 1
               OnChange = cmbTelegramFontSizeChange
             end
           end
           object rchEdt: TRichEdit
             AlignWithMargins = True
             Left = 4
-            Top = 163
+            Top = 136
             Width = 376
-            Height = 459
+            Height = 486
             Align = alClient
             Enabled = False
             Font.Charset = RUSSIAN_CHARSET
             Font.Color = clWindowText
-            Font.Height = -15
+            Font.Height = -12
             Font.Name = 'Courier New'
             Font.Style = []
             ParentFont = False
             PopupMenu = popEdt
             ScrollBars = ssVertical
-            TabOrder = 5
+            TabOrder = 4
             OnClick = rchEdtClick
             ExplicitTop = 151
             ExplicitHeight = 274
