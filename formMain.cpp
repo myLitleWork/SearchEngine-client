@@ -40,6 +40,7 @@
 #include <sys/stat.h>
 #include <codecvt>
 #include <windows.h>
+#include <richedit.h>
 #include "myJson.h"
 #include "myRSA.h"
 #include "flashNum.h"
@@ -475,6 +476,11 @@ const int MAIN_FORM_DESIGN_PPI = 192;
 const int MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI = 1932;
 const int MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI = 1194;
 const int RESPONSIVE_LAYOUT_INTERVAL_MS = 75;
+// The previous Font.Height = -19 corresponds to 14 points at 96 PPI.
+const int TELEGRAM_FONT_DEFAULT_SIZE = 11;
+const int TELEGRAM_FONT_MIN_SIZE = 8;
+const int TELEGRAM_FONT_MAX_SIZE = 36;
+const wchar_t* const TELEGRAM_FONT_SIZE_SETTING = L"telegram_text_font_size";
 
 void SetSettingsColumnCaptions(TFDQuery* query, const String& tableName)
 {
@@ -1113,6 +1119,48 @@ void __fastcall TfMain::GridColumnMenuClick(TObject *Sender)
 	mi->Checked = dbgEh->Columns->Items[idx]->Visible;
 }
 
+void TfMain::ApplyTelegramFontSize(int size)
+{
+	const bool modified = rchEdt->Modified;
+	rchEdt->Font->Size = size;
+	// Update existing text as well as the default for the next telegram.
+	// Only change size, preserving search highlighting and the selection.
+	CHARFORMAT2W format = {};
+	format.cbSize = sizeof(format);
+	format.dwMask = CFM_SIZE;
+	format.yHeight = size * 20;
+	SendMessage(rchEdt->Handle, EM_SETCHARFORMAT, SCF_ALL,
+		reinterpret_cast<LPARAM>(&format));
+	rchEdt->Modified = modified;
+	cmbTelegramFontSize->ItemIndex = size - TELEGRAM_FONT_MIN_SIZE;
+}
+
+void TfMain::RestoreTelegramFontSize()
+{
+	int size = StrToIntDef(ServerGroups::ReadSetting(
+		ConnectionSettings, TELEGRAM_FONT_SIZE_SETTING), TELEGRAM_FONT_DEFAULT_SIZE);
+	if (size < TELEGRAM_FONT_MIN_SIZE || size > TELEGRAM_FONT_MAX_SIZE)
+		size = TELEGRAM_FONT_DEFAULT_SIZE;
+	ApplyTelegramFontSize(size);
+}
+
+void __fastcall TfMain::cmbTelegramFontSizeChange(TObject *Sender)
+{
+	(void)Sender;
+	if (cmbTelegramFontSize->ItemIndex < 0)
+		return;
+	const int size = cmbTelegramFontSize->ItemIndex + TELEGRAM_FONT_MIN_SIZE;
+	try {
+		ServerGroups::WriteSetting(ConnectionSettings,
+			TELEGRAM_FONT_SIZE_SETTING, IntToStr(size));
+	} catch (const Exception& error) {
+		cmbTelegramFontSize->ItemIndex = rchEdt->Font->Size - TELEGRAM_FONT_MIN_SIZE;
+		ShowMessage(L"Не удалось сохранить размер шрифта: " + error.Message);
+		return;
+	}
+	ApplyTelegramFontSize(size);
+}
+
 void TfMain::pushLog(const String& s)
 {
 	std::lock_guard<std::mutex> lk(log_mtx);
@@ -1448,6 +1496,7 @@ bool TfMain::applyRuntimeSettings(String* errorMessage)
 	bool ok = false;
 	try {
         if (qrySettings->State == dsEdit || qrySettings->State == dsInsert) qrySettings->Post();
+        RestoreTelegramFontSize();
         clear();
 		SqlCondition::map = getMapFromQry(qrySettings, "map");
 		SqlCondition::mapVh = getMapFromQry(qrySettings, "map_vh");
@@ -2648,6 +2697,9 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 	Caption = productVersion.IsEmpty() ? L"SearchClient_asio" : L"SearchClient_asio v" + productVersion;
 	InitDbgMenuDS();
 	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
+	for (int size = TELEGRAM_FONT_MIN_SIZE; size <= TELEGRAM_FONT_MAX_SIZE; ++size)
+		cmbTelegramFontSize->Items->Add(IntToStr(size));
+	RestoreTelegramFontSize();
 
 	ComboHistory = RecentComboHistory(cmbReq,9);
 	myRequest::init(cmbField, cmbReq, chkSQL, chkExc, rgTypeT);

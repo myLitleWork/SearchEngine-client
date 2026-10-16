@@ -1503,23 +1503,61 @@ object fMain: TfMain
             OnChange = cmbReqChange
             OnKeyUp = cmbReqKeyUp
           end
-          object rchEdt: TRichEdit
+          object pnTelegramFont: TPanel
             AlignWithMargins = True
             Left = 4
             Top = 125
             Width = 376
-            Height = 497
+            Height = 32
+            Align = alTop
+            BevelOuter = bvNone
+            ShowCaption = False
+            Font.Charset = DEFAULT_CHARSET
+            Font.Color = clWindowText
+            Font.Height = -13
+            Font.Name = 'Segoe UI'
+            Font.Style = []
+            ParentFont = False
+            TabOrder = 4
+            object lblTelegramFontSize: TLabel
+              Left = 8
+              Top = 8
+              Width = 126
+              Height = 17
+              Caption = #1056#1072#1079#1084#1077#1088' '#1096#1088#1080#1092#1090#1072':'
+              FocusControl = cmbTelegramFontSize
+            end
+            object cmbTelegramFontSize: TComboBox
+              Left = 142
+              Top = 3
+              Width = 66
+              Height = 25
+              Style = csDropDownList
+              DropDownCount = 12
+              Hint = #1056#1072#1079#1084#1077#1088' '#1096#1088#1080#1092#1090#1072' '#1090#1077#1082#1089#1090#1072' '#1074' '#1087#1091#1085#1082#1090#1072#1093'. '#1057#1086#1093#1088#1072#1085#1103#1077#1090#1089#1103' '#1072#1074#1090#1086#1084#1072#1090#1080#1095#1077#1089#1082#1080'.'
+              ParentShowHint = False
+              ShowHint = True
+              TabOrder = 0
+              OnChange = cmbTelegramFontSizeChange
+            end
+          end
+          object rchEdt: TRichEdit
+            AlignWithMargins = True
+            Left = 4
+            Top = 163
+            Width = 376
+            Height = 459
             Align = alClient
             Enabled = False
             Font.Charset = RUSSIAN_CHARSET
             Font.Color = clWindowText
-            Font.Height = -19
+            Font.Height = -15
             Font.Name = 'Courier New'
             Font.Style = []
             ParentFont = False
             PopupMenu = popEdt
             ScrollBars = ssVertical
-            TabOrder = 4
+            TabOrder = 5
             OnClick = rchEdtClick
             ExplicitTop = 151
             ExplicitHeight = 274

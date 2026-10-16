@@ -273,6 +273,9 @@ __published:	// IDE-managed Components
 	TCheckBox *chkUpper;
 	TComboBox *cmbReq;
 	TRichEdit *rchEdt;
+	TPanel *pnTelegramFont;
+	TLabel *lblTelegramFontSize;
+	TComboBox *cmbTelegramFontSize;
 	TTabSheet *tbLoad;
 	TPanel *Panel10;
 	TLabel *Label7;
@@ -379,6 +382,7 @@ __published:	// IDE-managed Components
 	void __fastcall Button2Click(TObject *Sender);
 	void __fastcall btnLoadOnServerFilesClick(TObject *Sender);
 	void __fastcall rchEdtClick(TObject *Sender);
+	void __fastcall cmbTelegramFontSizeChange(TObject *Sender);
 	void __fastcall dbgEhRowDetailPanelShow(TCustomDBGridEh *Sender, bool &CanShow);
 	void __fastcall dbgMenuRowDetailPanelShow(TCustomDBGridEh *Sender, bool &CanShow);
 	void __fastcall dbgMenuRowDetailPanelHide(TCustomDBGridEh *Sender, bool &CanHide);
@@ -393,6 +397,8 @@ __published:	// IDE-managed Components
 
 
 private:	// User declarations
+	void RestoreTelegramFontSize();
+	void ApplyTelegramFontSize(int size);
 
 	enum class ROW_MENU
 	{
