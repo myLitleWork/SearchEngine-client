@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-13",
+  "product": "SearchClient",
+  "version": "4.3.71",
+  "packages": [
+    {
+      "package": "out/package/4.3.71/SearchClient-4.3.71",
+      "html_pages": 16,
+      "tutorial_files": 17,
+      "local_links_and_anchors_checked": 224,
+      "tutorials_byte_for_byte": true,
+      "tutorials_in_manifest": true,
+      "protected_package_files": 24,
+      "checksum_records": 25,
+      "checksums_passed": true,
+      "internal_docs_absent": true,
+      "cloud_zip": "SearchClient-4.3.71.zip",
+      "cloud_zip_sha256": "dde293eb7f0a38e663637293feeff32dfa7e7872c4e92df717150e2148a7386f",
+      "cloud_zip_and_sidecar_passed": true,
+      "cloud_tutorials_byte_for_byte": true
+    }
+  ],
+  "service_installation_run": false,
+  "working_data_used": false,
+  "commit_or_push_run": false,
+  "offline_package_views": [
+    {
+      "package": "SearchClient-4.3.71",
+      "width": 1100,
+      "stage": "contents",
+      "h1": "Все руководства SearchClient",
+      "stylesheetCount": 1,
+      "pageWidth": 1100,
+      "viewport": 1100
+    },
+    {
+      "package": "SearchClient-4.3.71",
+      "width": 1100,
+      "stage": "settings",
+      "h1": "Настройки клиента: сохранение и применение",
+      "stylesheetCount": 1,
+      "pageWidth": 1100,
+      "viewport": 1100
+    },
+    {
+      "package": "SearchClient-4.3.71",
+      "width": 390,
+      "stage": "contents",
+      "h1": "Все руководства SearchClient",
+      "stylesheetCount": 1,
+      "pageWidth": 390,
+      "viewport": 390
+    },
+    {
+      "package": "SearchClient-4.3.71",
+      "width": 390,
+      "stage": "settings",
+      "h1": "Настройки клиента: сохранение и применение",
+      "stylesheetCount": 1,
+      "pageWidth": 390,
+      "viewport": 390
+    }
+  ],
+  "offline_package_pages_status": "passed"
+}

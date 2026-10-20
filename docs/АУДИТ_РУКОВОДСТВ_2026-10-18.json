@@ -1,0 +1,341 @@
+{
+  "root": "W:\\Projects\\SS_ClientServerBackup\\SearchEngine_Cient_asio",
+  "version": "4.3.74",
+  "head": "4260c20d79f8fbda1214ac3ea891acfec1d772e6",
+  "links": {
+    "html": 23,
+    "md": 0,
+    "files": 24,
+    "references": 270,
+    "errors": [],
+    "external": [],
+    "directoryReferences": []
+  },
+  "tutorialHashes": {
+    "tutorials/00_Все_руководства.html": "2515A71232E7B4EB366DB1A5231B9003109B6B732F71135CC452C22CAC422F63",
+    "tutorials/Обзор_программы.html": "6420738851187A706B07DE8A924CA4BBDCC28CA311B3A8470E60B42EEB3E01D2",
+    "tutorials/Оформление.css": "01CEDF811C63D68F8A94DC070A0E910CC66FCA7B48F10C549440BC719B48AF25",
+    "tutorials/Быстрые_действия/Найти_документ.html": "B21D8CA7F69731A10C9706090674FD7CEABB2F9A0C42F7DA3AB19C8693D734E8",
+    "tutorials/Быстрые_действия/Настроить_поиск_по_нескольким_годам.html": "781498A8CED8A6446120DAD270952376B724D341E055DBC415CCF45A3ED7BB86",
+    "tutorials/Быстрые_действия/Подключиться_к_серверу.html": "18D8BD1F41A6941A489B61E14482FF3465E7FDAC51F7F00B972AA88FF2C6D4C7",
+    "tutorials/Быстрые_действия/Сделать_отчёт.html": "B53937A25655D03CC79FC5A77909DD7A0C917C26243344BDB83ABF1C2275A909",
+    "tutorials/Быстрые_действия/Сохранить_и_применить_шаблон.html": "79586EC8C160F324D45150A4A41F65A27D04C4A48CE6B280767DB7C987231345",
+    "tutorials/Быстрые_действия/Сохранить_опись.html": "F2C5A7259B6A937F1E1255F4FE1252678FDB5D0FDEA2AA3EF8DBA925E6C36BE5",
+    "tutorials/Быстрые_действия/Сохранить_текст_и_приложения.html": "F323B36466A8FA7F7D0072DBBEC15B9328AA98E1DF6CF29D411FC01D79409ADC",
+    "tutorials/Настройки/Данные_и_файлы.html": "F4B182689DCB8CBCC327B4D8C41325F280973BEA15502DA99922F97228598F6A",
+    "tutorials/Настройки/Настройки_клиента.html": "39F0C2FCCC111C0C811A468E5C3671CE2C9C00945C043FDB4F1EBB1C2A17114E",
+    "tutorials/Настройки/Параметры_поиска_сохранения_и_вида.html": "3865C16E4A19B32DD0A4A113CAAC8DA79482DE29D50672CDB887164A4C39A543",
+    "tutorials/Настройки/Поля_поиска_и_панель_деталей.html": "CB535778EC4D1145CDAE59CA2DCCF514AAC2F58011395BEAB87710B78FCA4739",
+    "tutorials/Настройки/Серверы_и_группы.html": "DC2DC9EF590FE8A0F23358CCA765BEC6E9712C41EC7CC75C5DA819C92123EC47",
+    "tutorials/Подробные_руководства/Загрузка_и_служебные_операции.html": "10FC30D42E73290650BEB73476ED8B96393EAC2B3082EAFFC804C720C5117D42",
+    "tutorials/Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html": "52E8F1B8BE56A96FF25370057232AFAA0AAB81F9BE003D26C179A107E6916CA4",
+    "tutorials/Подробные_руководства/Подключение_и_авторизация.html": "A07C5AF21E46E5AEF5A5AAE41CFCBCC7C272CFDBA8B77F7560760BB7A60C0083",
+    "tutorials/Подробные_руководства/Поиск_и_шаблоны.html": "8C36C605204F55C458393CEDE373EA5956AAACD05936CEE500EE30363E1DD5E4",
+    "tutorials/Подробные_руководства/Результаты_и_отчёты.html": "0FFA6D11C89F5D2EA1F248165B2989C56A9FB32E79B252680E5B3BE23E50FA71",
+    "tutorials/Подробные_руководства/Решение_проблем.html": "8F89849039D9C1E69F98A22C9AF13B2CFDF5C9262782125A36C59AE65B6B25B4",
+    "tutorials/Подробные_руководства/Серверы_и_группы.html": "3C546D3824B8A4F4FA99E24C112FA2D78455A6FBB2EE4919D4D5EE036BCC460B",
+    "tutorials/Подробные_руководства/Сохранение_описи.html": "3C8D15E3235E99AB876D9212CEF9E73FF07E7CE66E7676B1FB338F396B6EE5AA",
+    "tutorials/Подробные_руководства/Сохранение_файлов.html": "3B2434810C9510C9E36207885F528BD65D72BA7F5B102DB2B49730F9254F5404"
+  },
+  "packages": [
+    {
+      "path": "out/package/4.3.74/SearchClient-4.3.74",
+      "manifestSha256": "69FD587CCCB16BF938E220BBF40F35EB74B421C749C13CB2228527E88A200B98",
+      "metadata": {
+        "formatVersion": 1,
+        "product": "SearchClient",
+        "architecture": "Win32",
+        "commit": "4260c20d79f8fbda1214ac3ea891acfec1d772e6",
+        "dirty": true,
+        "createdUtc": "2026-10-16T20:08:43.8504372Z",
+        "entryPoint": "app/SearchClient_asio.exe",
+        "excluded": [
+          "all files not present in the explicit payload allowlist",
+          "compiler intermediates and journals",
+          "SearchRes.db3, Templates.json and SERVER_IP.ini",
+          "signed tokens, public/private keys and other local credentials"
+        ]
+      },
+      "tutorials": [
+        {
+          "path": "tutorials/00_Все_руководства.html",
+          "hash": "2515A71232E7B4EB366DB1A5231B9003109B6B732F71135CC452C22CAC422F63",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Найти_документ.html",
+          "hash": "B21D8CA7F69731A10C9706090674FD7CEABB2F9A0C42F7DA3AB19C8693D734E8",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Настроить_поиск_по_нескольким_годам.html",
+          "hash": "781498A8CED8A6446120DAD270952376B724D341E055DBC415CCF45A3ED7BB86",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Подключиться_к_серверу.html",
+          "hash": "18D8BD1F41A6941A489B61E14482FF3465E7FDAC51F7F00B972AA88FF2C6D4C7",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Сделать_отчёт.html",
+          "hash": "B53937A25655D03CC79FC5A77909DD7A0C917C26243344BDB83ABF1C2275A909",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Сохранить_и_применить_шаблон.html",
+          "hash": "79586EC8C160F324D45150A4A41F65A27D04C4A48CE6B280767DB7C987231345",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Сохранить_опись.html",
+          "hash": "F2C5A7259B6A937F1E1255F4FE1252678FDB5D0FDEA2AA3EF8DBA925E6C36BE5",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Быстрые_действия/Сохранить_текст_и_приложения.html",
+          "hash": "F323B36466A8FA7F7D0072DBBEC15B9328AA98E1DF6CF29D411FC01D79409ADC",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Настройки/Данные_и_файлы.html",
+          "hash": "F4B182689DCB8CBCC327B4D8C41325F280973BEA15502DA99922F97228598F6A",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Настройки/Настройки_клиента.html",
+          "hash": "39F0C2FCCC111C0C811A468E5C3671CE2C9C00945C043FDB4F1EBB1C2A17114E",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Настройки/Параметры_поиска_сохранения_и_вида.html",
+          "hash": "3865C16E4A19B32DD0A4A113CAAC8DA79482DE29D50672CDB887164A4C39A543",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Настройки/Поля_поиска_и_панель_деталей.html",
+          "hash": "CB535778EC4D1145CDAE59CA2DCCF514AAC2F58011395BEAB87710B78FCA4739",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Настройки/Серверы_и_группы.html",
+          "hash": "DC2DC9EF590FE8A0F23358CCA765BEC6E9712C41EC7CC75C5DA819C92123EC47",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Обзор_программы.html",
+          "hash": "6420738851187A706B07DE8A924CA4BBDCC28CA311B3A8470E60B42EEB3E01D2",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Оформление.css",
+          "hash": "01CEDF811C63D68F8A94DC070A0E910CC66FCA7B48F10C549440BC719B48AF25",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Загрузка_и_служебные_операции.html",
+          "hash": "10FC30D42E73290650BEB73476ED8B96393EAC2B3082EAFFC804C720C5117D42",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html",
+          "hash": "52E8F1B8BE56A96FF25370057232AFAA0AAB81F9BE003D26C179A107E6916CA4",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Подключение_и_авторизация.html",
+          "hash": "A07C5AF21E46E5AEF5A5AAE41CFCBCC7C272CFDBA8B77F7560760BB7A60C0083",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Поиск_и_шаблоны.html",
+          "hash": "8C36C605204F55C458393CEDE373EA5956AAACD05936CEE500EE30363E1DD5E4",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Результаты_и_отчёты.html",
+          "hash": "0FFA6D11C89F5D2EA1F248165B2989C56A9FB32E79B252680E5B3BE23E50FA71",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Решение_проблем.html",
+          "hash": "8F89849039D9C1E69F98A22C9AF13B2CFDF5C9262782125A36C59AE65B6B25B4",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Серверы_и_группы.html",
+          "hash": "3C546D3824B8A4F4FA99E24C112FA2D78455A6FBB2EE4919D4D5EE036BCC460B",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Сохранение_описи.html",
+          "hash": "3C8D15E3235E99AB876D9212CEF9E73FF07E7CE66E7676B1FB338F396B6EE5AA",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        },
+        {
+          "path": "tutorials/Подробные_руководства/Сохранение_файлов.html",
+          "hash": "3B2434810C9510C9E36207885F528BD65D72BA7F5B102DB2B49730F9254F5404",
+          "manifestMatches": true,
+          "checksumMatches": true,
+          "sourceMatches": true,
+          "role": "tutorial"
+        }
+      ],
+      "docsEntries": [],
+      "links": {
+        "html": 23,
+        "md": 0,
+        "files": 24,
+        "references": 270,
+        "errors": [],
+        "external": [],
+        "directoryReferences": []
+      }
+    }
+  ],
+  "date": "2026-10-18",
+  "timezone": "Asia/Yekaterinburg",
+  "method": "partial independent static/delta audit; full tutorial links and selected package tutorial bytes",
+  "preExistingTrackedDirty": [
+    "HANDOFF.md",
+    "SearchClientVersion.rc",
+    "SearchClient_asio.cbproj",
+    "Version.h",
+    "app-version.json",
+    "docs/ANALYSIS_REPORT.md",
+    "docs/CLIENT_TUTORIAL_REVIEW_RU.md",
+    "docs/ORGANIZATIONAL_SETTINGS.md",
+    "docs/PROMPT_USB_AUTH_WMI_TOKEN.md",
+    "docs/SERVER_GROUPS_CHANGE_REVIEW_RU.md",
+    "docs/TECHNICAL_NOTES.md",
+    "scripts/New-SearchClientPackage.ps1",
+    "scripts/Sync-SearchClientVersion.ps1",
+    "\"tutorials/00_\\320\\222\\321\\201\\320\\265_\\321\\200\\321\\203\\320\\272\\320\\276\\320\\262\\320\\276\\320\\264\\321\\201\\321\\202\\320\\262\\320\\260.html\"",
+    "\"tutorials/\\320\\221\\321\\213\\321\\201\\321\\202\\321\\200\\321\\213\\320\\271_\\321\\201\\321\\202\\320\\260\\321\\200\\321\\202.html\"",
+    "\"tutorials/\\320\\224\\320\\260\\320\\275\\320\\275\\321\\213\\320\\265_\\320\\270_\\321\\204\\320\\260\\320\\271\\320\\273\\321\\213.html\"",
+    "\"tutorials/\\320\\227\\320\\260\\320\\274\\320\\265\\320\\275\\320\\260_\\321\\202\\320\\276\\320\\272\\320\\265\\320\\275\\320\\260_\\320\\277\\320\\276\\321\\201\\320\\273\\320\\265_\\320\\277\\320\\265\\321\\200\\320\\265\\320\\262\\321\\213\\320\\277\\321\\203\\321\\201\\320\\272\\320\\260_\\320\\272\\320\\273\\321\\216\\321\\207\\320\\265\\320\\271.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/01_\\320\\237\\320\\276\\320\\264\\320\\272\\320\\273\\321\\216\\321\\207\\320\\265\\320\\275\\320\\270\\320\\265_\\320\\270_\\320\\260\\320\\262\\321\\202\\320\\276\\321\\200\\320\\270\\320\\267\\320\\260\\321\\206\\320\\270\\321\\217.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/02_\\320\\237\\320\\276\\320\\270\\321\\201\\320\\272.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/03_\\320\\242\\320\\265\\320\\272\\321\\201\\321\\202_\\320\\270_\\320\\264\\320\\265\\321\\202\\320\\260\\320\\273\\320\\270_\\320\\264\\320\\276\\320\\272\\321\\203\\320\\274\\320\\265\\320\\275\\321\\202\\320\\260.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/04_\\320\\241\\320\\276\\321\\205\\321\\200\\320\\260\\320\\275\\320\\265\\320\\275\\320\\270\\320\\265_\\321\\204\\320\\260\\320\\271\\320\\273\\320\\276\\320\\262.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/05_\\320\\236\\321\\202\\321\\207\\321\\221\\321\\202\\321\\213_\\320\\270_\\321\\215\\320\\272\\321\\201\\320\\277\\320\\276\\321\\200\\321\\202.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/06_\\320\\250\\320\\260\\320\\261\\320\\273\\320\\276\\320\\275\\321\\213_\\320\\267\\320\\260\\320\\277\\321\\200\\320\\276\\321\\201\\320\\276\\320\\262.html\"",
+    "\"tutorials/\\320\\232\\321\\200\\320\\260\\321\\202\\320\\272\\320\\270\\320\\265_\\320\\270\\320\\275\\321\\201\\321\\202\\321\\200\\321\\203\\320\\272\\321\\206\\320\\270\\320\\270/07_\\320\\227\\320\\260\\320\\263\\321\\200\\321\\203\\320\\267\\320\\272\\320\\260_\\320\\270_\\321\\201\\320\\273\\321\\203\\320\\266\\320\\265\\320\\261\\320\\275\\321\\213\\320\\265_\\320\\276\\320\\277\\320\\265\\321\\200\\320\\260\\321\\206\\320\\270\\320\\270.html\"",
+    "\"tutorials/\\320\\234\\320\\275\\320\\276\\320\\263\\320\\276\\321\\201\\320\\265\\321\\200\\320\\262\\320\\265\\321\\200\\320\\275\\321\\213\\320\\271_\\320\\277\\320\\276\\320\\270\\321\\201\\320\\272.html\"",
+    "\"tutorials/\\320\\235\\320\\260\\321\\201\\321\\202\\321\\200\\320\\276\\320\\271\\320\\272\\320\\270_\\320\\272\\320\\273\\320\\270\\320\\265\\320\\275\\321\\202\\320\\260.html\"",
+    "\"tutorials/\\320\\236\\320\\261\\320\\267\\320\\276\\321\\200_\\320\\277\\321\\200\\320\\276\\320\\263\\321\\200\\320\\260\\320\\274\\320\\274\\321\\213.html\"",
+    "\"tutorials/\\320\\237\\320\\265\\321\\200\\320\\262\\321\\213\\320\\271_\\320\\267\\320\\260\\320\\277\\321\\203\\321\\201\\320\\272.html\"",
+    "\"tutorials/\\320\\237\\320\\276\\320\\264\\320\\272\\320\\273\\321\\216\\321\\207\\320\\265\\320\\275\\320\\270\\320\\265_\\320\\270_\\320\\260\\320\\262\\321\\202\\320\\276\\321\\200\\320\\270\\320\\267\\320\\260\\321\\206\\320\\270\\321\\217.html\"",
+    "\"tutorials/\\320\\237\\320\\276\\320\\270\\321\\201\\320\\272_\\320\\270_\\321\\210\\320\\260\\320\\261\\320\\273\\320\\276\\320\\275\\321\\213.html\"",
+    "\"tutorials/\\320\\240\\320\\265\\320\\267\\321\\203\\320\\273\\321\\214\\321\\202\\320\\260\\321\\202\\321\\213_\\320\\270_\\320\\276\\321\\202\\321\\207\\321\\221\\321\\202\\321\\213.html\"",
+    "\"tutorials/\\320\\240\\320\\265\\321\\210\\320\\265\\320\\275\\320\\270\\320\\265_\\320\\277\\321\\200\\320\\276\\320\\261\\320\\273\\320\\265\\320\\274.html\"",
+    "\"tutorials/\\320\\241\\320\\265\\321\\200\\320\\262\\320\\265\\321\\200\\321\\213_\\320\\270_\\320\\263\\321\\200\\321\\203\\320\\277\\320\\277\\321\\213.html\"",
+    "\"tutorials/\\320\\241\\320\\276\\321\\205\\321\\200\\320\\260\\320\\275\\320\\265\\320\\275\\320\\270\\320\\265_\\320\\276\\320\\277\\320\\270\\321\\201\\320\\270.html\"",
+    "\"tutorials/\\320\\241\\320\\276\\321\\205\\321\\200\\320\\260\\320\\275\\320\\265\\320\\275\\320\\270\\320\\265_\\321\\204\\320\\260\\320\\271\\320\\273\\320\\276\\320\\262.html\""
+  ],
+  "sourceSnapshot": {
+    "formMain.cpp": "13CFEC67D58B635CCA9DDFC4493230C75D91803885ABB554034B9146AB9C75CA",
+    "formMain.h": "31F6F6BE5D15DFE535371DB253E79CDD1D82196F81BA2B15357EC40F22346678",
+    "formMain.dfm": "9353FEE449E6D22DA2AC1C2D79D77626CB0417CBD2286ABE7F1EEF1EBD45AB10",
+    "AuthPaths.h": "C073F79D0E28CA97AD2E7A98BF5B2899F98F36DCF19DBE613C4A39D2FE0DA8AE",
+    "formSelectServer.cpp": "EBB25260D4617CF5D8698468AE214B4C0B247A2A29352FF84BD58A02185EF3BB",
+    "Database/ServerGroupSettings.h": "B9DB93A3DDB5AD98A6C3949DAB3C33F5A4C60656AFE66A54771A06AD403698F3",
+    "scripts/New-SearchClientPackage.ps1": "DB1FC13AFF990CA2FE8DF2C77B3C1A0E82C72CB3E4434A27DCC0505C0D796B73"
+  },
+  "qa17HashMatches": {
+    "00_Все_руководства.html": true,
+    "Обзор_программы.html": true,
+    "Оформление.css": true,
+    "Быстрые_действия/Найти_документ.html": true,
+    "Быстрые_действия/Настроить_поиск_по_нескольким_годам.html": true,
+    "Быстрые_действия/Подключиться_к_серверу.html": true,
+    "Быстрые_действия/Сделать_отчёт.html": true,
+    "Быстрые_действия/Сохранить_и_применить_шаблон.html": true,
+    "Быстрые_действия/Сохранить_опись.html": true,
+    "Быстрые_действия/Сохранить_текст_и_приложения.html": true,
+    "Настройки/Данные_и_файлы.html": true,
+    "Настройки/Настройки_клиента.html": true,
+    "Настройки/Параметры_поиска_сохранения_и_вида.html": true,
+    "Настройки/Поля_поиска_и_панель_деталей.html": true,
+    "Настройки/Серверы_и_группы.html": true,
+    "Подробные_руководства/Загрузка_и_служебные_операции.html": true,
+    "Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html": true,
+    "Подробные_руководства/Подключение_и_авторизация.html": true,
+    "Подробные_руководства/Поиск_и_шаблоны.html": true,
+    "Подробные_руководства/Результаты_и_отчёты.html": true,
+    "Подробные_руководства/Решение_проблем.html": true,
+    "Подробные_руководства/Серверы_и_группы.html": true,
+    "Подробные_руководства/Сохранение_описи.html": true,
+    "Подробные_руководства/Сохранение_файлов.html": true
+  },
+  "stagedTutorialChanges": []
+}

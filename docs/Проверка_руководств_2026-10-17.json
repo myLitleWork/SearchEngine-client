@@ -1,0 +1,796 @@
+{
+  "date": "2026-10-17",
+  "product": "SearchClient",
+  "target_version": "4.3.74",
+  "html_pages": 23,
+  "quick_pages": 7,
+  "tutorial_files": 24,
+  "reachable_pages": 23,
+  "links_and_anchors_checked": 270,
+  "markdown_links_checked": 72,
+  "json_examples": 0,
+  "server_parameters": null,
+  "offline_copy_byte_for_byte": true,
+  "offline_copy": "C:\\Users\\user\\.codex\\visualizations\\2026\\10\\10\\01a12697-d8e3-7ee2-9932-5a1e24c8e65e\\Переработка-2026-10-16\\Офлайн с кириллицей и пробелами\\SearchClient\\tutorials",
+  "checksums": {
+    "00_Все_руководства.html": "2515a71232e7b4eb366db1a5231b9003109b6b732f71135cc452c22cac422f63",
+    "Обзор_программы.html": "6420738851187a706b07de8a924ca4bbdcc28ca311b3a8470e60b42eeb3e01d2",
+    "Оформление.css": "01cedf811c63d68f8a94dc070a0e910cc66fca7b48f10c549440bc719b48af25",
+    "Быстрые_действия/Найти_документ.html": "b21d8ca7f69731a10c9706090674fd7ceabb2f9a0c42f7da3ab19c8693d734e8",
+    "Быстрые_действия/Настроить_поиск_по_нескольким_годам.html": "781498a8ced8a6446120dad270952376b724d341e055dbc415ccf45a3ed7bb86",
+    "Быстрые_действия/Подключиться_к_серверу.html": "18d8bd1f41a6941a489b61e14482ff3465e7fdac51f7f00b972aa88ff2c6d4c7",
+    "Быстрые_действия/Сделать_отчёт.html": "b53937a25655d03cc79fc5a77909dd7a0c917c26243344bdb83abf1c2275a909",
+    "Быстрые_действия/Сохранить_и_применить_шаблон.html": "79586ec8c160f324d45150a4a41f65a27d04c4a48ce6b280767db7c987231345",
+    "Быстрые_действия/Сохранить_опись.html": "f2c5a7259b6a937f1e1255f4fe1252678fdb5d0fdea2aa3ef8dba925e6c36be5",
+    "Быстрые_действия/Сохранить_текст_и_приложения.html": "f323b36466a8fa7f7d0072dbbec15b9328aa98e1df6cf29d411fc01d79409adc",
+    "Настройки/Данные_и_файлы.html": "f4b182689dcb8cbcc327b4d8c41325f280973bea15502da99922f97228598f6a",
+    "Настройки/Настройки_клиента.html": "39f0c2fccc111c0c811a468e5c3671ce2c9c00945c043fdb4f1ebb1c2a17114e",
+    "Настройки/Параметры_поиска_сохранения_и_вида.html": "3865c16e4a19b32dd0a4a113caac8da79482de29d50672cdb887164a4c39a543",
+    "Настройки/Поля_поиска_и_панель_деталей.html": "cb535778ec4d1145cdae59ca2dccf514aac2f58011395beab87710b78fca4739",
+    "Настройки/Серверы_и_группы.html": "dc2dc9ef590fe8a0f23358cca765bec6e9712c41ec7cc75c5da819c92123ec47",
+    "Подробные_руководства/Загрузка_и_служебные_операции.html": "10fc30d42e73290650beb73476ed8b96393eac2b3082eaffc804c720c5117d42",
+    "Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html": "52e8f1b8be56a96ff25370057232afaa0aab81f9be003d26c179a107e6916ca4",
+    "Подробные_руководства/Подключение_и_авторизация.html": "a07c5af21e46e5aef5a5aae41cfcbcc7c272cfdba8b77f7560760bb7a60c0083",
+    "Подробные_руководства/Поиск_и_шаблоны.html": "8c36c605204f55c458393cede373ea5956aaacd05936cee500ee30363e1dd5e4",
+    "Подробные_руководства/Результаты_и_отчёты.html": "0ffa6d11c89f5d2ea1f248165b2989c56a9fb32e79b252680e5b3be23e50fa71",
+    "Подробные_руководства/Решение_проблем.html": "8f89849039d9c1e69f98a22c9af13b2cfdf5c9262782125a36c59ae65b6b25b4",
+    "Подробные_руководства/Серверы_и_группы.html": "3c546d3824b8a4f4fa99e24c112fa2d78455a6fbb2ee4919d4d5ee036bcc460b",
+    "Подробные_руководства/Сохранение_описи.html": "3c8d15e3235e99ab876d9212cef9e73ff07e7ce66e7676b1fb338f396b6ee5aa",
+    "Подробные_руководства/Сохранение_файлов.html": "3b2434810c9510c9e36207885f528bd65d72ba7f5b102db2b49730f9254f5404"
+  },
+  "page_metrics": [
+    {
+      "file": "00_Все_руководства.html",
+      "words": 307,
+      "ordered_steps": [],
+      "quick": false,
+      "longest_paragraph_words": 35
+    },
+    {
+      "file": "Обзор_программы.html",
+      "words": 393,
+      "ordered_steps": [
+        6,
+        4
+      ],
+      "quick": false,
+      "longest_paragraph_words": 41
+    },
+    {
+      "file": "Быстрые_действия/Найти_документ.html",
+      "words": 174,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 42
+    },
+    {
+      "file": "Быстрые_действия/Настроить_поиск_по_нескольким_годам.html",
+      "words": 194,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 45
+    },
+    {
+      "file": "Быстрые_действия/Подключиться_к_серверу.html",
+      "words": 158,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 25
+    },
+    {
+      "file": "Быстрые_действия/Сделать_отчёт.html",
+      "words": 168,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 51
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_и_применить_шаблон.html",
+      "words": 170,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 44
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_опись.html",
+      "words": 177,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 43
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_текст_и_приложения.html",
+      "words": 182,
+      "ordered_steps": [
+        6
+      ],
+      "quick": true,
+      "longest_paragraph_words": 53
+    },
+    {
+      "file": "Настройки/Данные_и_файлы.html",
+      "words": 494,
+      "ordered_steps": [
+        7
+      ],
+      "quick": false,
+      "longest_paragraph_words": 48
+    },
+    {
+      "file": "Настройки/Настройки_клиента.html",
+      "words": 257,
+      "ordered_steps": [
+        3
+      ],
+      "quick": false,
+      "longest_paragraph_words": 44
+    },
+    {
+      "file": "Настройки/Параметры_поиска_сохранения_и_вида.html",
+      "words": 698,
+      "ordered_steps": [
+        5
+      ],
+      "quick": false,
+      "longest_paragraph_words": 62
+    },
+    {
+      "file": "Настройки/Поля_поиска_и_панель_деталей.html",
+      "words": 324,
+      "ordered_steps": [],
+      "quick": false,
+      "longest_paragraph_words": 61
+    },
+    {
+      "file": "Настройки/Серверы_и_группы.html",
+      "words": 661,
+      "ordered_steps": [
+        5,
+        4
+      ],
+      "quick": false,
+      "longest_paragraph_words": 54
+    },
+    {
+      "file": "Подробные_руководства/Загрузка_и_служебные_операции.html",
+      "words": 512,
+      "ordered_steps": [
+        7,
+        4,
+        3,
+        4,
+        3
+      ],
+      "quick": false,
+      "longest_paragraph_words": 59
+    },
+    {
+      "file": "Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html",
+      "words": 307,
+      "ordered_steps": [
+        4,
+        3
+      ],
+      "quick": false,
+      "longest_paragraph_words": 51
+    },
+    {
+      "file": "Подробные_руководства/Подключение_и_авторизация.html",
+      "words": 848,
+      "ordered_steps": [
+        7,
+        5
+      ],
+      "quick": false,
+      "longest_paragraph_words": 55
+    },
+    {
+      "file": "Подробные_руководства/Поиск_и_шаблоны.html",
+      "words": 1360,
+      "ordered_steps": [
+        8,
+        5,
+        6,
+        5
+      ],
+      "quick": false,
+      "longest_paragraph_words": 70
+    },
+    {
+      "file": "Подробные_руководства/Результаты_и_отчёты.html",
+      "words": 939,
+      "ordered_steps": [
+        7,
+        4,
+        4,
+        5,
+        5,
+        4
+      ],
+      "quick": false,
+      "longest_paragraph_words": 42
+    },
+    {
+      "file": "Подробные_руководства/Решение_проблем.html",
+      "words": 343,
+      "ordered_steps": [],
+      "quick": false,
+      "longest_paragraph_words": 43
+    },
+    {
+      "file": "Подробные_руководства/Серверы_и_группы.html",
+      "words": 603,
+      "ordered_steps": [
+        5,
+        5,
+        4
+      ],
+      "quick": false,
+      "longest_paragraph_words": 54
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_описи.html",
+      "words": 449,
+      "ordered_steps": [
+        4,
+        3,
+        6
+      ],
+      "quick": false,
+      "longest_paragraph_words": 37
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_файлов.html",
+      "words": 1183,
+      "ordered_steps": [
+        7,
+        7,
+        5,
+        5
+      ],
+      "quick": false,
+      "longest_paragraph_words": 58
+    }
+  ],
+  "errors": [],
+  "static_status": "passed",
+  "application_workflows_run": false,
+  "browser_views": [
+    {
+      "file": "00_Все_руководства.html",
+      "width": 1100,
+      "h1": "Все руководства SearchClient",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "00_Все_руководства.html",
+      "width": 390,
+      "h1": "Все руководства SearchClient",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Найти_документ.html",
+      "width": 1100,
+      "h1": "Найти документ",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 420.421875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Найти_документ.html",
+      "width": 390,
+      "h1": "Найти документ",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 490.203125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Настроить_поиск_по_нескольким_годам.html",
+      "width": 1100,
+      "h1": "Настроить поиск по нескольким годам",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 420.421875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Настроить_поиск_по_нескольким_годам.html",
+      "width": 390,
+      "h1": "Настроить поиск по нескольким годам",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 520.203125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Подключиться_к_серверу.html",
+      "width": 1100,
+      "h1": "Подключиться к серверу",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 447.21875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Подключиться_к_серверу.html",
+      "width": 390,
+      "h1": "Подключиться к серверу",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 517,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сделать_отчёт.html",
+      "width": 1100,
+      "h1": "Сделать отчёт",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 420.421875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сделать_отчёт.html",
+      "width": 390,
+      "h1": "Сделать отчёт",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 464.609375,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_и_применить_шаблон.html",
+      "width": 1100,
+      "h1": "Сохранить и применить шаблон",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 420.421875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_и_применить_шаблон.html",
+      "width": 390,
+      "h1": "Сохранить и применить шаблон",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 520.203125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_опись.html",
+      "width": 1100,
+      "h1": "Сохранить опись",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 420.421875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_опись.html",
+      "width": 390,
+      "h1": "Сохранить опись",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 515.796875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_текст_и_приложения.html",
+      "width": 1100,
+      "h1": "Сохранить текст и приложения",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 421.625,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Быстрые_действия/Сохранить_текст_и_приложения.html",
+      "width": 390,
+      "h1": "Сохранить текст и приложения",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 521.40625,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Данные_и_файлы.html",
+      "width": 1100,
+      "h1": "Данные и файлы клиента",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 1116.796875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Данные_и_файлы.html",
+      "width": 390,
+      "h1": "Данные и файлы клиента",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 1551.546875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Настройки_клиента.html",
+      "width": 1100,
+      "h1": "Настройки клиента: сохранение и применение",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 305.046875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Настройки_клиента.html",
+      "width": 390,
+      "h1": "Настройки клиента: сохранение и применение",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 389.265625,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Параметры_поиска_сохранения_и_вида.html",
+      "width": 1100,
+      "h1": "Параметры поиска, сохранения и вида таблицы",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Параметры_поиска_сохранения_и_вида.html",
+      "width": 390,
+      "h1": "Параметры поиска, сохранения и вида таблицы",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Поля_поиска_и_панель_деталей.html",
+      "width": 1100,
+      "h1": "Словари полей поиска и панель деталей",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Поля_поиска_и_панель_деталей.html",
+      "width": 390,
+      "h1": "Словари полей поиска и панель деталей",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Серверы_и_группы.html",
+      "width": 1100,
+      "h1": "Настройки подключений: серверы, порты и группы",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Настройки/Серверы_и_группы.html",
+      "width": 390,
+      "h1": "Настройки подключений: серверы, порты и группы",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Обзор_программы.html",
+      "width": 1100,
+      "h1": "Обзор программы и первый запуск",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 260.28125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Обзор_программы.html",
+      "width": 390,
+      "h1": "Обзор программы и первый запуск",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 294.78125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Загрузка_и_служебные_операции.html",
+      "width": 1100,
+      "h1": "Загрузка файлов и служебные операции",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 260.28125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Загрузка_и_служебные_операции.html",
+      "width": 390,
+      "h1": "Загрузка файлов и служебные операции",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 294.78125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html",
+      "width": 1100,
+      "h1": "Замена токена после перевыпуска ключей",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 399.8125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html",
+      "width": 390,
+      "h1": "Замена токена после перевыпуска ключей",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 612,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Подключение_и_авторизация.html",
+      "width": 1100,
+      "h1": "Подключение, авторизация и несколько серверов",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Подключение_и_авторизация.html",
+      "width": 390,
+      "h1": "Подключение, авторизация и несколько серверов",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Поиск_и_шаблоны.html",
+      "width": 1100,
+      "h1": "Поиск по тексту, таблицам AutoPad и шаблоны",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Поиск_и_шаблоны.html",
+      "width": 390,
+      "h1": "Поиск по тексту, таблицам AutoPad и шаблоны",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Результаты_и_отчёты.html",
+      "width": 1100,
+      "h1": "Результаты, детали строки, колонки и отчёты",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Результаты_и_отчёты.html",
+      "width": 390,
+      "h1": "Результаты, детали строки, колонки и отчёты",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Решение_проблем.html",
+      "width": 1100,
+      "h1": "Быстрые проверки проблем",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Решение_проблем.html",
+      "width": 390,
+      "h1": "Быстрые проверки проблем",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": null,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Серверы_и_группы.html",
+      "width": 1100,
+      "h1": "Группы серверов: один запрос по нескольким годам",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Серверы_и_группы.html",
+      "width": 390,
+      "h1": "Группы серверов: один запрос по нескольким годам",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_описи.html",
+      "width": 1100,
+      "h1": "Сохранение базы для описей: источник, год и файл",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_описи.html",
+      "width": 390,
+      "h1": "Сохранение базы для описей: источник, год и файл",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_файлов.html",
+      "width": 1100,
+      "h1": "Сохранение текста, DOCX и приложений",
+      "viewport": 1100,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 218.171875,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    },
+    {
+      "file": "Подробные_руководства/Сохранение_файлов.html",
+      "width": 390,
+      "h1": "Сохранение текста, DOCX и приложений",
+      "viewport": 390,
+      "scrollY": 0,
+      "stylesheets": 1,
+      "firstStepTop": 256.953125,
+      "hiddenContent": 0,
+      "externalAssets": 0
+    }
+  ],
+  "browser_errors": [],
+  "readability_notes": [],
+  "print_samples": [
+    "SearchClient-Печать-Найти_документ.pdf"
+  ],
+  "offline_browser_status": "passed",
+  "print_render_samples": [
+    {
+      "file": "SearchClient-Печать-Найти_документ.pdf",
+      "pages": 1,
+      "rendered_pages": 1,
+      "text_not_empty": true
+    }
+  ],
+  "print_render_status": "passed",
+  "manual_screen_review_status": "passed",
+  "manual_print_review_status": "passed",
+  "manual_review_notes": "Просмотрены оглавления, короткие инструкции, настройки и BAT на обычном и узком экранах; проверены все 16 страниц четырёх печатных образцов. Обрезанного текста и скрытых предупреждений нет. После уточнения версии клиента повторены проверки и печать."
+}

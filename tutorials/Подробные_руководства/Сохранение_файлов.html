@@ -4,84 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Сохранение текста, DOCX и приложений</title>
-<style>
-* { box-sizing: border-box; }
-body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
-h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
-h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
-h3 { font-size: 1.1rem; margin-top: 1.2rem; }
-nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
-a { color: #175a8a; text-underline-offset: .15em; }
-code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
-pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-pre code { padding: 0; }
-.table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
-th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-th { background: #eef5fb; }
-td { min-width: 7rem; }
-li { margin: .35rem 0; }
-.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
-.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
-.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
-@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
-@page { size: A4; margin: 16mm; }
-@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
-/* Keep field names readable; narrow screens scroll the table. */
-.table-scroll { max-width: 100%; overflow-x: auto; }
-table th:first-child, table td:first-child {
-  width: 22%;
-  min-width: 12rem;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-table th:first-child code, table td:first-child code {
-  overflow-wrap: normal;
-  word-break: normal;
-}
-@media print {
-  table th:first-child, table td:first-child { min-width: 0; }
-  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
-}
-</style>
+<link rel="stylesheet" href="../Оформление.css">
 </head>
 <body>
-<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>
-<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
-<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
-<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
-<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
-<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
-<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
-<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html" aria-current="page">Сохранение файлов</a></nav>
+<nav aria-label="Руководства"><a href="../00_Все_руководства.html">Все руководства</a> <a href="../00_Все_руководства.html#quick">Быстрые действия</a> <a href="../00_Все_руководства.html#settings">Настройки</a> <a href="../00_Все_руководства.html#detailed">Подробные руководства</a></nav>
 <main>
-<h1>Сохранение текста, DOCX и приложений</h1><aside class="toc" aria-label="Содержание"><strong>В этом руководстве</strong><ol><li><a href="#section-1">Что именно сохраняется</a></li><li><a href="#section-2">Сохранить один документ или пакет</a></li><li><a href="#section-3">Входящие приложения</a></li><li><a href="#section-4">Исходящие приложения: ZIP и порядок извлечения</a></li><li><a href="#section-5">Имена файлов и повторное сохранение</a></li><li><a href="#section-6">Как создаётся DOCX</a></li><li><a href="#section-7">Отмена, ошибки и проверка результата</a></li><li><a href="#section-8">Небольшие темы для видео</a></li></ol></aside>
-<p>Сверено с клиентом 4.3.66 и сервером 0.1.91. Все темы: <a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html">Все руководства</a>.</p>
+<h1>Сохранение текста, DOCX и приложений</h1>
+<aside class="toc" aria-label="Содержание"><strong>В этом руководстве</strong><ol><li><a href="#section-1">1. Что именно сохраняется</a></li><li><a href="#section-2">2. Сохранить один документ или пакет</a></li><li><a href="#section-3">3. Входящие приложения</a></li><li><a href="#section-4">4. Исходящие приложения: ZIP и порядок извлечения</a></li><li><a href="#section-5">5. Имена файлов и повторное сохранение</a></li><li><a href="#section-6">6. Как создаётся DOCX</a></li><li><a href="#section-7">7. Отмена, ошибки и проверка результата</a></li></ol></aside>
+<p class="note">Быстрые действия: <a href="../Быстрые_действия/Сохранить_текст_и_приложения.html">Сохранить текст и приложения</a></p>
+
 <h2 id="section-1">1. Что именно сохраняется</h2>
-<div class="table-scroll"><table>
-<thead>
-<tr>
-<th>Флажок</th>
-<th>Результат</th>
-<th>Что требуется</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><strong>Приложение</strong></td>
-<td>Файлы приложений отмеченных документов</td>
-<td>Приложения/архив на сервере и доступ к нему</td>
-</tr>
-<tr>
-<td><strong>tlg</strong></td>
-<td>Исходные байты текстового файла</td>
-<td>Доступный текст документа на сервере</td>
-</tr>
-<tr>
-<td><strong>docx</strong></td>
-<td>Документ Word из полученного текста с обработкой макросом</td>
-<td>Microsoft Word и <code>sht.docm</code> рядом с EXE</td>
-</tr>
-</tbody></table></div>
+<p><strong>Приложение</strong> получает вложения, <strong>tlg</strong> — исходные байты текста, <strong>docx</strong> — преобразованный документ Word. <a href="../Настройки/Параметры_поиска_сохранения_и_вида.html">Канонический справочник флажков и папки</a>.</p>
 <p><strong>tlg</strong> и <strong>docx</strong> взаимоисключающие: включение одного снимает другой. <strong>Приложение</strong> можно сочетать с любым из них. Для получения обоих текстовых вариантов выполните два сохранения.</p>
 <p>Флажок <strong>tlg</strong> означает сохранение исходного текста без форматирования Word. Расширение берётся из имени исходного файла; если расширения нет, добавляется <code>.tlg</code>. Поэтому результат не обязательно всегда заканчивается на <code>.tlg</code>. Сохранение карточки в отчёт — отдельное действие <strong>Экспорт отчета</strong>.</p>
 <h2 id="section-2">2. Сохранить один документ или пакет</h2>
@@ -111,7 +44,7 @@ table th:first-child code, table td:first-child code {
 <h2 id="section-4">4. Исходящие приложения: ZIP и порядок извлечения</h2>
 <p>Для исходящего документа клиент не ищет отдельные приложения по произвольным путям. Сервер должен объявить архив <strong><code>&lt;номер&gt;.zip</code></strong> для выбранной телеграммы. Клиент скачивает его во временную папку и извлекает приложения на вашем ПК.</p>
 <p>Оригинальные имена берутся из поля <strong>PrilName</strong> карточки, разделённого точками с запятой. <strong>Положение имени в списке определяет запись ZIP.</strong> Нулевая запись содержит тело телеграммы, приложения начинаются с первой.</p>
-<div class="table-scroll"><table>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Таблица; на узком экране прокручивается по горизонтали"><table>
 <thead>
 <tr>
 <th>Положение</th>
@@ -149,6 +82,7 @@ table th:first-child code, table td:first-child code {
 <p>При пакетном сохранении существующий файл не должен молча заменяться: клиент подбирает свободное имя вида <strong><code>(1) имя.ext</code></strong>, <strong><code>(2) имя.ext</code></strong>. Это относится к тексту, DOCX и извлечённым приложениям. При большом числе совпадений подбор может завершиться ошибкой; используйте новую папку.</p>
 <p>Одинаковые имена из разных документов не считаются одинаковым содержимым, даже если размеры совпали. При повторе после частичной ошибки уже полученные файлы могут сохраниться ещё раз под новыми именами. Для понятного комплекта лучше использовать отдельную чистую папку и проверять журнал.</p>
 <p>Диалог получения <strong>одного</strong> приложения позволяет указать точное имя и подтверждает замену существующего файла. После подтверждения новый файл публикуется по выбранному пути. Это отличается от автоматического подбора имени в пакете.</p>
+<p class="note">Экранный список «Шрифт:» не задаёт оформление DOCX: преобразование использует собственный шаблон Word.</p>
 <h2 id="section-6">6. Как создаётся DOCX</h2>
 <ol>
 <li>Проверьте, что установлен Microsoft Word и рядом с EXE есть <code>sht.docm</code> из комплекта.</li>
@@ -170,16 +104,7 @@ table th:first-child code, table td:first-child code {
 <li>журнал частичных ошибок и число успешно обработанных заданий.</li>
 </ul>
 <p>Ошибка сети, отсутствие архива, отказ сервера и ошибка Word требуют разных действий. Вначале повторите получение одного проблемного документа. Для отсутствующего ZIP/записи передайте специалисту номер, год, сервер и сообщение. Строки с удалённым документом пакетное сохранение пропускает.</p>
-<h2 id="section-8">Небольшие темы для видео</h2>
-<ul>
-<li>Галочки, форматы и сохранение одного документа.</li>
-<li>Пакет, отдельная папка, одинаковые имена и отмена.</li>
-<li>Входящие и исходящие приложения: что означает доступность.</li>
-<li>Получение одного исходящего приложения и порядок ZIP.</li>
-<li>DOCX: Word, макрос и проверка результата.</li>
-</ul>
-
 </main>
-<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+<footer class="meta">Для SearchClient 4.3.74. Редакция 17 октября 2026 года. Все примеры учебные. Для таблиц на узком экране доступна горизонтальная прокрутка.</footer>
 </body>
 </html>

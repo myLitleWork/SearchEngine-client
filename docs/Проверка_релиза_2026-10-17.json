@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-17",
+  "product": "SearchClient",
+  "version": "4.3.74",
+  "packages": [
+    {
+      "package": "out/package/4.3.74/SearchClient-4.3.74",
+      "html_pages": 23,
+      "tutorial_files": 24,
+      "local_links_and_anchors_checked": 270,
+      "tutorials_byte_for_byte": true,
+      "tutorials_in_manifest": true,
+      "tutorial_role_passed": true,
+      "protected_package_files": 31,
+      "checksum_records": 32,
+      "checksums_passed": true,
+      "internal_docs_absent": true,
+      "cloud_zip": "SearchClient-4.3.74.zip",
+      "cloud_zip_sha256": "b1c0b79e0975b71a79afffc1113dff0800734636137be6f7b16ba8b6b74f8357",
+      "cloud_zip_and_sidecar_passed": true,
+      "cloud_tutorials_byte_for_byte": true,
+      "cloud_full_payload_byte_for_byte": true
+    }
+  ],
+  "service_installation_run": false,
+  "working_data_used": false,
+  "commit_or_push_run": false,
+  "offline_package_views": [
+    {
+      "package": "SearchClient-4.3.74",
+      "width": 1100,
+      "stage": "contents",
+      "h1": "Все руководства SearchClient",
+      "stylesheetCount": 1,
+      "pageWidth": 1100,
+      "viewport": 1100
+    },
+    {
+      "package": "SearchClient-4.3.74",
+      "width": 1100,
+      "stage": "settings",
+      "h1": "Настройки клиента: сохранение и применение",
+      "stylesheetCount": 1,
+      "pageWidth": 1100,
+      "viewport": 1100
+    },
+    {
+      "package": "SearchClient-4.3.74",
+      "width": 390,
+      "stage": "contents",
+      "h1": "Все руководства SearchClient",
+      "stylesheetCount": 1,
+      "pageWidth": 390,
+      "viewport": 390
+    },
+    {
+      "package": "SearchClient-4.3.74",
+      "width": 390,
+      "stage": "settings",
+      "h1": "Настройки клиента: сохранение и применение",
+      "stylesheetCount": 1,
+      "pageWidth": 390,
+      "viewport": 390
+    }
+  ],
+  "offline_package_pages_status": "passed",
+  "pe_versions": [
+    {
+      "productVersion": "4.3.74",
+      "package": "SearchClient-4.3.74",
+      "fileVersion": "4.3.74.0"
+    }
+  ],
+  "native_package_verifiers_status": "passed",
+  "canonical_release_exit_code": 0,
+  "documentation_qa_report": "Проверка_руководств_2026-10-17.json",
+  "release_attempts": 2,
+  "recovery": "First package rejected stale duplicate VERSIONINFO4.3.1.0. Restored existing Release Win32 VerInfo_IncludeVerInfo=false setting; retried canonical release with SEARCHCLIENT_SKIP_VERSION_BUMP=1, version stayed4.3.74.",
+  "existing_form_sources_preserved_byte_for_byte": true,
+  "project_other_changes_preserved": true
+}

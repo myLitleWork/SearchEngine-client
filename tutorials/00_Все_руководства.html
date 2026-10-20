@@ -3,140 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Руководства SearchClient</title>
-<style>
-* { box-sizing: border-box; }
-body { font-family: "Segoe UI", Calibri, sans-serif; line-height: 1.5; max-width: 920px; margin: 2rem auto 3rem; padding: 0 1.2rem; color: #1f1f1f; background: #fafafa; }
-h1 { font-size: 1.7rem; line-height: 1.25; margin-bottom: .7rem; }
-h2 { margin-top: 1.8rem; border-bottom: 2px solid #3498db; padding-bottom: .2rem; font-size: 1.3rem; }
-h3 { font-size: 1.1rem; margin-top: 1.2rem; }
-nav { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .6rem 0 1.2rem; padding-bottom: .8rem; border-bottom: 1px solid #d0d7de; }
-a { color: #175a8a; text-underline-offset: .15em; }
-code { font-family: Consolas, Monaco, "Courier New", monospace; font-size: .92em; background: #eef2f5; padding: .08rem .18rem; overflow-wrap: anywhere; }
-pre { background: #eef2f5; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-pre code { padding: 0; }
-.table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; background: #fff; margin: .8rem 0 1rem; }
-th, td { border: 1px solid #d0d7de; padding: .45rem .6rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-th { background: #eef5fb; }
-td { min-width: 7rem; }
-li { margin: .35rem 0; }
-.toc { background: #e8f4fd; border-left: 4px solid #3498db; padding: .7rem 1rem; margin: 1rem 0; }
-.toc ol { margin: .3rem 0; padding-left: 1.3rem; }
-.meta { color: #5b636b; font-size: .85rem; border-top: 1px solid #d0d7de; padding-top: .6rem; margin-top: 2rem; }
-@media(max-width: 600px) { body { margin: 1rem auto 2rem; padding: 0 .8rem; } h1 { font-size: 1.45rem; } h2 { font-size: 1.2rem; } th, td { padding: .4rem; } }
-@page { size: A4; margin: 16mm; }
-@media print { body { background: white; margin: 0; padding: 0; max-width: none; font-size: 11pt; line-height: 1.35; } nav, .toc { display: none; } h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; } h1, h2, h3 { break-after: avoid; } tr { break-inside: avoid; } thead { display: table-header-group; } .table-scroll { overflow: visible; } td { min-width: 0; } a { color: inherit; } }
-/* Keep field names readable; narrow screens scroll the table. */
-.table-scroll { max-width: 100%; overflow-x: auto; }
-table th:first-child, table td:first-child {
-  width: 22%;
-  min-width: 12rem;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-table th:first-child code, table td:first-child code {
-  overflow-wrap: normal;
-  word-break: normal;
-}
-@media print {
-  table th:first-child, table td:first-child { min-width: 0; }
-  table th:first-child code, table td:first-child code { overflow-wrap: anywhere; }
-}
-</style>
+<title>Все руководства SearchClient — SearchClient</title>
+<link rel="stylesheet" href="Оформление.css">
 </head>
-<body>
-<nav aria-label="Руководства клиента"><a href="00_%D0%92%D1%81%D0%B5_%D1%80%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%B0.html" aria-current="page">Все руководства</a>
-<a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Обзор программы</a>
-<a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация</a>
-<a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Серверы и группы</a>
-<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a>
-<a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a>
-<a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a>
-<a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></nav>
+<body class="contents">
+<nav aria-label="Руководства"><a href="00_Все_руководства.html">Все руководства</a> <a href="00_Все_руководства.html#quick">Быстрые действия</a> <a href="00_Все_руководства.html#settings">Настройки</a> <a href="00_Все_руководства.html#detailed">Подробные руководства</a></nav>
 <main>
-<h1>Руководства SearchClient</h1><aside class="toc" aria-label="Содержание"><strong>В этом руководстве</strong><ol><li><a href="#section-1">С чего начать обычному пользователю</a></li><li><a href="#section-2">Темы коротких видео</a></li><li><a href="#section-3">Первый запуск и дополнительные памятки</a></li><li><a href="#section-4">Краткие инструкции по отдельным действиям</a></li></ol></aside>
-<p>Начните с <a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">обзора программы</a>. Руководства открываются в браузере без сети и печатаются через его меню. Каждый раздел можно читать отдельно и использовать как конспект короткого видеоурока. Проверено по исходникам клиента 4.3.66 и сервера 0.1.91.</p>
-<div class="table-scroll"><table>
-<thead>
-<tr>
-<th>Руководство</th>
-<th>Содержание</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><a href="%D0%9E%D0%B1%D0%B7%D0%BE%D1%80_%D0%BF%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D1%8B.html">Назначение и обычная работа</a></td>
-<td>Что делает клиент, первый поиск, основные области окна, что сохраняется</td>
-</tr>
-<tr>
-<td><a href="%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и серверы</a></td>
-<td>Местный и серверный вход, токены ПК/USB, локальный admin, группы, годы служб, порты и несколько серверов</td>
-</tr>
-<tr>
-<td><a href="%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D1%8B_%D0%B8_%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D1%8B.html">Группы серверов</a></td>
-<td>Один запрос по нескольким годам, основной источник, настройки и миграция</td>
-</tr>
-<tr>
-<td><a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BE%D0%BF%D0%B8%D1%81%D0%B8.html">Сохранение описи</a></td>
-<td>Сервер-источник, отдельный год файла, путь и замена базы</td>
-</tr>
-<tr>
-<td><a href="%D0%9F%D0%BE%D0%B8%D1%81%D0%BA_%D0%B8_%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B.html">Поиск и шаблоны</a></td>
-<td>Все слова, точные слова, триммирование, AutoPad, входящие/исходящие, месяцы, лимиты, шаблоны</td>
-</tr>
-<tr>
-<td><a href="%D0%A0%D0%B5%D0%B7%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%82%D1%8B_%D0%B8_%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B.html">Результаты и отчёты</a></td>
-<td>Текст, плюсики/F12, путь, приложения, подтверждения, фильтры, колонки, Excel и печать в PDF</td>
-</tr>
-<tr>
-<td><a href="%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов</a></td>
-<td>Галочки, пакет, исходящие ZIP, DOCX и макрос Word, повторные имена, отмена и журнал</td>
-</tr>
-</tbody></table></div>
-<h2 id="section-1">С чего начать обычному пользователю</h2>
-<p>Обзор → подключение (если ещё не настроено) → нужный режим поиска → сохранение. Настройка нескольких серверов и служебная загрузка нужны только тем, кто решает соответствующие задачи.</p>
-<p>Служебные операции описаны отдельно: <a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/07_%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0_%D0%B8_%D1%81%D0%BB%D1%83%D0%B6%D0%B5%D0%B1%D0%BD%D1%8B%D0%B5_%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%86%D0%B8%D0%B8.html">загрузка, разноска, опись, пакет пользователя</a>. Быстрые проверки ошибок: <a href="%D0%A0%D0%B5%D1%88%D0%B5%D0%BD%D0%B8%D0%B5_%D0%BF%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC.html">Решение проблем</a>. Настройки: <a href="%D0%9D%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D0%B8_%D0%BA%D0%BB%D0%B8%D0%B5%D0%BD%D1%82%D0%B0.html">Настройки клиента</a>.</p>
-<h2 id="section-2">Темы коротких видео</h2>
-<ol>
-<li>Назначение и первый поиск.</li>
-<li>Локальная установка: группа, фактический порт и подключение.</li>
-<li>Удалённый доступ: импорт токена ПК; отдельный пример с USB.</li>
-<li>Поиск текста: все слова и точные формы слов.</li>
-<li>Точки и дефисы в документе и в запросе.</li>
-<li>AutoPad: широкий поиск и точное значение поля.</li>
-<li>Месяцы и лимиты результатов.</li>
-<li>Шаблоны повторяющихся запросов.</li>
-<li>Плюсики, путь, приложения, подтверждения и <code>use_f12</code>.</li>
-<li>Фильтры и сохранённый вид колонок.</li>
-<li>Отчёт, Excel и PDF через печать.</li>
-<li>Один документ и пакетное сохранение галочками.</li>
-<li>Исходящие приложения: ZIP, порядок и проверка ошибок.</li>
-<li>DOCX и форматирующий макрос.</li>
-<li>Несколько серверов, основной сервер и неполный ответ.</li>
-<li>Группа «Все года»: один запрос к службам разных лет.</li>
-<li>Опись архивного года: выбор источника и проверка имени файла.</li>
-</ol>
-<p>Один пункт — одна небольшая демонстрация. Для первой записи достаточно пунктов 1, 4 и 12; остальные не требуется объединять в большой обзор.</p>
-<h2 id="section-3">Первый запуск и дополнительные памятки</h2>
-<ul>
-<li><a href="%D0%9F%D0%B5%D1%80%D0%B2%D1%8B%D0%B9_%D0%B7%D0%B0%D0%BF%D1%83%D1%81%D0%BA.html">Первый запуск</a></li>
-<li><a href="%D0%91%D1%8B%D1%81%D1%82%D1%80%D1%8B%D0%B9_%D1%81%D1%82%D0%B0%D1%80%D1%82.html">Быстрый старт</a></li>
-<li><a href="%D0%94%D0%B0%D0%BD%D0%BD%D1%8B%D0%B5_%D0%B8_%D1%84%D0%B0%D0%B9%D0%BB%D1%8B.html">Данные и файлы</a></li>
-<li><a href="%D0%9C%D0%BD%D0%BE%D0%B3%D0%BE%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80%D0%BD%D1%8B%D0%B9_%D0%BF%D0%BE%D0%B8%D1%81%D0%BA.html">Многосерверный поиск</a></li>
-</ul>
-<h2 id="section-4">Краткие инструкции по отдельным действиям</h2>
-<ul>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/01_%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B8_%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F.html">Подключение и авторизация — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/02_%D0%9F%D0%BE%D0%B8%D1%81%D0%BA.html">Поиск — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/03_%D0%A2%D0%B5%D0%BA%D1%81%D1%82_%D0%B8_%D0%B4%D0%B5%D1%82%D0%B0%D0%BB%D0%B8_%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0.html">Текст и детали документа — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/04_%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B5_%D1%84%D0%B0%D0%B9%D0%BB%D0%BE%D0%B2.html">Сохранение файлов — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/05_%D0%9E%D1%82%D1%87%D1%91%D1%82%D1%8B_%D0%B8_%D1%8D%D0%BA%D1%81%D0%BF%D0%BE%D1%80%D1%82.html">Отчёты и экспорт — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/06_%D0%A8%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD%D1%8B_%D0%B7%D0%B0%D0%BF%D1%80%D0%BE%D1%81%D0%BE%D0%B2.html">Шаблоны запросов — памятка</a></li>
-<li><a href="%D0%9A%D1%80%D0%B0%D1%82%D0%BA%D0%B8%D0%B5_%D0%B8%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D0%B8/07_%D0%97%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B0_%D0%B8_%D1%81%D0%BB%D1%83%D0%B6%D0%B5%D0%B1%D0%BD%D1%8B%D0%B5_%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%86%D0%B8%D0%B8.html">Загрузка и служебные операции</a></li>
-</ul>
-
-<h2>Замена токена при смене издателя</h2><p><a href="Замена_токена_после_перевыпуска_ключей.html">Замена токена после перевыпуска ключей</a>: заявка ПК, перевыпуск флешки и проверка всех серверов группы.</p>
+<p class="page-kind">Руководства пользователя</p>
+<h1>Все руководства SearchClient</h1>
+<p class="lead">Выберите задачу, выполните короткую последовательность, а при необходимости откройте полное объяснение. Руководства работают из распакованной папки без интернета.</p>
+<p>Первое знакомство: <a href="Обзор_программы.html">обзор программы и подготовка рабочего места</a>.</p>
+<h2 id="quick">Быстрые действия</h2>
+<div class="cards">
+<article class="card"><h3><a href="Быстрые_действия/Подключиться_к_серверу.html">Подключиться к серверу</a></h3><p>Выбрать авторизацию и группу, проверить доступ всех источников.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Найти_документ.html">Найти документ</a></h3><p>Найти по словам текста либо полю AutoPad и проверить ответ.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Сохранить_текст_и_приложения.html">Сохранить текст и приложения</a></h3><p>Отметить строки, выбрать форматы, проверить полученные файлы.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Сохранить_опись.html">Сохранить опись</a></h3><p>Выбрать службу, проверить год имени файла и подтвердить замену.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Сделать_отчёт.html">Сделать отчёт</a></h3><p>Подготовить выборку, просмотр, Excel или PDF через печать.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Настроить_поиск_по_нескольким_годам.html">Настроить поиск по нескольким годам</a></h3><p>Объединить действующие службы разных лет в группу.</p></article>
+<article class="card"><h3><a href="Быстрые_действия/Сохранить_и_применить_шаблон.html">Сохранить и применить шаблон</a></h3><p>Сохранить удачный запрос и проверить параметры перед повтором.</p></article>
+</div>
+<h2 id="settings">Настройки</h2>
+<div class="cards">
+<article class="card"><h3><a href="Настройки/Настройки_клиента.html">Как сохраняются и применяются настройки</a></h3><p>Сохранение строк, уход с вкладки и переподключение.</p></article>
+<article class="card"><h3><a href="Настройки/Серверы_и_группы.html">Серверы, порты и группы</a></h3><p>Поля подключений, год службы и приоритет основного источника.</p></article>
+<article class="card"><h3><a href="Настройки/Поля_поиска_и_панель_деталей.html">Поля поиска и панель деталей</a></h3><p>Словари AutoPad и включение подробностей строки.</p></article>
+<article class="card"><h3><a href="Настройки/Параметры_поиска_сохранения_и_вида.html">Параметры рабочего окна</a></h3><p>Режим, лимит, форматы, папка, шрифт текста и колонки.</p></article>
+<article class="card"><h3><a href="Настройки/Данные_и_файлы.html">Данные, файлы и обновление</a></h3><p>Сохранность рабочей установки, настроек и авторизации.</p></article>
+</div>
+<h2 id="detailed">Подробные руководства</h2>
+<div class="cards">
+<article class="card"><h3><a href="Подробные_руководства/Подключение_и_авторизация.html">Подключение и авторизация</a></h3><p>Токены ПК/USB, местный admin и доступ каждого источника.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Серверы_и_группы.html">Поиск по нескольким годам</a></h3><p>Учебная группа, основной источник и миграция настроек.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Поиск_и_шаблоны.html">Поиск и шаблоны</a></h3><p>Целые слова, пунктуация, AutoPad, месяцы, лимиты и повторные запросы.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Результаты_и_отчёты.html">Результаты и отчёты</a></h3><p>Текст, детали, фильтры, колонки, Excel и PDF через печать.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Сохранение_файлов.html">Сохранение текста и приложений</a></h3><p>Пакет, исходящие ZIP, DOCX, совпадения имён и отмена.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Сохранение_описи.html">Сохранение описи</a></h3><p>Источник, год имени, каталог и подтверждение замены.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Загрузка_и_служебные_операции.html">Загрузка и служебные операции</a></h3><p>На отправку, разноска, одноразовый пакет пользователя и индекс.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Замена_токена_после_перевыпуска_ключей.html">Замена токена после перевыпуска ключей</a></h3><p>Согласованная замена токена ПК или USB.</p></article>
+<article class="card"><h3><a href="Подробные_руководства/Решение_проблем.html">Решение проблем</a></h3><p>Проверки по сообщениям и ограничениям программы.</p></article>
+</div>
+<h2 id="server">Серверный комплект</h2>
+<p>Год службы, порт, индекс и серверные базы настраивает специалист на сервере. Клиент хранит подключения и параметры запросов. У серверного комплекта собственное <code>tutorials\00_Все_руководства.html</code>; копировать его базы в папку клиента для обычной работы не требуется.</p>
 </main>
-<footer class="meta">Проверено по исходникам 7 октября 2026 года. Разделы можно использовать как конспекты отдельных видеоуроков.</footer>
+<footer class="meta">Для SearchClient 4.3.74. Редакция 17 октября 2026 года. Все примеры учебные.</footer>
 </body>
 </html>
