@@ -406,6 +406,7 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 void MyAsioClient::disConnect()
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
+	anonymousAccess_.store(false, std::memory_order_release);
 
 	if (socket_) {
         boost::system::error_code ec;
@@ -425,7 +426,7 @@ void MyAsioClient::disConnect()
 
 }
 
-bool MyAsioClient::isConnected()
+bool MyAsioClient::isConnected() const
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
 	return socket_ && socket_->is_open();
@@ -448,6 +449,7 @@ MyAsioClient::ProtocolNegotiationResult MyAsioClient::negotiateProtocol(
 	std::string* errMsg)
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
+	anonymousAccess_.store(false, std::memory_order_release);
 	if (errMsg)
 		errMsg->clear();
 
@@ -524,6 +526,9 @@ MyAsioClient::ProtocolNegotiationResult MyAsioClient::negotiateProtocol(
 			return ProtocolNegotiationResult::Failed;
 		}
 
+		anonymousAccess_.store(
+			(capabilities.capabilities & search_protocol::CAPABILITY_ANONYMOUS_ACCESS_V1) != 0,
+			std::memory_order_release);
 		if ((capabilities.capabilities &
 			 search_protocol::CAPABILITY_TYPED_ERRORS_V1) != 0) {
 			return ProtocolNegotiationResult::TypedErrorsV1;

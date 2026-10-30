@@ -12,7 +12,7 @@ if not exist "%POWERSHELL%" (
     goto :finish
 )
 
-"%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%..\scripts\Build-SearchClientPackage.ps1" -AllowDirty
+"%POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%..\scripts\Build-SearchClientPackage.ps1" -AllowDirty %*
 rem Capture PowerShell's result immediately; it is the Release workflow result.
 set "BUILD_RC=%ERRORLEVEL%"
 

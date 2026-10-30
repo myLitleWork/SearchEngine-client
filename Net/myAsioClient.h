@@ -75,6 +75,8 @@ namespace search_protocol
 	inline constexpr std::uint32_t PROTOCOL_CAPABILITIES_VERSION = 1;
 	inline constexpr std::uint32_t CAPABILITY_TYPED_ERRORS_V1 = 1u << 0;
 	inline constexpr std::uint32_t CAPABILITY_CLIENT_AUTH_V1 = 1u << 1;
+	inline constexpr std::uint32_t CAPABILITY_ANONYMOUS_ACCESS_V1 = 1u << 2;
+	static_assert(CAPABILITY_ANONYMOUS_ACCESS_V1 == 4u);
 
 	// Wire values mirror command_execution::ErrorCode on the server. Keep all
 	// numeric values explicit: client and server are independent repositories.
@@ -253,12 +255,16 @@ private:
 	tcp::socket*   socket_{nullptr};
 
     header myHeader_{};
-    std::mutex io_mutex_;                 // защищаем сокет
+    mutable std::mutex io_mutex_;         // защищаем сокет
     std::atomic<uint64_t> last_total_{0}; // последний ожидаемый объём
+	std::atomic_bool anonymousAccess_{false};
 
 public:
 	void disConnect();
-	bool isConnected();
+	bool isConnected() const;
+	bool allowsAnonymousAccess() const noexcept {
+		return anonymousAccess_.load(std::memory_order_acquire);
+	}
 
 	bool requestBinFile(const std::string& path,
                     std::vector<uint8_t>& out,

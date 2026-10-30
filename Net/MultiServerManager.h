@@ -26,7 +26,8 @@ struct ServerEndpoint
 enum class ServerAuthPolicy
 {
 	LegacyUserRegistry = 0,
-	AuthenticateV1 = 1
+	AuthenticateV1 = 1,
+	AnonymousOnly = 2
 };
 
 struct ServerAuthAttempt
@@ -41,7 +42,7 @@ struct ServerAuthAttempt
 
 inline std::string unauthorizedSearchSkipMessage()
 {
-	return "Нет авторизованной сессии. Сервер пропущен; остальные сессии остаются.";
+	return "Нет доступной сессии. Сервер пропущен; остальные сессии остаются.";
 }
 
 class ServerSession
@@ -69,7 +70,13 @@ public:
 	bool isServerAuthorized() const
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
-		return serverAuthorized_;
+		return client_.isConnected() && (serverAuthorized_ || client_.allowsAnonymousAccess());
+	}
+
+	bool isAnonymous() const
+	{
+		std::lock_guard<std::mutex> lock(requestMutex_);
+		return client_.isConnected() && client_.allowsAnonymousAccess();
 	}
 
 	bool connect(const std::string& user, std::string* errMsg = nullptr)
@@ -122,6 +129,8 @@ public:
 		// Transport only: empty user must not trigger USER_REGISTRY.
 		if (!ensureConnectedLocked(std::string{}, errMsg))
 			return false;
+		if (client_.allowsAnonymousAccess())
+			return true;
 
 		nlohmann::json body{
 			{"client_id", clientId},
@@ -278,7 +287,7 @@ private:
 
 	bool requireServerAuthorizedLocked(std::string* errMsg) const
 	{
-		if (serverAuthorized_)
+		if (serverAuthorized_ || client_.allowsAnonymousAccess())
 			return true;
 		if (errMsg) {
 			*errMsg = serverErrorUserMessage(static_cast<std::uint32_t>(
@@ -353,6 +362,15 @@ private:
 			}
 		}
 
+		if (client_.allowsAnonymousAccess())
+			return true;
+
+		if (authPolicy_ == ServerAuthPolicy::AnonymousOnly) {
+			if (errMsg)
+				*errMsg = "Сервер требует авторизацию. Выберите токен USB/ПК или локальный admin.";
+			client_.disConnect();
+			return false;
+		}
 		if (authPolicy_ == ServerAuthPolicy::AuthenticateV1) {
 			// Device sessions are authorized only by authenticateV1().
 			return true;
@@ -477,6 +495,20 @@ public:
 	{
 		auto session = findSession(serverId);
 		return session && session->isServerAuthorized();
+	}
+
+	bool isServerAnonymous(const std::string& serverId) const
+	{
+		auto session = findSession(serverId);
+		return session && session->isAnonymous();
+	}
+
+	std::size_t anonymousServerCount() const
+	{
+		std::size_t count = 0;
+		for (const auto& id : serverIds())
+			if (isServerAnonymous(id)) ++count;
+		return count;
 	}
 
 	std::vector<std::string> authorizedServerIds() const

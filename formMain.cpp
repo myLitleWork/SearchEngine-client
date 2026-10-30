@@ -1,4 +1,4 @@
-﻿//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
 #include <vcl.h>
 #pragma hdrstop
 #include <string>
@@ -2050,6 +2050,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		const bool deviceMode = identity.has_value();
 		const bool adminMode =
 			!deviceMode &&
+			auth_source_ != LocalAuthSource::Anonymous &&
 			(auth_source_ == LocalAuthSource::Admin || user_ == "admin" ||
 			 auth_paths::isRegularFile(auth_paths::fileBesideExecutable(L"admin984.bin")));
 
@@ -2059,6 +2060,8 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		}
 		else if (adminMode)
 			serverManager_.setAuthPolicy(ServerAuthPolicy::LegacyUserRegistry);
+		else if (auth_source_ == LocalAuthSource::Anonymous)
+			serverManager_.setAuthPolicy(ServerAuthPolicy::AnonymousOnly);
 		else {
 			disconnectUiFull();
 			ShowMessage(L"Недостаточно данных локальной авторизации для подключения.");
@@ -2095,7 +2098,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		if (okCount <= 0) {
 			disconnectUiFull();
 			std::unique_ptr<TStringList> failures(new TStringList());
-			failures->Add(L"Авторизация на серверах не выполнена.");
+			failures->Add(L"Доступ к серверам не получен.");
 			for (const auto& attempt : attempts) {
 				failures->Add(
 					L"• " + US(attempt.displayName) + L": " + US(attempt.error));
@@ -2121,7 +2124,7 @@ void __fastcall TfMain::btnConnectClick(TObject *Sender)
 		if (okCount < total) {
 			std::unique_ptr<TStringList> partial(new TStringList());
 			partial->Add(
-				L"Авторизовано серверов " + String(okCount) + L" из " +
+				L"Доступно серверов " + String(okCount) + L" из " +
 				String(total) + L". Поиск пойдёт только по ним.");
 			for (const auto& attempt : attempts) {
 				if (attempt.ok)
@@ -2219,7 +2222,8 @@ void TfMain::applyServerAuthUiStatus()
 		return;
 	}
 	lbStatus->Caption =
-		L"Статус: авторизовано серверов " + String(ok) + L"/" + String(total) +
+		L"Статус: доступно серверов " + String(ok) + L"/" + String(total) +
+		L", без авторизации: " + String(static_cast<int>(serverManager_.anonymousServerCount())) +
 		L", группа «" + cmbServerGroup->Text + L"»";
 }
 
@@ -4622,7 +4626,9 @@ void TfMain::applyLocalAuthSources()
 		selected = &choices.front();
 
 	if (selected) {
-		if (selected->source == LocalAuthSource::Admin)
+		if (selected->source == LocalAuthSource::Anonymous)
+			applyAnonymousAccess();
+		else if (selected->source == LocalAuthSource::Admin)
 			applyAdminAuthorization(selected->identity);
 		else
 			applyResolvedDeviceIdentity(selected->identity);
@@ -4693,6 +4699,11 @@ std::vector<TfMain::AvailableAuthChoice> TfMain::collectAvailableAuthChoices()
 		choice.key = "admin:" + choice.identity.tokenPath;
 		choices.push_back(choice);
 	}
+	AvailableAuthChoice anonymous;
+	anonymous.source = LocalAuthSource::Anonymous;
+	anonymous.identity.clientName = "unauthenticated_user";
+	anonymous.key = "anonymous";
+	choices.push_back(anonymous);
 	return choices;
 }
 
@@ -4717,6 +4728,8 @@ void TfMain::refreshAuthUserCombo(const std::vector<AvailableAuthChoice>& choice
 				caption += L" (ПК)";
 			else if (choice.source == LocalAuthSource::Admin)
 				caption += L" (admin)";
+			else if (choice.source == LocalAuthSource::Anonymous)
+				caption = L"Без авторизации";
 			cmbAuthUser->Items->Add(caption);
 			if (selected < 0) {
 				if (!manual_auth_choice_key_.empty() &&
@@ -4737,6 +4750,24 @@ void TfMain::refreshAuthUserCombo(const std::vector<AvailableAuthChoice>& choice
 		cmbAuthUser->Items->EndUpdate();
 		updating_auth_combo_ = false;
 	}
+}
+
+void TfMain::applyAnonymousAccess()
+{
+	if (auth_ && auth_source_ == LocalAuthSource::Anonymous)
+		return;
+	clear();
+	message_.attachments.clear();
+	disconnectTransportOnly();
+	client_id_.clear();
+	device_type_.clear();
+	device_id_.clear();
+	auth_signature_.clear();
+	auth_source_ = LocalAuthSource::Anonymous;
+	serverManager_.setAuthPolicy(ServerAuthPolicy::AnonymousOnly);
+	onSuccessfulAuthorization("unauthenticated_user", std::string{});
+	lblUser->Caption = L"Режим: без авторизации";
+	tmLoginOut->Enabled = false;
 }
 
 void TfMain::applyAdminAuthorization(const DeviceAuthIdentity& identity)
@@ -4855,7 +4886,9 @@ void __fastcall TfMain::cmbAuthUserChange(TObject *Sender)
 		return;
 	const auto& choice = auth_choices_[static_cast<std::size_t>(index)];
 	manual_auth_choice_key_ = choice.key;
-	if (choice.source == LocalAuthSource::Admin)
+	if (choice.source == LocalAuthSource::Anonymous)
+		applyAnonymousAccess();
+	else if (choice.source == LocalAuthSource::Admin)
 		applyAdminAuthorization(choice.identity);
 	else
 		applyResolvedDeviceIdentity(choice.identity);
@@ -4895,11 +4928,17 @@ bool TfMain::isDeviceAuthSource() const
 
 std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 {
+	// Explicit anonymous/admin choices must never probe or reuse a device token.
+	if (auth_source_ == LocalAuthSource::Anonymous ||
+		auth_source_ == LocalAuthSource::Admin)
+		return std::nullopt;
+
 	if (!manual_auth_choice_key_.empty()) {
 		for (const auto& choice : collectAvailableAuthChoices()) {
 			if (choice.key != manual_auth_choice_key_)
 				continue;
-			if (choice.source == LocalAuthSource::Admin)
+			if (choice.source != LocalAuthSource::Usb &&
+				choice.source != LocalAuthSource::Computer)
 				return std::nullopt;
 			return choice.identity;
 		}
@@ -4956,6 +4995,7 @@ std::optional<DeviceAuthIdentity> TfMain::resolveLiveDeviceIdentity()
 
 	return SelectPcAuthIdentity(userToken, uuid);
 }
+
 
 void TfMain::applyResolvedDeviceIdentity(const DeviceAuthIdentity& identity)
 {
@@ -5057,6 +5097,8 @@ std::wstring toW(const std::string& s) {
 
 void __fastcall TfMain::tmLoginInTimer(TObject *Sender)
 {
+	if (auth_source_ == LocalAuthSource::Anonymous)
+		return;
 
 	BusyGuardAtomic guard(gLogInBusy);
     if (!guard) return; // уже идёт задача
@@ -5868,6 +5910,8 @@ void __fastcall TfMain::dbgEhRowDetailPanelShow(TCustomDBGridEh *Sender, bool &C
 
 void __fastcall TfMain::tmLoginOutTimer(TObject *Sender)
 {
+	if (auth_source_ == LocalAuthSource::Anonymous)
+		return;
 	// не запускаем второй выход, пока предыдущий не завершён
 	BusyGuardAtomic guard(gLogoutBusy);
 	if (!guard) return;
@@ -5942,6 +5986,8 @@ bool TfMain::tryConnect()
 			!client_id_.empty() && !device_type_.empty() && !device_id_.empty();
 		if (deviceMode)
 			serverManager_.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
+		else if (auth_source_ == LocalAuthSource::Anonymous)
+			serverManager_.setAuthPolicy(ServerAuthPolicy::AnonymousOnly);
 		else
 			serverManager_.setAuthPolicy(ServerAuthPolicy::LegacyUserRegistry);
 

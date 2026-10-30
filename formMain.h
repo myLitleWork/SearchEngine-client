@@ -622,7 +622,7 @@ public:		// User declarations
 
 	RecentComboHistory ComboHistory{nullptr,0};
 
-	enum class LocalAuthSource { None, Usb, Computer, Admin };
+	enum class LocalAuthSource { None, Usb, Computer, Admin, Anonymous };
 	struct AvailableAuthChoice
 	{
 		LocalAuthSource source = LocalAuthSource::None;
@@ -636,6 +636,7 @@ public:		// User declarations
 	std::vector<AvailableAuthChoice> collectAvailableAuthChoices();
 	void refreshAuthUserCombo(const std::vector<AvailableAuthChoice>& choices);
 	void applyAdminAuthorization(const DeviceAuthIdentity& identity);
+	void applyAnonymousAccess();
 	bool registerNewAuthUser();
 	bool importComputerAuthToken();
 	bool registerUsbAuthToken();
@@ -650,7 +651,7 @@ public:		// User declarations
 
 	 AttachmentPackage message_;
 	 std::string user_;
-	 bool auth_ = false; // local flash/admin UI only
+	 bool auth_ = false; // local UI ready: token/admin or explicit anonymous mode
 	 std::string token_dir_;
 	 std::string client_id_;
 	 std::string device_type_;

@@ -27,11 +27,13 @@ namespace
 		explicit FakeSearchServer(
 			std::string response,
 			COMMAND responseCommand = COMMAND::GETSQLJSONANSWEAR,
-			bool supportsNegotiation = true)
+			bool supportsNegotiation = true,
+			bool anonymous = false)
 			: acceptor_(io_, tcp::endpoint(tcp::v4(), 0))
 			, response_(std::move(response))
 			, responseCommand_(responseCommand)
 			, supportsNegotiation_(supportsNegotiation)
+			, anonymous_(anonymous)
 			, worker_([this]() { run(); })
 		{
 		}
@@ -76,12 +78,13 @@ namespace
 
 		void serveApplicationRequests(tcp::socket& socket)
 		{
-			for (int requestIndex = 0; requestIndex < 2; ++requestIndex) {
+			for (int requestIndex = 0; requestIndex < (anonymous_ ? 1 : 2); ++requestIndex) {
 				header request{};
 				std::string body;
 				readRequest(socket, request, body);
 
 				if (request.command == COMMAND::USER_REGISTRY) {
+					if (anonymous_) failed_.store(true, std::memory_order_release);
 					registered_.store(
 						body == "self-test-user", std::memory_order_release);
 					send(socket, request.command, "OK");
@@ -118,7 +121,8 @@ namespace
 				if (supportsNegotiation_) {
 					search_protocol::ProtocolCapabilitiesV1 capabilities{};
 					capabilities.capabilities =
-						search_protocol::CAPABILITY_TYPED_ERRORS_V1;
+						search_protocol::CAPABILITY_TYPED_ERRORS_V1 |
+						(anonymous_ ? search_protocol::CAPABILITY_ANONYMOUS_ACCESS_V1 : 0u);
 					send(
 						*socket_,
 						COMMAND::NEGOTIATE_PROTOCOL_V1,
@@ -149,6 +153,7 @@ namespace
 		std::string response_;
 		COMMAND responseCommand_;
 		bool supportsNegotiation_;
+		bool anonymous_;
 		std::thread worker_;
 		std::atomic_bool registered_{false};
 		std::atomic_bool searched_{false};
@@ -490,6 +495,23 @@ int RunMultiServerSelfTestFromCommandLine()
 	if (serverErrorCodeName(16u) != "DatabaseOpenFailed")
 		return 85;
 
+	// Anonymous sessions need no local credentials and send no USER_REGISTRY.
+	FakeSearchServer openServer("[]", COMMAND::GETSQLJSONANSWEAR, true, true);
+	MultiServerManager openManager;
+	openManager.configure({
+		{"open", "Open", "127.0.0.1", std::to_string(openServer.port()), true}
+	}, "open");
+	openManager.setAuthPolicy(ServerAuthPolicy::AnonymousOnly);
+	std::string openError, openReply;
+	if (!openManager.connectPrimary(&openError) ||
+		!openManager.isServerAnonymous("open") ||
+		!openManager.isServerAuthorized("open")) return 90;
+	if (!openManager.requestText("open", "needle", COMMAND::GETSQLJSONANSWEAR,
+		openReply, nullptr, &openError) || openReply != "[]") return 91;
+	if (openServer.registered() || !openServer.searched() || openServer.failed()) return 92;
+	openManager.disconnectAll();
+	if (openManager.isServerAnonymous("open") || openManager.hasAnyServerAuthorized()) return 93;
+
 	FakeAuthRejectServer authReject(search_protocol::ErrorCode::AuthClientIdNotFound);
 	FakeAuthRejectServer authSig(search_protocol::ErrorCode::AuthSignatureInvalid);
 	MultiServerManager authManager;
@@ -550,6 +572,40 @@ int RunMultiServerSelfTestFromCommandLine()
 	}
 
 	authManager.disconnectAll();
+
+	// A selected device token is used only for servers that require it.
+	FakeSearchServer mixedOpen("[]", COMMAND::GETSQLJSONANSWEAR, true, true);
+	FakeAuthRejectServer mixedRequired(search_protocol::ErrorCode::AuthSignatureInvalid);
+	MultiServerManager mixedManager;
+	mixedManager.configure({
+		{"open", "Open", "127.0.0.1", std::to_string(mixedOpen.port()), true},
+		{"required", "Required", "127.0.0.1", std::to_string(mixedRequired.port()), true}
+	}, "open");
+	mixedManager.setAuthPolicy(ServerAuthPolicy::AuthenticateV1);
+	const auto mixedAttempts = mixedManager.authenticateAllV1(
+		"desk", "client", "usb", "SERIAL", "sig");
+	if (mixedAttempts.size() != 2 || !mixedAttempts[0].ok || mixedAttempts[1].ok ||
+		mixedManager.anonymousServerCount() != 1 || mixedManager.authorizedServerCount() != 1)
+		return 94;
+	if (!mixedManager.requestText("open", "needle", COMMAND::GETSQLJSONANSWEAR,
+		openReply, nullptr, &openError)) return 95;
+	if (mixedOpen.registered() || !mixedOpen.searched() || mixedOpen.failed() ||
+		mixedRequired.userRegistrySeen() || mixedRequired.searched() || mixedRequired.failed())
+		return 96;
+	mixedManager.disconnectAll();
+
+	// With no credentials, an old/required server must never get USER_REGISTRY.
+	FakeSearchServer requiresToken("[]");
+	MultiServerManager guestManager;
+	guestManager.configure({
+		{"required", "Required", "127.0.0.1", std::to_string(requiresToken.port()), true}
+	}, "required");
+	guestManager.setAuthPolicy(ServerAuthPolicy::AnonymousOnly);
+	if (guestManager.connectPrimary(&openError) ||
+		guestManager.hasAnyServerAuthorized() || guestManager.isConnected("required"))
+		return 97;
+	if (requiresToken.registered() || requiresToken.searched()) return 98;
+	guestManager.disconnectAll();
 	return 0;
 }
 

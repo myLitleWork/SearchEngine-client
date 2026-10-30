@@ -2,7 +2,8 @@
 param(
     [switch]$AllowDirty,
     [switch]$SkipVersionBump,
-    [switch]$SkipCloudPublish
+    [switch]$SkipCloudPublish,
+    [switch]$Rebuild
 )
 
 Set-StrictMode -Version Latest
@@ -78,7 +79,14 @@ $null = & $syncScript @syncArgs
 $before = [IO.File]::ReadAllBytes($projectFile)
 # Clear Pre/Post build events: version was already synced above; packaging runs below.
 # Leaving PreBuild enabled would bump twice and rewrite .cbproj mid-build.
-$command = 'call "' + $rsvarsBat + '" && msbuild "' + $projectFile + '" /t:Build /p:Config=Release /p:Platform=Win32 /p:PreBuildEvent= /p:PostBuildEvent= /p:SkipPreflight=true /v:n /nologo'
+$msbuildArguments = ' /p:Config=Release /p:Platform=Win32 /p:PreBuildEvent= /p:PostBuildEvent= /p:SkipPreflight=true /v:n /nologo'
+$command = 'call "' + $rsvarsBat + '"'
+if ($Rebuild) {
+    # CodeGear Rebuild can cache __ShouldBuildVersion before cleaning .res.
+    # Separate MSBuild invocations calculate resource dependencies after Clean.
+    $command += ' && msbuild "' + $projectFile + '" /t:Clean' + $msbuildArguments
+}
+$command += ' && msbuild "' + $projectFile + '" /t:Build' + $msbuildArguments
 & $env:ComSpec /d /s /c $command
 if ($LASTEXITCODE -ne 0) { throw "Release build failed: $LASTEXITCODE" }
 $after = [IO.File]::ReadAllBytes($projectFile)
