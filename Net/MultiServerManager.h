@@ -181,12 +181,14 @@ public:
 					 COMMAND command,
 					 std::string& out,
 					 std::atomic_uint64_t* progress = nullptr,
-					 std::string* errMsg = nullptr)
+					 std::string* errMsg = nullptr,
+                     SearchRequestControl* control = nullptr)
 	{
 		std::lock_guard<std::mutex> lock(requestMutex_);
+		if (control && control->cancelled.load()) return false;
 		if (!ensureAuthorizedForRequestLocked(user, errMsg))
 			return false;
-		const bool ok = client_.requestText(request, command, out, progress, errMsg);
+		const bool ok = client_.requestText(request, command, out, progress, errMsg, nullptr, control);
 		if (!ok && !client_.isConnected()) {
 			registeredUser_.clear();
 			serverAuthorized_ = false;
@@ -688,13 +690,14 @@ public:
 					 COMMAND command,
 					 std::string& out,
 					 std::atomic_uint64_t* progress = nullptr,
-					 std::string* errMsg = nullptr)
+					 std::string* errMsg = nullptr,
+                     SearchRequestControl* control = nullptr)
 	{
 		return runPreparedRequest(serverId, errMsg,
 			[&](const std::shared_ptr<ServerSession>& session) {
 				return session->requestText(
-					currentUser(), request, command, out, progress, errMsg);
-			});
+					currentUser(), request, command, out, progress, errMsg, control);
+			}, control);
 	}
 
 	bool requestBinary(const std::string& serverId,
@@ -814,8 +817,9 @@ private:
 	}
 
 	template<typename Fn>
-	bool runPreparedRequest(const std::string& serverId, std::string* errMsg, Fn&& fn)
+	bool runPreparedRequest(const std::string& serverId, std::string* errMsg, Fn&& fn, SearchRequestControl* control = nullptr)
 	{
+		if (control && control->cancelled.load()) return false;
 		auto session = findSession(serverId);
 		if (!session)
 			return missingServer(serverId, errMsg);
@@ -823,6 +827,8 @@ private:
 			return false;
 		if (fn(session))
 			return true;
+        // Cancellation must never reconnect and replay a cancelled search.
+        if (control && control->cancelled.load()) return false;
 		if (authPolicy() != ServerAuthPolicy::AuthenticateV1)
 			return false;
 		if (session->isConnected() && session->isServerAuthorized())

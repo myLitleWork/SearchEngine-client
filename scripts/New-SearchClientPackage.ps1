@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$BuildDirectory,
     [string]$OutputDirectory,
@@ -93,7 +93,7 @@ if ($dirty -and -not $AllowDirty) { throw 'Worktree is dirty. Use -AllowDirty fo
 $templateRoot = Join-Path $projectRoot 'deployment\SearchClientPortable'
 $templateAppRoot = Join-Path $templateRoot 'app'
 $tutorialRoot = Join-Path $projectRoot 'tutorials'
-foreach ($required in @('Verify-Package.cmd', 'Verify-Package.ps1')) {
+foreach ($required in @('Verify-Package.cmd', 'Verify-Package.ps1', 'Инструкция_по_обновлению.txt')) {
     $path = Join-Path $templateRoot $required
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Package template is missing: $path"
@@ -124,6 +124,8 @@ $requiredTemplatePayloadNames = @(
     'admin984.bin'
 )
 $errorMessagesPath = Join-Path $projectRoot 'config\server-error-messages.json'
+$defaultTemplatesPath = Join-Path $projectRoot 'config\search-templates.defaults.json'
+if (-not (Test-Path -LiteralPath $defaultTemplatesPath -PathType Leaf)) { throw "Required default templates are missing: $defaultTemplatesPath" }
 if (-not (Test-Path -LiteralPath $errorMessagesPath -PathType Leaf)) { throw "Required error message map is missing: $errorMessagesPath" }
 $requiredTemplatePayloadHashes = @{
     'Settings.db3' = '40A4D999B39B0FE4C18649DB71B7EC60222E8DDF28E2F059E24897B3032F0B13'
@@ -158,6 +160,7 @@ try {
     }
     New-Item -ItemType Directory -Force -Path (Join-Path $staging 'app\config') | Out-Null
     Copy-Item -LiteralPath $errorMessagesPath -Destination (Join-Path $staging 'app\config\server-error-messages.json') -Force
+    Copy-Item -LiteralPath $defaultTemplatesPath -Destination (Join-Path $staging 'app\config\search-templates.defaults.json') -Force
     if (Test-Path -LiteralPath $tutorialRoot -PathType Container) {
         $authArtifacts = @(Get-ChildItem -LiteralPath $tutorialRoot `
             -Recurse -File -Force | Where-Object {
@@ -170,6 +173,7 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $templateRoot 'Verify-Package.cmd') -Destination $staging
     Copy-Item -LiteralPath (Join-Path $templateRoot 'Verify-Package.ps1') -Destination $staging
+    Copy-Item -LiteralPath (Join-Path $templateRoot 'Инструкция_по_обновлению.txt') -Destination $staging
 
     $files = @(Get-ChildItem -LiteralPath $staging -Recurse -File | Sort-Object FullName)
     $manifest = [ordered]@{
@@ -184,7 +188,12 @@ try {
             'signed tokens, public/private keys and other local credentials'
         );
         files = @($files | ForEach-Object {
-            [ordered]@{ path = $_.FullName.Substring($staging.Length + 1).Replace('\','/'); size = $_.Length; sha256 = Get-Sha256 $_.FullName }
+            $relativePath = $_.FullName.Substring($staging.Length + 1).Replace('\','/')
+            $fileEntry = [ordered]@{ path = $relativePath; size = $_.Length; sha256 = Get-Sha256 $_.FullName }
+            if ($relativePath.StartsWith('tutorials/', [StringComparison]::OrdinalIgnoreCase)) {
+                $fileEntry['role'] = 'tutorial'
+            }
+            $fileEntry
         })
     }
     [IO.File]::WriteAllText((Join-Path $staging 'package-manifest.json'), ($manifest | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))

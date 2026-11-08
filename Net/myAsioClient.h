@@ -3,6 +3,7 @@
 #ifndef myAsioClientH
 #define myAsioClientH
 
+#include "SearchRequestControl.h"
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -282,7 +283,8 @@ public:
 					 std::string& out,
 					 std::atomic_uint64_t* progress = nullptr,
 					 std::string* errMsg = nullptr,
-					 search_protocol::ServerErrorInfo* serverError = nullptr);
+					 search_protocol::ServerErrorInfo* serverError = nullptr,
+                     SearchRequestControl* control = nullptr);
 
 	bool requestBinary(const std::vector<uint8_t>& request,
 					   COMMAND command,

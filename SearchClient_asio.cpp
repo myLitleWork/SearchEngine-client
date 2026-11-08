@@ -11,6 +11,7 @@
 #include "AuthPaths.h"
 #ifdef _DEBUG
 int RunServerCatalogSeedSelfTest();
+int RunTemplateSelfTest(const String& output);
 #endif
 //---------------------------------------------------------------------------
 USEFORM("formMain.cpp", fMain);
@@ -23,6 +24,8 @@ USEFORM("formSelectServer.cpp", fSelectServer);
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {
 #ifdef _DEBUG
+	if (ParamCount() >= 2 && SameText(ParamStr(1), L"--template-self-test"))
+		return RunTemplateSelfTest(ParamStr(2));
 	if (ParamCount() >= 1 && SameText(ParamStr(1), L"--server-catalog-self-test"))
 		return RunServerCatalogSeedSelfTest();
 	if (IsMultiServerSelfTestInvocation())

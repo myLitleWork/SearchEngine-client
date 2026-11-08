@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$BumpPatch,
     [switch]$ForceBumpPatch
@@ -34,15 +34,17 @@ function Get-ReleaseInputSha256 {
     # Release-only project setting changes therefore require -ForceBumpPatch.
     $sourceExtensions = @('.c', '.cc', '.cpp', '.cxx', '.h', '.hpp', '.pas', '.dfm', '.res', '.rc', '.ico')
     $scriptExtensions = @('.bat', '.cmd', '.ps1')
-    $tutorialExtensions = @('.htm', '.html', '.jpg', '.jpeg', '.md', '.pdf', '.png', '.txt')
+    $tutorialExtensions = @('.css', '.htm', '.html', '.jpg', '.jpeg', '.md', '.pdf', '.png', '.txt')
     $sourceDirectories = @('Attachments', 'BinaryFileLoad', 'Database', 'Frames', 'MyStrings', 'my_json', 'Net', 'WordServer')
     $templateFiles = @(
         'deployment/SearchClientPortable/Verify-Package.cmd',
         'deployment/SearchClientPortable/Verify-Package.ps1',
+        'deployment/SearchClientPortable/Инструкция_по_обновлению.txt',
         'deployment/SearchClientPortable/app/sht.docm',
         'deployment/SearchClientPortable/app/Settings.db3',
         'deployment/SearchClientPortable/app/admin984.bin',
-        'config/server-error-messages.json'
+        'config/server-error-messages.json',
+        'config/search-templates.defaults.json'
     )
     $inputs = @()
     $inputs += Get-ChildItem -LiteralPath $ProjectRoot -File | Where-Object {

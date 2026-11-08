@@ -25,6 +25,13 @@
 #include "UsbAuthToken.h"
 #include "UsbHardwareSerial.h"
 #include "UserFileReplace.h"
+#include "TemplateSearch.h"
+#include "SearchLimit.h"
+#include "SearchGuardUI.h"
+#include "SearchGridLoader.h"
+#include "TemplateListDrag.h"
+#include "TemplateFeedback.h"
+#include "TemplateOptionsUI.h"
 #include "ClientFilePublish.h"
 #include "Database\ResDbMigration.h"
 #include "Database\SqliteDb.h"
@@ -42,6 +49,7 @@
 #include <windows.h>
 #include <richedit.h>
 #include "myJson.h"
+#include "SearchResponse.h"
 #include "myRSA.h"
 #include "flashNum.h"
 #include "mySomeFunc.h"
@@ -454,22 +462,101 @@ std::wstring TemplatesJsonPath()
 	return auth_paths::fileBesideExecutable(L"Templates.json");
 }
 
-void LoadTemplatesFromDisk()
+void LoadTemplatesFromPaths(const std::wstring& userPath, const std::wstring& defaultsPath)
 {
-	const std::wstring path = TemplatesJsonPath();
+	const std::wstring path = auth_paths::isRegularFile(userPath) ? userPath : defaultsPath;
 	if (!auth_paths::isRegularFile(path))
 		return;
 	std::string bytes;
 	if (!user_file_replace::ReadAll(path, bytes))
-		return;
-	myRequest::loadTemplates(JSON::get<mapTemplates>(bytes));
+        throw Exception(L"Не удалось прочитать файл шаблонов. Он не изменён: " + String(path.c_str()));
+    try { myRequest::loadTemplates(JSON::get<mapTemplates>(bytes)); }
+    catch (const std::exception&) {
+        throw Exception(L"Файл шаблонов содержит ошибку. Автоматическое обновление остановлено, файл не изменён: " + String(path.c_str()));
+    }
 }
 
-void SaveTemplatesToDisk()
+void LoadTemplatesFromDisk()
+{
+    LoadTemplatesFromPaths(TemplatesJsonPath(),
+        auth_paths::fileBesideExecutable(L"config\\search-templates.defaults.json"));
+}
+
+std::wstring TemplateOrderJsonPath()
+{
+    return auth_paths::fileBesideExecutable(L"Templates.order.json");
+}
+
+bool LoadTemplateOrderFromPath(const std::wstring& path)
+{
+    myRequest::loadOrder({});
+    if (!auth_paths::isRegularFile(path)) return true;
+    try {
+        std::string bytes;
+        if (!user_file_replace::ReadAll(path, bytes)) return false;
+        const auto json = nh::json::parse(bytes);
+        if (json.value("formatVersion", 0) != 1) return false;
+        TemplateListOrder order;
+        order.groups = json.value("groups", std::vector<std::string>{});
+        order.templates = json.value("templates", std::map<std::string, std::vector<std::string>>{});
+        myRequest::loadOrder(order);
+        return true;
+    } catch (const std::exception&) { return false; }
+}
+
+void SaveTemplateOrderToPath(const TemplateListOrder& order, const std::wstring& path)
+{
+    const nh::json json = {{"formatVersion",1}, {"groups",order.groups}, {"templates",order.templates}};
+    const std::string bytes = json.dump(2);
+    std::wstring error;
+    if (!user_file_replace::WriteReplacing(path, bytes.data(), bytes.size(), &error))
+        throw Exception(L"Не удалось сохранить порядок шаблонов: " + String(error.c_str()));
+}
+
+void PersistTemplateListOrder(TListBox* list, bool groups, const String& group, const std::wstring& path)
+{
+    auto order = myRequest::getOrder();
+    std::vector<std::string> names;
+    for (int i = 0; i < list->Items->Count; ++i)
+        names.push_back(conv::to_string(list->Items->Strings[i].c_str()));
+    if (groups) order.groups = names;
+    else order.templates[conv::to_string(group.c_str())] = names;
+    SaveTemplateOrderToPath(order, path);
+    myRequest::loadOrder(order);
+}
+
+void SaveTemplatesToPath(const std::wstring& path)
 {
 	nh::json json = myRequest::getTemplates();
 	const std::string text = json.dump(2);
-	user_file_replace::WriteReplacing(TemplatesJsonPath(), text.data(), text.size());
+    std::wstring error;
+    if (!user_file_replace::WriteReplacing(path, text.data(), text.size(), &error))
+        throw Exception(String(error.c_str()));
+}
+
+void SaveTemplatesToDisk() { SaveTemplatesToPath(TemplatesJsonPath()); }
+
+bool MigrateTemplateDefaults(const std::wstring& userPath, const std::wstring& markerPath)
+{
+    int version = 0;
+    if (auth_paths::isRegularFile(markerPath)) {
+        std::string bytes;
+        if (!user_file_replace::ReadAll(markerPath, bytes))
+            throw Exception(L"Не удалось прочитать сведения об обновлении шаблонов.");
+        version = nh::json::parse(bytes).value("defaultsVersion", 0);
+    }
+    if (version >= 1 && auth_paths::isRegularFile(userPath)) return false;
+    const auto previous = myRequest::getTemplates();
+    try {
+        myRequest::addPeriodTemplates(); // Existing names and their parameters win.
+        SaveTemplatesToPath(userPath);
+    } catch (...) { myRequest::loadTemplates(previous); throw; }
+    // Commit the marker last: interrupted migrations can retry without replacing personal entries.
+    const std::string marker = "{\"defaultsVersion\":1}\n";
+    std::wstring error;
+    if (!user_file_replace::WriteReplacing(markerPath, marker.data(), marker.size(), &error))
+        throw Exception(L"Шаблоны сохранены, но не удалось записать сведения об обновлении: " + String(error.c_str()));
+    return true;
 }
 
 const int MAIN_FORM_DESIGN_PPI = 192;
@@ -1623,39 +1710,19 @@ void __fastcall TfMain::finishSearch()
 		btnSearch->Enabled = auth_ && hasServerAuthorization();
         return;
     }
-	telegi = telegi_async;
 	ggSaveProgress->Progress = ggSaveProgress->MaxValue;
-	if(telegi.size() > 0)
-		convTelegs(telegi);
     // ... всё остальное из Synchronize
     cmbReq->SelStart = 0;
 	cmbReq->SelLength = cmbReq->Text.Length();
 
-	if (memTbl->Active)
-		memTbl->Active = false;
-	if (qryTelegi->Active)
-		qryTelegi->Close();
-	EnsureResResultTextFieldSizes(qryTelegi, memTbl);
-	try {
-		qryTelegi->SQL->Text = ("select * from res");
-		qryTelegi->Open();
-		memTbl->Active = true;
-	}
-	catch (const Exception& e) {
-		const String openErr =
-			L"Не удалось открыть локальные результаты поиска: " + e.Message;
-		if (searchSaveReport_.IsEmpty())
-			searchSaveReport_ = openErr;
-		else
-			searchSaveReport_ = searchSaveReport_ + L"\r\n\r\n" + openErr;
-		applyRchEdtText(L"", false);
-		lbStatus->Caption = L"Ошибка отображения результатов" + sessionSuffix();
-		btnSearch->Enabled = auth_ && hasServerAuthorization();
-		return;
-	}
 
-    dbgEh->Columns->Items[4]->Title->SortMarker = smDownEh;
+    if (searchNewestFirst_) {
+        for (int i = 0; i < dbgEh->Columns->Count; ++i)
+            dbgEh->Columns->Items[i]->Title->SortMarker = smNoneEh;
+    }
+    dbgEh->Columns->Items[searchNewestFirst_ ? searchDateColumn_ : 4]->Title->SortMarker = smDownEh;
     dbgEh->DefaultApplySorting();
+    dbgEh->ApplyFilter();
 
 	int gg = dbgEh->RowCount;
 
@@ -1729,8 +1796,119 @@ void __fastcall TfMain::finishSearch()
 
 
 
+void TfMain::CancelSearchResults()
+{
+    searchGridLoader_.reset();
+    if (searchImportTransaction_) {
+        try { qryTelegi->Connection->Rollback(); } catch (...) {}
+    }
+    searchImportTransaction_ = false;
+    searchImportReport_.reset();
+    searchImportIndex_ = 0;
+    telegi.clear();
+    telegi_async.clear();
+    clear();
+    template_feedback::display(rchEdt, tmLoadText, holdLoadTextUntilUserSelect_,
+        L"Поиск отменён. Полная выборка не загружена.\r\n"
+        L"Уменьшите период, уточните условия или задайте «Максимум ответов», затем нажмите «Поиск».\r\n"
+        L"Если серверная сессия закрыта, сначала нажмите «Подключение».\r\n"
+        L"Отменено ожидание на этом компьютере; сервер может ещё завершать начатый запрос.");
+    lbStatus->Caption = L"Поиск отменён";
+}
+
+void TfMain::CompleteSearchOperation()
+{
+    searchGuardTimer_->Enabled = false;
+    searchControl_.reset();
+    searchImportPhase_ = false;
+    searchGridLoader_.reset();
+    searchUiGuard_.reset(); // Release the UI guard only on the main thread.
+    if (searchAuthRefreshPending_) {
+        searchAuthRefreshPending_ = false;
+        applyLocalAuthSources();
+    }
+}
+
+void __fastcall TfMain::SearchGuardTimer(TObject*)
+{
+    const auto state = searchControl_;
+    if (!state) return;
+    searchGuardTimer_->Enabled = false;
+    try {
+        const auto notice = searchWatchdog_.due(*state);
+        if (notice != SearchWatchdog::Notice::None) {
+            state->paused.store(true);
+            const auto choice = showSearchGuard(*state, notice, searchImportPhase_);
+            if (choice == SearchGuardChoice::Continue) {
+                if (notice == SearchWatchdog::Notice::Large) state->largeApproved.store(true);
+                searchWatchdog_.continued();
+            } else {
+                state->cancelled.store(true);
+                if (choice == SearchGuardChoice::Limit) cmbMaxReq->Text = L"1000";
+            }
+            state->paused.store(false);
+        }
+        if (!state->done.load(std::memory_order_acquire)) {
+            lbStatus->Caption = state->cancelled.load() ? L"Отменяем поиск…" :
+                L"Поиск: распознано записей " + UIntToStr(state->rows.load()) +
+                L", получено КБ " + UIntToStr(state->bytes.load() / 1024);
+            searchGuardTimer_->Enabled = true;
+            return;
+        }
+        if (state->cancelled.load()) {
+            CancelSearchResults();
+            CompleteSearchOperation();
+            return;
+        }
+        if (searchSuccess) {
+            if (!searchImportPhase_) {
+                telegi = std::move(telegi_async);
+                searchImportPhase_ = true;
+            }
+            if (!searchRowsImported_ && !telegi.empty() && !convTelegs(telegi)) {
+                lbStatus->Caption = L"Подготовка таблицы: " + UIntToStr(searchImportIndex_) +
+                    L" из " + UIntToStr(static_cast<unsigned __int64>(telegi.size()));
+                searchGuardTimer_->Enabled = true;
+                return;
+            }
+            searchRowsImported_ = true;
+            if (!searchGridLoader_) {
+                EnsureResResultTextFieldSizes(qryTelegi, memTbl);
+                searchGridLoader_ = std::make_shared<SearchGridLoader>(qryTelegi, memTbl);
+            }
+            if (!searchGridLoader_->step()) {
+                lbStatus->Caption = L"Загрузка строк в таблицу…";
+                searchGuardTimer_->Enabled = true;
+                return;
+            }
+            searchGridLoader_.reset();
+        }
+        finishSearch();
+        CompleteSearchOperation();
+    } catch (const Exception& e) {
+        state->cancelled.store(true);
+        if (!state->done.load(std::memory_order_acquire)) {
+            searchGuardTimer_->Enabled = true;
+            return;
+        }
+        CancelSearchResults();
+        CompleteSearchOperation();
+        ShowMessage(L"Не удалось подготовить результаты поиска: " + e.Message);
+    } catch (...) {
+        state->cancelled.store(true);
+        if (!state->done.load(std::memory_order_acquire)) {
+            searchGuardTimer_->Enabled = true;
+            return;
+        }
+        CancelSearchResults();
+        CompleteSearchOperation();
+        ShowMessage(L"Не удалось подготовить результаты поиска.");
+    }
+}
+
 void __fastcall TfMain::btnSearchClick(TObject *Sender)
 {
+    if (gSearchProcessing.load()) return;
 	if (!auth_) {
 		ShowMessage(L"Нет авторизации. Поиск недоступен.");
 		componentsEnable(false);
@@ -1753,6 +1931,10 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 
 
 	last_loaded_num_ = "";
+    if (templatePeriod_ && templatePeriod_->ItemIndex > 0) {
+        chkSQL->Checked = true;
+        chkSQLClick(this);
+    }
 	const bool isChkSQL = chkSQL->Checked;
 	const bool isChkExc = chkExc->Checked;
 
@@ -1760,23 +1942,14 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
         return;
 	}
 
-	int cmbMaxReqInt = 0;
-	if (isChkSQL) {
-		bool limitOk = false;
-		try {
-			cmbMaxReqInt = StrToInt(Trim(cmbMaxReq->Text));
-			limitOk = (cmbMaxReqInt > 0);
-		}
-		catch (...) {
-			limitOk = false;
-		}
-		if (!limitOk) {
-			ShowMessage(L"Укажите положительное целое число в поле лимита результатов.");
-			return;
-		}
-	}
+    int cmbMaxReqInt = 0;
+    if (isChkSQL && !search_limit::parse(cmbMaxReq->Text, cmbMaxReqInt)) {
+        ShowMessage(L"Выберите «Без лимита» или укажите положительное целое число в поле «Максимум ответов».");
+        return;
+    }
 
 	ComboHistory.add(AnsiString{cmbReq->Text}.c_str());
+    holdLoadTextUntilUserSelect_ = false;
 	clear();
 	searchFailures_async.clear();
 	searchServerSuccessCount = 0;
@@ -1818,8 +1991,30 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			type = SqlCondition::TYPE::ISH;
 		}
 		SqlCondition::max = cmbMaxReqInt;
-		if (cmbFieldText == L"SQL") {
-			requestText += " order by `index` desc limit " + IntToStr(SqlCondition::max);
+        searchNewestFirst_ = templateNewest_ && templateNewest_->Checked;
+        searchDateColumn_ = templateDateField_->ItemIndex == 1 ? 4 : 2;
+        if (templatePeriod_->ItemIndex > 0 || searchNewestFirst_) {
+            const String predicate = cmbFieldText == L"SQL" ? String(requestText) :
+                SqlCondition::predicate(cmbFieldText, String(requestText), type, isChkExc);
+            String from, to;
+            if (templatePeriod_->ItemIndex > 0) {
+                const TDateTime today = Date();
+                TDateTime start = today, end = today;
+                switch (templatePeriod_->ItemIndex) {
+                    case 2: start = today - 1; end = start; break;
+                    case 3: start = today - 6; break;
+                    case 4: start = today - 29; break;
+                    case 5: { unsigned short y,m,d; DecodeDate(today,y,m,d); start = EncodeDate(y,m,1); break; }
+                }
+                from = FormatDateTime(L"yyyy-mm-dd", start);
+                to = FormatDateTime(L"yyyy-mm-dd", end);
+            }
+            requestBody = template_search::condition(conv::to_string(predicate.c_str()),
+                searchDateColumn_ == 4 ? "DataPodp" : "DData", conv::to_string(from.c_str()),
+                conv::to_string(to.c_str()), searchNewestFirst_, cmbMaxReqInt);
+        }
+		else if (cmbFieldText == L"SQL") {
+			requestText += " order by `index` desc" + SqlCondition::LIMIT();
 			requestBody = conv::to_string(String(requestText).c_str());
 		}
 		else {
@@ -1828,6 +2023,7 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 		}
 	}
 	else {
+        searchNewestFirst_ = false;
 		requestBody = std::string(requestText.c_str());
 	}
 	const std::vector<std::string> allServerIds = serverManager_.serverIds();
@@ -1864,8 +2060,23 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
     // --- Запуск фоновой задачи ---
 	auto live = uiLive_;
 	auto op = trackBackgroundOp();
-	const std::size_t allServerCount = allServerIds.size();
-	System::Threading::TTask::Run([this, tok, requestBody, searchCommand, serverIds,
+    const std::size_t allServerCount = allServerIds.size();
+    auto control = std::make_shared<SearchRequestControl>();
+    searchControl_ = control;
+    searchUiGuard_ = tok;
+    searchImportPhase_ = false;
+    searchRowsImported_ = false;
+    searchWatchdog_ = SearchWatchdog();
+    if (!searchGuardTimer_) {
+        searchGuardTimer_ = new TTimer(this);
+        searchGuardTimer_->Enabled = false;
+        searchGuardTimer_->Interval = 15;
+        searchGuardTimer_->OnTimer = SearchGuardTimer;
+    }
+    lbStatus->Caption = L"Поиск: ожидаем ответы серверов…";
+    searchGuardTimer_->Enabled = true;
+    try {
+	System::Threading::TTask::Run([this, control, requestBody, searchCommand, serverIds,
 		skippedUnauthed, allServerCount, Sender, live, op]() {
 		struct Outcome {
 			std::string serverId;
@@ -1877,9 +2088,17 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 		try {
 		std::vector<Outcome> outcomes(serverIds.size());
 		std::vector<std::thread> workers;
-		workers.reserve(serverIds.size());
+        workers.reserve(serverIds.size());
+        struct JoinWorkers {
+            std::vector<std::thread>& workers;
+            std::shared_ptr<SearchRequestControl> control;
+            ~JoinWorkers() {
+                if (std::uncaught_exceptions() > 0) control->cancelled.store(true);
+                for (auto& worker : workers) if (worker.joinable()) worker.join();
+            }
+        } joinWorkers{workers, control};
 		for (std::size_t i = 0; i < serverIds.size(); ++i) {
-			workers.emplace_back([this, &outcomes, &serverIds, &requestBody, searchCommand, i, live]() {
+			workers.emplace_back([this, &outcomes, &serverIds, &requestBody, searchCommand, i, live, control]() {
 				if (live && !live->load(std::memory_order_acquire))
 					return;
 				Outcome& outcome = outcomes[i];
@@ -1889,15 +2108,13 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 					std::string response;
 					if (!serverManager_.requestText(
 							outcome.serverId, requestBody, searchCommand, response, nullptr,
-							&outcome.error))
+							&outcome.error, control.get()))
 						return;
 					if (response == "update") {
 						outcome.error = "Идёт обновление базы";
 						return;
 					}
-					outcome.hits = JSON::get<std::vector<Telega>>(response);
-					for (auto& hit : outcome.hits)
-						hit.source_server_id = outcome.serverId;
+					outcome.hits = parseSearchResponse(response, outcome.serverId, *control);
 					outcome.success = true;
 				}
 				catch (const std::exception& e) {
@@ -1938,17 +2155,26 @@ void __fastcall TfMain::btnSearchClick(TObject *Sender)
 			this->searchSuccess = false;
 			this->searchError = "Ошибка выполнения поиска";
 		}
-		TThread::Queue(nullptr, [this, tok, live, op]() {
-			if (live && live->load(std::memory_order_acquire) && !shuttingDown_)
-				finishSearch();
-		});
+        // The UI polls this flag. No completion callback can re-enter a guard dialog.
+        control->done.store(true, std::memory_order_release);
 	});
+    } catch (...) {
+        searchSuccess = false;
+        searchError = "Не удалось запустить фоновый поиск";
+        control->done.store(true, std::memory_order_release);
+    }
 }
 
 
 //---------------------------------------------------------------------------
 void __fastcall TfMain::FormClose(TObject *Sender, TCloseAction &Action)
 {
+    if (searchControl_) {
+        searchControl_->cancelled.store(true);
+        Action = caNone;
+        lbStatus->Caption = L"Отменяем поиск. После отмены окно можно закрыть.";
+        return;
+    }
 	if (saveRunning.load(std::memory_order_acquire)) {
 		Action = caNone;
 		ShowMessage("Дождитесь завершения сохранения файлов или нажмите \"Отмена\".");
@@ -2292,7 +2518,7 @@ void __fastcall TfMain::tmFilterEnableAlarmTimer(TObject *Sender)
 void __fastcall TfMain::componentsEnable(bool b)
 {
 		// Local auth (flash/admin) unlocks Connect. Server ops need server-auth.
-		const bool serverOk = hasServerAuthorization();
+		const bool serverOk = searchControl_ && !searchControl_->done.load() ? true : hasServerAuthorization();
 		const bool uiOn = b && auth_ && serverOk;
 
 		tmLoadText->Enabled = uiOn && !loadTextHeld();
@@ -2314,6 +2540,9 @@ void __fastcall TfMain::componentsEnable(bool b)
 		btnLoadRazn->Enabled = uiOn;
 		lstShGroups->Enabled = uiOn;
 		lstTemplates->Enabled = uiOn;
+        if (templatePeriod_) {
+            templatePeriod_->Parent->Enabled = uiOn;
+        }
 		dbgEh->Enabled = uiOn;
 
 		// Connect follows local auth; Disconnect follows successful server-auth.
@@ -2351,9 +2580,7 @@ bool TfMain::loadTextHeld() const
 
 void TfMain::pauseLoadTextUntilUserSelect()
 {
-	holdLoadTextUntilUserSelect_ = true;
-	if (tmLoadText)
-		tmLoadText->Enabled = false;
+	template_feedback::hold(tmLoadText, holdLoadTextUntilUserSelect_);
 }
 
 void TfMain::armLoadTextTimer()
@@ -2408,7 +2635,7 @@ static void EnsureResResultTextFieldSizes(TFDQuery* qry, TMemTableEh* mem)
 
 
 //---------------------------------------------------------------------------
-void TfMain::convTelegs(std::vector<Telega>& telegi)
+bool TfMain::convTelegs(std::vector<Telega>& telegi)
 {
     static const String SQL_INSERT_RES =
         "insert into res ("
@@ -2419,6 +2646,7 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         ":pril_name, :pril_count, :last_mesto, :gde_sht, :blank, :deleted, :source_server_id"
         ")";
 
+    if (!searchImportReport_) {
 	if (memTbl->Active)
 		memTbl->Active = false;
 	if (qryTelegi->Active)
@@ -2460,11 +2688,16 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
     searchSavePartial_ = false;
 	searchSaveReport_ = L"";
 
-    std::unique_ptr<TStringList> report(new TStringList());
+    searchImportReport_.reset(new TStringList());
+    searchImportIndex_ = 0;
+    searchImportTransaction_ = false;
+    }
+    auto report = searchImportReport_.get();
+    auto P = qryTelegi->Params;
     TFDCustomConnection* conn = qryTelegi->Connection;
-    bool tranStarted = false;
+    bool& tranStarted = searchImportTransaction_;
 
-    try {
+    if (searchImportIndex_ == 0) try {
         conn->StartTransaction();
         tranStarted = true;
     }
@@ -2492,10 +2725,21 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         return label;
     };
 
-    int index1 = 0;
-    for (auto& t : telegi)
+    const auto batchStarted = std::chrono::steady_clock::now();
+    const auto batchEnd = (std::min)(telegi.size(), searchImportIndex_ + 500);
+    while (searchImportIndex_ < batchEnd)
     {
-        ++index1;
+        if (searchControl_ && searchControl_->cancelled.load()) {
+            if (tranStarted) { try { conn->Rollback(); } catch (...) {} }
+            searchImportTransaction_ = false;
+            searchImportReport_.reset();
+            searchSaveInserted_ = 0;
+            return true;
+        }
+        if (searchImportIndex_ > 0 && std::chrono::steady_clock::now() - batchStarted >= std::chrono::milliseconds(15))
+            return false;
+        auto& t = telegi[searchImportIndex_++];
+        const int index1 = static_cast<int>(searchImportIndex_);
         // не модифицируй исходные поля без нужды, но раз уж делаешь:
         std::replace(t.from_to.begin(), t.from_to.end(), '\'', '"');
         std::replace(t.kr.begin(),      t.kr.end(),      '\'', '"');
@@ -2626,6 +2870,8 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         ggSaveProgress->AddProgress(1);
     }
 
+    if (searchImportIndex_ < telegi.size()) return false;
+
     if (tranStarted)
     {
         try { conn->Commit(); }
@@ -2673,10 +2919,13 @@ void TfMain::convTelegs(std::vector<Telega>& telegi)
         header->Add(L"Ниже — где и что не разобралось или не записалось:");
         header->Add(L"");
         if (!report->Text.IsEmpty())
-            header->AddStrings(report.get());
+            header->AddStrings(report);
         searchSaveReport_ = header->Text;
         rchEdt->Lines->Text = searchSaveReport_;
     }
+    searchImportTransaction_ = false;
+    searchImportReport_.reset();
+    return true;
 }
 
 
@@ -2748,6 +2997,24 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 
 
 	LoadTemplatesFromDisk();
+    if (!LoadTemplateOrderFromPath(TemplateOrderJsonPath()))
+        ShowMessage(L"Не удалось прочитать Templates.order.json. Использован порядок по умолчанию; файл не изменён.");
+    try {
+        MigrateTemplateDefaults(TemplatesJsonPath(), auth_paths::fileBesideExecutable(L"Templates.migrations.json"));
+    } catch (const Exception& error) {
+        ShowMessage(L"Не удалось завершить автоматическое обновление шаблонов. Личные записи сохранены.\r\n" + error.Message);
+    } catch (const std::exception&) {
+        ShowMessage(L"Не удалось прочитать сведения об обновлении шаблонов. Личные записи не заменены.");
+    }
+    CreateTemplateOptions();
+    auto groupDrag = new TTemplateListDrag(this, lstShGroups);
+    auto templateDrag = new TTemplateListDrag(this, lstTemplates);
+    groupDrag->OnMoved = TemplateListOrderChanged;
+    templateDrag->OnMoved = TemplateListOrderChanged;
+    lstShGroups->Hint = L"Перетащите группу, чтобы изменить порядок. Он сохраняется автоматически.";
+    lstTemplates->Hint = L"Перетащите шаблон, чтобы изменить порядок в этой группе. Он сохраняется автоматически.";
+    lstShGroups->ShowHint = true;
+    lstTemplates->ShowHint = true;
 
 	for(const auto& i : myRequest::groupsNames())
 		lstShGroups->Items->Add(i);
@@ -2805,23 +3072,39 @@ void __fastcall TfMain::FormCreate(TObject *Sender)
 //---------------------------------------------------------------------------
 void TfMain::setColor(String sS)
 {
+	if (sS.IsEmpty())
+		return;
 
-	{
-	int pos = 0;
-	for (int k = 0; k < rchEdt->Lines->Count; k++)
-		{
-		if (rchEdt->Lines->Strings[k].Pos(sS) != 0)
-			{
-			//выделение текста
-			rchEdt->SelStart = pos + rchEdt->Lines->Strings[k].Pos(sS) - 1;
-			rchEdt->SelLength = sS.Length();
+	// Search and format in RichEdit character positions: visual wrapping adds
+	// no characters, and paragraph breaks need no manual CR/LF accounting.
+	sS = StringReplace(sS, L"\r\n", L"\r", TReplaceFlags() << rfReplaceAll);
+	const HWND handle = rchEdt->Handle;
+	const bool modified = rchEdt->Modified;
+	CHARRANGE selection = {};
+	POINT scroll = {};
+	SendMessageW(handle, EM_EXGETSEL, 0, reinterpret_cast<LPARAM>(&selection));
+	SendMessageW(handle, EM_GETSCROLLPOS, 0, reinterpret_cast<LPARAM>(&scroll));
+	try {
+		FINDTEXTEXW find = {};
+		find.chrg.cpMin = 0;
+		find.chrg.cpMax = -1;
+		find.lpstrText = sS.c_str();
+		while (SendMessageW(handle, EM_FINDTEXTEXW, FR_DOWN | FR_MATCHCASE,
+				reinterpret_cast<LPARAM>(&find)) != -1) {
+			if (find.chrgText.cpMax <= find.chrg.cpMin)
+				break;
+			SendMessageW(handle, EM_EXSETSEL, 0,
+				reinterpret_cast<LPARAM>(&find.chrgText));
 			rchEdt->SelAttributes->Color = clRed;
 			rchEdt->SelAttributes->Style = rchEdt->SelAttributes->Style << fsBold;
-			}
-		pos = pos + rchEdt->Lines->Strings[k].Length() + 1;
+			find.chrg.cpMin = find.chrgText.cpMax;
 		}
 	}
-
+	__finally {
+		SendMessageW(handle, EM_EXSETSEL, 0, reinterpret_cast<LPARAM>(&selection));
+		SendMessageW(handle, EM_SETSCROLLPOS, 0, reinterpret_cast<LPARAM>(&scroll));
+		rchEdt->Modified = modified;
+	}
 }
 void __fastcall TfMain::dbgEhColumns0CellButtons0Click(TObject *Sender, bool &Handled)
 {
@@ -3831,6 +4114,8 @@ void __fastcall TfMain::chkSQLClick(TObject *Sender)
 	   rgTypeT->Enabled = false;
 	   cmbField->Enabled = false;
 	   cmbMaxReq->Enabled = false;
+       if (templatePeriod_) templatePeriod_->ItemIndex = 0;
+       if (templateNewest_) templateNewest_->Checked = false;
 	}
 }
 //---------------------------------------------------------------------------
@@ -3904,6 +4189,65 @@ void __fastcall TfMain::Button3Click(TObject *Sender)
 //---------------------------------------------------------------------------
 
 
+void TfMain::CreateTemplateOptions()
+{
+    const auto controls = BuildTemplateOptionsUI(this, GroupBox1, CurrentPPI, TemplatePeriodChange);
+    templatePeriod_ = controls.period;
+    templateDateField_ = controls.dateField;
+    templateNewest_ = controls.newest;
+}
+
+void __fastcall TfMain::TemplatePeriodChange(TObject* Sender)
+{
+    if (templatePeriod_->ItemIndex > 0) {
+        chkSQL->Checked = true;
+        chkSQLClick(this);
+    }
+    ScheduleResponsiveLayout();
+}
+
+void TfMain::RefreshTemplateLists(const String& group, const String& name)
+{
+    const String selectedGroup = !group.IsEmpty() ? group :
+        (lstShGroups->ItemIndex >= 0 ? lstShGroups->Items->Strings[lstShGroups->ItemIndex] : String());
+    const String selectedName = !name.IsEmpty() ? name :
+        (lstTemplates->ItemIndex >= 0 ? lstTemplates->Items->Strings[lstTemplates->ItemIndex] : String());
+    lstShGroups->Items->Clear();
+    for (const auto& item : myRequest::groupsNames()) lstShGroups->Items->Add(item);
+    lstShGroups->ItemIndex = lstShGroups->Items->IndexOf(selectedGroup);
+    lstTemplates->Items->Clear();
+    if (lstShGroups->ItemIndex >= 0) {
+        for (const auto& item : myRequest::groupTempaltes(selectedGroup)) lstTemplates->Items->Add(item);
+        lstTemplates->ItemIndex = lstTemplates->Items->IndexOf(selectedName);
+    }
+}
+
+void __fastcall TfMain::TemplateListOrderChanged(TObject* Sender)
+{
+    auto list = dynamic_cast<TListBox*>(Sender);
+    if (!list) return;
+    if (list != lstShGroups && lstShGroups->ItemIndex < 0) return;
+    const String group = list == lstShGroups ? String() :
+        lstShGroups->Items->Strings[lstShGroups->ItemIndex];
+    // A failed write throws back to the drag controller, which restores the list.
+    PersistTemplateListOrder(list, list == lstShGroups, group, TemplateOrderJsonPath());
+}
+
+void TfMain::ShowTemplateHelp(const String& group, const String& name, const Request& value,
+    bool saved, bool replaced, bool filtersOmitted)
+{
+    std::map<std::string,String> captions;
+    for (int i = 0; i < dbgEh->Columns->Count; ++i) {
+        auto column = dbgEh->Columns->Items[i];
+        captions[conv::to_string(column->FieldName.c_str())] = column->Title->Caption;
+    }
+    const String text = template_feedback::describe(group, name, value,
+        String(TemplatesJsonPath().c_str()), saved, replaced, filtersOmitted,
+        captions, auth_paths::isRegularFile(TemplatesJsonPath()));
+    template_feedback::display(rchEdt, tmLoadText, holdLoadTextUntilUserSelect_, text);
+    ApplyTelegramFontSize(telegramFontSize_);
+}
+
 void __fastcall TfMain::Button1Click(TObject *Sender)
 {
 
@@ -3919,14 +4263,43 @@ void __fastcall TfMain::Button1Click(TObject *Sender)
 	if(tm_name == "")
 		return;
 
-	myRequest::saveTemplate(tm_group, tm_name);
-
-	SaveTemplatesToDisk();
-
-	if(lstShGroups->Items->IndexOf(tm_group) == -1)
-		lstShGroups->Items->Add(tm_group);
-	else if(lstShGroups->ItemIndex != -1 && tm_group == lstShGroups->Items->Strings[lstShGroups->ItemIndex] && lstTemplates->Items->IndexOf(tm_name) == -1)
-		lstTemplates->Items->Add(tm_name);
+    Request value = myRequest();
+    value.template_version = 2;
+    value.period = templatePeriod_->ItemIndex;
+    value.date_field = templateDateField_->ItemIndex == 1 ? "DataPodp" : "DData";
+    if (value.sql) {
+        if (!search_limit::parse(cmbMaxReq->Text, value.max_results)) {
+            ShowMessage(L"Выберите «Без лимита» или укажите положительное целое число."); return;
+        }
+        value.unlimited_results = value.max_results == 0;
+    }
+    value.newest_first = value.sql && templateNewest_->Checked;
+    for (int i = 0; i < dbgEh->Columns->Count; ++i) {
+        auto column = dbgEh->Columns->Items[i];
+        if (!column->STFilter->ExpressionStr.IsEmpty())
+            value.column_filters[conv::to_string(column->FieldName.c_str())] = conv::to_string(column->STFilter->ExpressionStr.c_str());
+    }
+    const bool hadFilters = value.period > 0 || !value.column_filters.empty();
+    if (hadFilters) {
+        const int answer = MessageDlg(L"Сохранить выбранные фильтры в шаблоне?\r\nПериод AutoPad и фильтры колонок.\r\nДа — сохранить, Нет — сохранить шаблон без фильтров.",
+            mtConfirmation, TMsgDlgButtons() << mbYes << mbNo << mbCancel, 0);
+        if (answer == mrCancel) return;
+        value.filters_saved = answer == mrYes;
+    }
+    if (!value.filters_saved) { value.period = 0; value.column_filters.clear(); }
+    const auto previous = myRequest::getTemplates();
+    try {
+        myRequest::putTemplate(tm_group, tm_name, value);
+        SaveTemplatesToDisk();
+    } catch (const Exception& e) {
+        myRequest::loadTemplates(previous);
+        ShowMessage(L"Шаблон не сохранён: " + e.Message);
+        return;
+    }
+    const auto oldGroup = previous.find(conv::to_string(tm_group.c_str()));
+    const bool replaced = oldGroup != previous.end() && oldGroup->second.find(conv::to_string(tm_name.c_str())) != oldGroup->second.end();
+    RefreshTemplateLists(tm_group, tm_name);
+    ShowTemplateHelp(tm_group, tm_name, value, true, replaced, hadFilters && !value.filters_saved);
 
 }
 //---------------------------------------------------------------------------
@@ -3948,13 +4321,31 @@ void __fastcall TfMain::lstShGroupsClick(TObject *Sender)
 
 void __fastcall TfMain::lstTemplatesClick(TObject *Sender)
 {
-	if(lstTemplates->ItemIndex == -1)
+	if(lstTemplates->ItemIndex == -1 || lstShGroups->ItemIndex == -1)
 		return;
 
 	auto group = lstShGroups->Items->Strings[lstShGroups->ItemIndex];
 	auto name = lstTemplates->Items->Strings[lstTemplates->ItemIndex];
 
-	myRequest::setTemplate(group, name);
+    myRequest::setTemplate(group, name);
+    const Request value = myRequest::getTemplate(group, name);
+    templatePeriod_->ItemIndex = value.template_version >= 2 ? value.period : 0;
+    templateDateField_->ItemIndex = value.date_field == "DataPodp" ? 1 : 0;
+    templateNewest_->Checked = value.template_version >= 2 && value.newest_first;
+    if (value.template_version >= 2) {
+        if (value.unlimited_results) cmbMaxReq->Text = search_limit::unlimitedText();
+        else if (value.max_results > 0) cmbMaxReq->Text = IntToStr(value.max_results);
+        for (int i = 0; i < dbgEh->Columns->Count; ++i) {
+            auto column = dbgEh->Columns->Items[i];
+            auto found = value.column_filters.find(conv::to_string(column->FieldName.c_str()));
+            column->STFilter->ExpressionStr = found == value.column_filters.end() ? String() : US(found->second);
+        }
+        if (dbgEh->DataSource && dbgEh->DataSource->DataSet && dbgEh->DataSource->DataSet->Active)
+            dbgEh->ApplyFilter();
+    }
+    chkSQLClick(this);
+    TemplatePeriodChange(this);
+    ShowTemplateHelp(group, name, value, false);
 
 }
 //---------------------------------------------------------------------------
@@ -4109,9 +4500,22 @@ void TfMain::UpdateResponsiveLayout()
 		{
 			const int ppi = PageControl1->CurrentPPI > 0
 				? PageControl1->CurrentPPI : MAIN_FORM_DESIGN_PPI;
-			const int minimumWidth = std::max(1, MulDiv(
+			int minimumWidth = std::max(1, MulDiv(
 				MAIN_CONTENT_MIN_WIDTH_AT_DESIGN_PPI, ppi,
 				MAIN_FORM_DESIGN_PPI));
+			// Keep every toolbar group reachable at the current monitor DPI.
+			int toolbarWidth = Panel9->Padding->Left + Panel9->Padding->Right;
+			for (int i = 0; i < Panel9->ControlCount; ++i) {
+				TControl* control = Panel9->Controls[i];
+				if (!control->Visible || control->Align != alLeft)
+					continue;
+				toolbarWidth += control->Width;
+				if (control->AlignWithMargins)
+					toolbarWidth += control->Margins->Left + control->Margins->Right;
+			}
+			const int pageBorderWidth = std::max(0,
+				PageControl1->Width - TabSheet1->Width);
+			minimumWidth = std::max(minimumWidth, toolbarWidth + pageBorderWidth);
 			const int minimumHeight = std::max(1, MulDiv(
 				MAIN_CONTENT_MIN_HEIGHT_AT_DESIGN_PPI, ppi,
 				MAIN_FORM_DESIGN_PPI));
@@ -4383,7 +4787,7 @@ System::Threading::TTask::Run([this, sourceServerId, telegramId, telegramType, r
 	if (!requestTelegramText(
 			serverManager_, sourceServerId, telegramId, telegramType, str, err)) {
 		TThread::Queue(nullptr, [this, live, op, err]() {
-			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_)
+			if (!live || !live->load(std::memory_order_acquire) || shuttingDown_ || loadTextHeld())
 				return;
 			offerServerErrorDetails(L"Ошибка запроса", err);
 			armLoadTextTimer();
@@ -4567,6 +4971,11 @@ void TfMain::queueApplyLocalAuthSources()
 
 void TfMain::logoutUnauthorizedUi()
 {
+    if (searchControl_) {
+        searchControl_->cancelled.store(true);
+        searchAuthRefreshPending_ = true;
+        return;
+    }
 	clear();
 	message_.attachments.clear();
 	tmLoginOut->Enabled = false;
@@ -4591,6 +5000,10 @@ void TfMain::logoutUnauthorizedUi()
 
 void TfMain::applyLocalAuthSources()
 {
+    if (searchControl_) {
+        searchAuthRefreshPending_ = true;
+        return;
+    }
 	if (!uiIsLive() || shuttingDown_)
 		return;
 
@@ -6138,3 +6551,7 @@ void __fastcall TfMain::tmSaveProgressTimer(TObject *Sender)
 }
 
 
+
+#ifdef _DEBUG
+#include "TemplateSelfTest.inc"
+#endif

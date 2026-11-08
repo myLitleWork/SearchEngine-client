@@ -587,6 +587,10 @@ int RunMultiServerSelfTestFromCommandLine()
 	if (mixedAttempts.size() != 2 || !mixedAttempts[0].ok || mixedAttempts[1].ok ||
 		mixedManager.anonymousServerCount() != 1 || mixedManager.authorizedServerCount() != 1)
 		return 94;
+    SearchRequestControl cancelledSearch;
+    cancelledSearch.cancelled.store(true);
+    if (mixedManager.requestText("open", "needle", COMMAND::GETSQLJSONANSWEAR,
+        openReply, nullptr, &openError, &cancelledSearch) || mixedOpen.searched()) return 99;
 	if (!mixedManager.requestText("open", "needle", COMMAND::GETSQLJSONANSWEAR,
 		openReply, nullptr, &openError)) return 95;
 	if (mixedOpen.registered() || !mixedOpen.searched() || mixedOpen.failed() ||

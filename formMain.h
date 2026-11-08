@@ -56,6 +56,9 @@
 #include <Vcl.Samples.Gauges.hpp>
 #include <Vcl.StdCtrls.hpp>
 #include <memory>
+#include "Net/SearchRequestControl.h"
+struct ComponentsGuard;
+class SearchGridLoader;
 //---------------------------------------------------------------------------
 #include <System.Classes.hpp>
 #include <System.Generics.Collections.hpp>
@@ -243,17 +246,19 @@ __published:	// IDE-managed Components
 	TPanel *Panel7;
 	TListBox *ListBox1;
 	TDBGridEh *dbgEh;
-	TPanel *searchOptPanel;
+	TGroupBox *grpResults;
 	TLabel *lbFilter;
 	TGroupBox *grpSaveOptions;
 	TCheckBox *chkPril;
 	TCheckBox *chkText;
-	TGroupBox *GroupBox3;
+	TPanel *GroupBox3;
+	TLabel *lblSaveFolder;
 	TEdit *edtSaveDir;
 	TButton *btnSave;
 	TButton *btnCancelSave;
 	TPanel *Panel8;
 	TPanel *Panel9;
+	TPanel *pnSearchBody;
 	TRadioGroup *rgTypeT;
 	TGroupBox *grpSqlParam;
 	TGroupBox *grpSql;
@@ -429,6 +434,9 @@ private:	// User declarations
 	std::shared_ptr<void> trackBackgroundOp();
 
     friend class ComponentsGuard;
+#ifdef _DEBUG
+    friend struct SearchImportTestAccess;
+#endif
 
 	std::map<String,String> getMapFromQry(TFDQuery* qry, const String& table_name);
 
@@ -436,11 +444,36 @@ private:	// User declarations
 	std::map<String, int> mapFieldInd;
 	bool useF12Control();
 	void __fastcall finishSearch();
+    void __fastcall SearchGuardTimer(TObject* sender);
+    void CompleteSearchOperation();
+    void CancelSearchResults();
+    TTimer* searchGuardTimer_ = nullptr;
+    std::shared_ptr<SearchRequestControl> searchControl_;
+    std::shared_ptr<ComponentsGuard> searchUiGuard_;
+    SearchWatchdog searchWatchdog_;
+    bool searchImportPhase_ = false;
+    bool searchRowsImported_ = false;
+    bool searchAuthRefreshPending_ = false;
+    std::shared_ptr<SearchGridLoader> searchGridLoader_;
+    std::size_t searchImportIndex_ = 0;
+    bool searchImportTransaction_ = false;
+    std::unique_ptr<TStringList> searchImportReport_;
 	void __fastcall WndProc(TMessage &Message);
 	void __fastcall ResponsiveLayoutTimerTimer(TObject *Sender);
 	void CreateResponsiveScrollHost();
 	void ScheduleResponsiveLayout();
 	void UpdateResponsiveLayout();
+    void CreateTemplateOptions();
+    void __fastcall TemplatePeriodChange(TObject* Sender);
+    void __fastcall TemplateListOrderChanged(TObject* Sender);
+    void RefreshTemplateLists(const String& group = String(), const String& name = String());
+    void ShowTemplateHelp(const String& group, const String& name, const Request& value, bool saved,
+        bool replaced = false, bool filtersOmitted = false);
+    TComboBox* templatePeriod_ = nullptr;
+    TComboBox* templateDateField_ = nullptr;
+    TCheckBox* templateNewest_ = nullptr;
+    bool searchNewestFirst_ = false;
+    int searchDateColumn_ = 2;
 	void RestoreMainWindowPlacement();
 	void SaveMainWindowPlacement() noexcept;
 	std::vector<DbgEhColumnLayoutItem> dbgEhDefaultColumns_;
@@ -588,7 +621,7 @@ public:		// User declarations
 	std::map<String,std::map<String,double>> mapAnswers;
 	std::vector<Telega> telegi;
 	std::list<std::pair<std::string, int>> telegs;
-	void convTelegs(std::vector<Telega>& t);
+	bool convTelegs(std::vector<Telega>& t);
 	void applyRchEdtText(const String& telegramText, bool highlightQuery);
 	void offerServerErrorDetails(const String& context, const std::string& errUtf8);
 	void setColor(String sS);
@@ -682,6 +715,9 @@ public:		// User declarations
 
 
 	__fastcall TfMain(TComponent* Owner);
+#ifdef _DEBUG
+    __fastcall TfMain(TComponent* Owner, int dummy) : TForm(Owner, dummy) {}
+#endif
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TfMain *fMain;

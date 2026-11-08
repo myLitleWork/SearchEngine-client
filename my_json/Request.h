@@ -3,6 +3,7 @@
 //
 #include <utility>
 #include "string"
+#include <map>
 #ifndef REQUEST_REQUEST_H
 #define REQUEST_REQUEST_H
 
@@ -15,6 +16,14 @@ public:
    int type{};
    bool sql{};
    bool exc{};
+   int template_version = 1;
+   int period = 0;
+   std::string date_field = "DData";
+   int max_results = 0;
+   bool unlimited_results = false;
+   bool newest_first = false;
+   bool filters_saved = false;
+   std::map<std::string, std::string> column_filters;
 
     Request(std::string _search_text, std::string _field, int _type, bool _sql, bool _exc)
     {

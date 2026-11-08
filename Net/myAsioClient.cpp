@@ -3,6 +3,7 @@
 #pragma hdrstop
 
 #include "myAsioClient.h"
+#include "SearchCancellableIo.h"
 #include "ClientFilePublish.h"
 #include "UserFileReplace.h"
 #include <algorithm>
@@ -252,8 +253,10 @@ namespace {
 bool read_exact_idle_timeout(boost::asio::ip::tcp::socket& socket,
                              void* dest,
                              std::size_t len,
-                             std::string* errMsg)
+                             std::string* errMsg,
+                             SearchRequestControl* control = nullptr)
 {
+    if (control) return searchCancellableIo<false>(socket, boost::asio::buffer(dest, len), *control, errMsg);
 	struct ReadState {
 		boost::system::error_code readEc;
 		std::size_t bytesRead{0};
@@ -329,7 +332,8 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 								const header& response,
 								std::string* errMsg,
 								const char* legacySomeErrorMessage = "Сервер вернул ошибку",
-								search_protocol::ServerErrorInfo* serverError = nullptr)
+								search_protocol::ServerErrorInfo* serverError = nullptr,
+                                SearchRequestControl* control = nullptr)
 {
 	auto closeTransport = [&socket]() {
 		boost::system::error_code ignored;
@@ -370,7 +374,7 @@ bool consumeServerErrorResponse(boost::asio::ip::tcp::socket& socket,
 	}
 
 	search_protocol::ErrorResponseV1 payload{};
-	if (!read_exact_idle_timeout(socket, &payload, sizeof(payload), errMsg)) {
+	if (!read_exact_idle_timeout(socket, &payload, sizeof(payload), errMsg, control)) {
 		closeTransport();
 		return true;
 	}
@@ -649,7 +653,8 @@ bool MyAsioClient::requestText(const std::string& request,
 							   std::string& out,
 							   std::atomic_uint64_t* progress,
 							   std::string* errMsg,
-							   search_protocol::ServerErrorInfo* serverError)
+							   search_protocol::ServerErrorInfo* serverError,
+                               SearchRequestControl* control)
 {
 	std::lock_guard<std::mutex> lk(io_mutex_);
 	out.clear();
@@ -665,18 +670,26 @@ bool MyAsioClient::requestText(const std::string& request,
 		header req{};
 		req.size = static_cast<uint_fast64_t>(request.size());
 		req.command = command;
-		boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
-		if (!request.empty())
-			boost::asio::write(*socket_, boost::asio::buffer(request.data(), request.size()));
+        if (control) {
+            if (!searchCancellableIo<true>(*socket_, boost::asio::buffer(&req, sizeof(req)), *control, errMsg) ||
+                (!request.empty() && !searchCancellableIo<true>(*socket_, boost::asio::buffer(request), *control, errMsg))) {
+                boost::system::error_code ignored;
+                socket_->close(ignored);
+                return false;
+            }
+        } else {
+            boost::asio::write(*socket_, boost::asio::buffer(&req, sizeof(req)));
+            if (!request.empty()) boost::asio::write(*socket_, boost::asio::buffer(request));
+        }
 
 		header resp{};
-		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg)) {
+		if (!read_exact_idle_timeout(*socket_, &resp, sizeof(resp), errMsg, control)) {
 			boost::system::error_code ignored;
 			socket_->close(ignored);
 			return false;
 		}
 		if (consumeServerErrorResponse(
-				*socket_, resp, errMsg, "Сервер вернул ошибку", serverError)) {
+				*socket_, resp, errMsg, "Сервер вернул ошибку", serverError, control)) {
 			return false;
 		}
 
@@ -697,20 +710,21 @@ bool MyAsioClient::requestText(const std::string& request,
 		const std::size_t total = static_cast<std::size_t>(total64);
 		last_total_.store(total64, std::memory_order_relaxed);
 		if (progress) progress->store(0, std::memory_order_relaxed);
-		out.reserve(total);
+        if (!control) out.reserve(total);
 
 		std::size_t left = total;
 		constexpr std::size_t block = 64 * 1024;
 		std::vector<char> buffer(block);
 		while (left > 0) {
 			const std::size_t chunk = (std::min)(left, buffer.size());
-			if (!read_exact_idle_timeout(*socket_, buffer.data(), chunk, errMsg)) {
+			if (!read_exact_idle_timeout(*socket_, buffer.data(), chunk, errMsg, control)) {
 				boost::system::error_code ignored;
 				socket_->close(ignored);
 				return false;
 			}
 			out.append(buffer.data(), chunk);
 			left -= chunk;
+            if (control) control->bytes.fetch_add(chunk);
 			if (progress) progress->fetch_add(chunk, std::memory_order_relaxed);
 		}
 

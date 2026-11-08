@@ -62,9 +62,12 @@ class SqlCondition
 	static std::map<String, String> mapVh;
 	static std::map<String, String> mapIsh;
 
+    static String predicate(const String& field, const String& arg, TYPE type, bool exact) {
+        return exact ? getOrArgEq(getFieldName(field, type), arg) : getOrArgLike(getFieldName(field, type), arg);
+    }
 	static int max;
 	static String sort;
-	static String LIMIT(){return " LIMIT " + IntToStr(max);};
+	static String LIMIT(){return max > 0 ? String(" LIMIT ") + IntToStr(max) : String();};
 
 
 

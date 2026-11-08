@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([switch]$Quiet)
 
 $ErrorActionPreference = 'Stop'
@@ -22,16 +22,45 @@ if (-not (Test-Path -LiteralPath $checksums -PathType Leaf)) {
 
 foreach ($required in @(
     'app\SearchClient_asio.exe',
+    'Инструкция_по_обновлению.txt',
     'app\sht.docm',
     'app\Settings.db3',
     'app\admin984.bin',
-    'app\config\server-error-messages.json'
+    'app\config\server-error-messages.json',
+    'app\config\search-templates.defaults.json'
 )) {
     $requiredPath = Join-Path $root $required
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         throw "Required package file is missing: $required"
     }
 }
+
+$defaults = [IO.File]::ReadAllText((Join-Path $root 'app\config\search-templates.defaults.json'), [Text.Encoding]::UTF8) | ConvertFrom-Json
+$groups = @($defaults.PSObject.Properties)
+if ($groups.Count -ne 2) { throw 'Default templates must contain two direction groups.' }
+$directions = @()
+foreach ($group in $groups) {
+    $templates = @($group.Value.PSObject.Properties)
+    if ($templates.Count -ne 5) { throw 'Each default group must contain five periods.' }
+    $periods = @()
+    $types = @()
+    foreach ($template in $templates) {
+        $value = $template.Value
+        if ($value.template_version -ne 2 -or $value.field -ne 'SQL' -or
+            $value.search_text -ne '1=1' -or $value.sql -ne $true -or
+            $value.date_field -ne 'DData' -or $value.max_results -ne 300 -or
+            $value.newest_first -ne $true -or $value.filters_saved -ne $true -or
+            @($value.column_filters.PSObject.Properties).Count -ne 0) {
+            throw 'Unexpected default template parameters.'
+        }
+        $periods += [int]$value.period
+        $types += [int]$value.type
+    }
+    if ((@($periods | Sort-Object -Unique) -join ',') -ne '1,2,3,4,5' -or
+        @($types | Sort-Object -Unique).Count -ne 1) { throw 'Invalid default periods or direction.' }
+    $directions += $types[0]
+}
+if ((@($directions | Sort-Object -Unique) -join ',') -ne '0,1') { throw 'Missing default direction.' }
 
 $authArtifacts = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force |
     Where-Object {

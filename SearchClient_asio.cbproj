@@ -6,7 +6,7 @@
         <AppType>Application</AppType>
         <MainSource>SearchClient_asio.cpp</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <CC_Suffix Condition="'$(CC_Suffix)'==''">c</CC_Suffix>
@@ -439,33 +439,10 @@
                     <Source Name="MainSource">SearchClient_asio.cpp</Source>
                 </Source>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDAC280.bpl">Embarcadero FireDAC Database Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACCommonDriver280.bpl">Embarcadero FireDAC Common Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACCommon280.bpl">Embarcadero FireDAC Common Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACPgDriver280.bpl">Embarcadero FireDAC PostgreSQL Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACMSAccDriver280.bpl">Embarcadero FireDAC MS Access Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACCommonODBC280.bpl">Embarcadero FireDAC Common ODBC Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACIBDriver280.bpl">Embarcadero FireDAC IB Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACMySQLDriver280.bpl">Embarcadero FireDAC MySQL Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACSqliteDriver280.bpl">Embarcadero FireDAC Sqlite Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACADSDriver280.bpl">Embarcadero FireDAC ADS Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACDBXDriver280.bpl">Embarcadero FireDAC DBX Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACDSDriver280.bpl">Embarcadero FireDAC DataSnap Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACMongoDBDriver280.bpl">Embarcadero FireDAC MongoDB Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACTDataDriver280.bpl">Embarcadero FireDAC Teradata Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACASADriver280.bpl">Embarcadero FireDAC ASA Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACInfxDriver280.bpl">Embarcadero FireDAC Infx Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACDb2Driver280.bpl">Embarcadero FireDAC Db2 Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACMSSQLDriver280.bpl">Embarcadero FireDAC SQL Server Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACOracleDriver280.bpl">Embarcadero FireDAC Oracle Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\FireDACODBCDriver280.bpl">Embarcadero FireDAC ODBC Driver Components</Excluded_Packages>
-                    <Excluded_Packages Name="C:\Users\Public\Documents\Embarcadero\Studio\22.0\Bpl\SynEditCR280.bpl">TurboPack SynEdit CBuilder runtime package</Excluded_Packages>
-                    <Excluded_Packages Name="D:\Libs\FastReport\LibD28\dclfrxPDF28.bpl">FastReport VCL PDF Component</Excluded_Packages>
-                    <Excluded_Packages Name="D:\Libs\FastReport\LibD28\dclfs28.bpl">FastScript 1.9 Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k280.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclFMXFireDAC280.bpl">Embarcadero FMX FireDAC Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\bcboffice2k280.bpl">Embarcadero C++Builder Office 2000 Servers Package</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\bcbofficexp280.bpl">Embarcadero C++Builder Office XP Servers Package</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k280.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclofficexp280.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
                 </Excluded_Packages>
             </CPlusPlusBuilder.Personality>

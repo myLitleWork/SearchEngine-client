@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$AllowDirty,
     [switch]$SkipVersionBump,
@@ -45,16 +45,19 @@ $releaseLockHelper = Find-RequiredReleaseHelper -Name 'Enter-WorkspaceReleaseLoc
 foreach ($relative in @(
     'deployment\SearchClientPortable\Verify-Package.cmd',
     'deployment\SearchClientPortable\Verify-Package.ps1',
+    'deployment\SearchClientPortable\Инструкция_по_обновлению.txt',
     'deployment\SearchClientPortable\app\sht.docm',
     'deployment\SearchClientPortable\app\Settings.db3',
     'deployment\SearchClientPortable\app\admin984.bin',
-    'config\server-error-messages.json'
+    'config\server-error-messages.json',
+    'config\search-templates.defaults.json'
 )) {
     $path = Join-Path $projectRoot $relative
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required package input not found: $path"
     }
 }
+$null = [IO.File]::ReadAllText((Join-Path $projectRoot 'config\search-templates.defaults.json'), [Text.Encoding]::UTF8) | ConvertFrom-Json
 $configuredCloudRoot = $env:WORKSPACE_RELEASE_CLOUD_ROOT
 if ([string]::IsNullOrWhiteSpace($configuredCloudRoot)) {
     $configuredCloudRoot = [Environment]::GetEnvironmentVariable(

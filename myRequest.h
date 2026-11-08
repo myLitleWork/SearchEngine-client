@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <codecvt>
+#include "TemplateListOrder.h"
 #ifndef myRequestH
 #define myRequestH
 class myRequest : public Request
@@ -16,6 +17,7 @@ class myRequest : public Request
 	static TRadioGroup *rgTypeT;
 
 	static std::map<std::string,std::map<std::string, Request>> mTemplates;
+    static TemplateListOrder mOrder;
 
 
 
@@ -30,9 +32,13 @@ class myRequest : public Request
 	static void loadTemplates(decltype(mTemplates) _mTemplates) {mTemplates = _mTemplates;};
 
 	static void saveTemplate(const String& _group, const String _name);
+    static void putTemplate(const String& group, const String& name, const Request& value);
+    static void addPeriodTemplates();
 	static Request getTemplate(const String& _group, const String _name);
 
 	static const decltype(mTemplates)& getTemplates(){return mTemplates;};
+    static const TemplateListOrder& getOrder() { return mOrder; }
+    static void loadOrder(const TemplateListOrder& value) { mOrder = value; }
 	static const std::map<std::string, Request>& getGroups(const String& _group);
 	static void removeGroup(const String& _group);
 	static void removeTemplate(const String& _group, const String _name);

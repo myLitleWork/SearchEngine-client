@@ -84,9 +84,10 @@ Google Drive (`TOOLS\instructions\RELEASE_CLOUD_PUBLISH.md`):
 
 Отключение на один запуск: `-SkipCloudPublish`.
 
-Запрос «собери Release и опубликуй» является разрешением выполнить сборку,
-package и запись ZIP+SHA256 в CloudRoot, уже выбранный через `-CloudRoot`,
-process-env или User-env. Повторно подтверждать этот путь не требуется.
+По прямому указанию владельца запрос «релиз» / «собери Release» означает сборку,
+package и немедленную запись ZIP+SHA256 в CloudRoot, уже выбранный через
+`-CloudRoot`, process-env или User-env. Отдельная просьба о публикации и
+повторное подтверждение этого пути не требуются.
 SearchClient packager сам передаёт `AllowSensitive` для документированного
 санитизированного template из `deployment\SearchClientPortable`; это не
 разрешает добавлять произвольные runtime Settings/DB или секреты.

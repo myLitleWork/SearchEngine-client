@@ -187,6 +187,16 @@ void to_json(nh::json& jsonTelega, const Request &val)
     TO_JSON(jsonTelega, sql)
 	TO_JSON(jsonTelega, field)
 	TO_JSON(jsonTelega, exc)
+    if (val.template_version >= 2) {
+        jsonTelega["template_version"] = 2;
+        jsonTelega["period"] = val.period;
+        jsonTelega["date_field"] = val.date_field;
+        jsonTelega["max_results"] = val.max_results;
+        if (val.unlimited_results) jsonTelega["unlimited_results"] = true;
+        jsonTelega["newest_first"] = val.newest_first;
+        jsonTelega["filters_saved"] = val.filters_saved;
+        jsonTelega["column_filters"] = val.column_filters;
+    }
 }
 
 void from_json(const nh::json& jsonTelega, Request &val)
@@ -196,6 +206,16 @@ void from_json(const nh::json& jsonTelega, Request &val)
     FROM_JSON(jsonTelega, sql)
     FROM_JSON(jsonTelega, field)
 	FROM_JSON(jsonTelega, exc)
+    val.template_version = jsonTelega.value("template_version", 1);
+    val.period = jsonTelega.value("period", 0);
+    if (val.period < 0 || val.period > 5) val.period = 0;
+    val.date_field = jsonTelega.value("date_field", std::string("DData"));
+    if (val.date_field != "DataPodp") val.date_field = "DData";
+    val.max_results = jsonTelega.value("max_results", 0);
+    val.unlimited_results = jsonTelega.value("unlimited_results", false);
+    val.newest_first = jsonTelega.value("newest_first", false);
+    val.filters_saved = jsonTelega.value("filters_saved", false);
+    val.column_filters = jsonTelega.value("column_filters", std::map<std::string, std::string>{});
 }
 
 void to_json(nh::json& jsonTelega, const Condition &val)
